@@ -156,3 +156,7 @@ You can also use "${UNSET_VARIABLE:-default}" values inside variables like "${UN
 Here are more variable like "variable with a prefix" and "variable with a suffix".
 Here are more "another variable with a prefix" and "another variable with a suffix" variables!
 ```
+
+## container
+
+Additionally, there is a minimal renvsubst container. You can find an example kubernetes manifest in the  `deploy` folder.
