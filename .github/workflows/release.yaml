@@ -86,9 +86,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Prepare release tag
-        id: tag
-        run: echo ::set-output name=version::${GITHUB_REF#refs/tags/v}
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
@@ -101,7 +98,7 @@ jobs:
             org.opencontainers.image.description=renvsubst
             org.opencontainers.image.url=https://github.com/containeroo/renvsubst
             org.opencontainers.image.source=https://github.com/containeroo/renvsubst
-            org.opencontainers.image.version=${{ steps.tag.outputs.version }}
+            org.opencontainers.image.version=${{ needs.get-tag.outputs.pkg-version }}
           tags: |
             ghcr.io/containeroo/renvsubst:latest
-            ghcr.io/containeroo/renvsubst:${{ steps.tag.outputs.version }}
+            ghcr.io/containeroo/renvsubst:${{ needs.get-tag.outputs.pkg-version }}
