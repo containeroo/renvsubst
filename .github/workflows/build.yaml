@@ -1,40 +1,56 @@
-name: Build
+name: Build and Release Rust Binary
 
 on:
   release:
-    types: ["created", "published", "released"]
-
-env:
-  MINIFY: true
+    types: [created]
 
 jobs:
-  release:
-    name: release ${{ matrix.target }}
+  build:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: x86_64-pc-windows-gnu
-            archive: zip
-          - target: x86_64-unknown-linux-musl
-            archive: tar.gz tar.xz tar.zst
-          - target: x86_64-apple-darwin
-            archive: zip
+
     steps:
-      - uses: actions/checkout@master
-      - name: Compile and release
-        id: compile
-        uses: rust-build/rust-build.action@v1.4.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          RUSTTARGET: ${{ matrix.target }}
-          ARCHIVE_TYPES: ${{ matrix.archive }}
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: renvsubst
-          path: |
-            ${{ steps.compile.outputs.BUILT_ARCHIVE }}
-            ${{ steps.compile.outputs.BUILT_CHECKSUM }}
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+
+    - name: Run tests
+      run: cargo build --verbose
+
+    - name: Run tests
+      run: cargo test
+
+    - name: Build for x86
+      run: |
+        rustup target add x86_64-unknown-linux-musl
+        cargo build --release --target=x86_64-unknown-linux-musl
+
+    - name: Build for Darwin
+      run: |
+        rustup target add x86_64-apple-darwin
+        cargo build --release --target=x86_64-apple-darwin
+
+    - name: Generate checksum for x86 binary
+      run: sha256sum target/x86_64-unknown-linux-musl/release/renvsubst_${{ env.GITHUB_REF }} > target/x86_64-unknown-linux-musl/release/renvsubst_${{ env.GITHUB_REF }}.sha256
+
+    - name: Generate checksum for Darwin binary
+      run: sha256sum target/x86_64-apple-darwin/release/renvsubst_${{ env.GITHUB_REF }} > target/x86_64-apple-darwin/release/renvsubst_${{ env.GITHUB_REF }}.sha256
+
+    - name: Upload darwin binary and its checksum as release assets
+      uses: actions/upload-artifact@v2
+      with:
+        name: darwin
+        path: |
+          target/x86_64-apple-darwin/release/renvsubst_${{ env.GITHUB_REF }}
+          target/x86_64-apple-darwin/release/renvsubst_${{ env.GITHUB_REF }}.sha256
+
+    - name: Upload x86 binary and its checksum as release assets
+      uses: actions/upload-artifact@v2
+      with:
+        name: x86
+        path: |
+          target/x86_64-unknown-linux-musl/release/renvsubst_${{ env.GITHUB_REF }}
+          target/x86_64-unknown-linux-musl/release/renvsubst_${{ env.GITHUB_REF }}.sha256
