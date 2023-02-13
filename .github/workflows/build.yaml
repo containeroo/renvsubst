@@ -24,13 +24,28 @@ jobs:
       run: cargo build --verbose
     - name: Run tests
       run: cargo test
+  get-tag:
+    name: "Get Tag From Package Version"
+    runs-on: "ubuntu-latest"
+    outputs:
+      pkg-version: ${{ steps.pkg-version.outputs.PKG_VERSION }} 
+    steps:
+      - name: "Check out the repo"
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Get tag"
+        id: "pkg-version"
+        shell: "bash"
+        run: |
+          echo PKG_VERSION=$(awk -F ' = ' '$1 ~ /version/ { gsub(/["]/, "", $2); printf("%s",$2) }' Cargo.toml) >> $GITHUB_OUTPUT
   upload-assets:
     strategy:
       matrix:
         os:
           - ubuntu-latest
           - macos-latest
-          - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -38,5 +53,5 @@ jobs:
         with:
           bin: renvsubst
           tar: unix
-          zip: windows
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: refs/tags/v${{ needs.get-tag.outputs.pkg-version }}
