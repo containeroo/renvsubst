@@ -1,9 +1,13 @@
 name: Publish container image
 
+permissions:
+  contents: "write"
+
 on:
-  push:
-    tags:
-      - v*
+  workflow_run:
+    workflows: ["Build and Release Rust Binary"]
+    types:
+      - completed
 
 jobs:
   multi-arch-build:

@@ -1,8 +1,13 @@
 name: Build and Release Rust Binary
 
+permissions:
+  contents: "write"
+
 on:
-  release:
-    types: [created]
+  workflow_run:
+    workflows: ["Release"]
+    types:
+      - "completed"
 
 jobs:
   tests:
