@@ -1,9 +1,8 @@
 name: Build
 
 on:
-  push:
-    tags:
-      - v*
+  release:
+    types: ["created", "published", "released"]
 
 env:
   MINIFY: true
