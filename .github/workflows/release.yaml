@@ -14,7 +14,7 @@ jobs:
     name: "Get Tag From Package Version"
     runs-on: "ubuntu-latest"
     outputs:
-      pkg-version: ${{ steps.pkg-version.outputs.PKG_VERSION }} 
+      pkg-version: ${{ steps.pkg-version.outputs.PKG_VERSION }}
     steps:
       - name: "Check out the repo"
         uses: actions/checkout@v3
@@ -25,8 +25,7 @@ jobs:
         id: "pkg-version"
         shell: "bash"
         run: |
-          echo PKG_VERSION=$(awk -F ' = ' '$1 ~ /version/ { gsub(/["]/, "", $2); printf("%s",$2) }' Cargo.toml) >> $GITHUB_OUTPUT
-
+          echo PKG_VERSION=$(sed  -r -n 's/const VERSION: &str = (.*);$/\1/p' src/main.rs) >> $GITHUB_OUTPUT
   create-release:
     name: "Create release"
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
