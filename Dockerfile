@@ -19,4 +19,4 @@ WORKDIR /renvsubst
 # Copy our build
 COPY --from=builder /renvsubst/target/x86_64-unknown-linux-musl/release/renvsubst ./
 
-CMD ["renvsubst"]
+ENTRYPOINT ["./renvsubst"]
