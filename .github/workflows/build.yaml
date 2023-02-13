@@ -38,7 +38,5 @@ jobs:
             org.opencontainers.image.source=https://github.com/containeroo/renvsubst
             org.opencontainers.image.version=${{ steps.tag.outputs.version }}
           tags: |
-            containeroo/renvsubst:latest
-            containeroo/renvsubst:${{ steps.tag.outputs.version }}
             ghcr.io/containeroo/renvsubst:latest
             ghcr.io/containeroo/renvsubst:${{ steps.tag.outputs.version }}
