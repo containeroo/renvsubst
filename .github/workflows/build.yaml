@@ -5,52 +5,53 @@ on:
     types: [created]
 
 jobs:
-  build:
+  tests:
+    name: Tests if it can build
     runs-on: ubuntu-latest
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
-
     - name: Set up Rust
       uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
-
     - name: Run tests
       run: cargo build --verbose
-
     - name: Run tests
       run: cargo test
-
-    - name: Build for x86
-      run: |
-        rustup target add x86_64-unknown-linux-gnu
-        cargo build --release --target=x86_64-unknown-linux-gnu
-
-    - name: Build for Darwin
-      run: |
-        rustup target add x86_64-apple-darwin
-        cargo build --release --target=x86_64-apple-darwin
-
-    - name: Generate checksum for x86 binary
-      run: sha256sum target/x86_64-unknown-linux-gnu/release/renvsubst_${{ env.GITHUB_REF }} > target/x86_64-unknown-linux-gnu/release/renvsubst_${{ env.GITHUB_REF }}.sha256
-
-    - name: Generate checksum for Darwin binary
-      run: sha256sum target/x86_64-apple-darwin/release/renvsubst_${{ env.GITHUB_REF }} > target/x86_64-apple-darwin/release/renvsubst_${{ env.GITHUB_REF }}.sha256
-
-    - name: Upload darwin binary and its checksum as release assets
-      uses: actions/upload-artifact@v2
-      with:
-        name: darwin
-        path: |
-          target/x86_64-apple-darwin/release/renvsubst_${{ env.GITHUB_REF }}
-          target/x86_64-apple-darwin/release/renvsubst_${{ env.GITHUB_REF }}.sha256
-
-    - name: Upload x86 binary and its checksum as release assets
-      uses: actions/upload-artifact@v2
-      with:
-        name: x86
-        path: |
-          target/x86_64-unknown-linux-gnu/release/renvsubst_${{ env.GITHUB_REF }}
-          target/x86_64-unknown-linux-gnu/release/renvsubst_${{ env.GITHUB_REF }}.sha256
+  get-tag:
+    name: Get Tag From Package Version
+    runs-on: ubuntu-latest
+    outputs:
+      pkg-version: ${{ steps.pkg-version.outputs.PKG_VERSION }}
+    steps:
+      - name: "Check out the repo"
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Get tag
+        id: pkg-version
+        shell: "bash"
+        run: |
+          echo PKG_VERSION=$(awk -F ' = ' '$1 ~ /version/ { gsub(/["]/, "", $2); printf("%s",$2) }' Cargo.toml) >> $GITHUB_OUTPUT
+  upload-assets:
+    name: Upload assets to Github releases
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v3
+      - name: Upload Binaries
+        uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: renvsubst
+          target: ${{ matrix.target }}
+          archive: $bin-${{ matrix.target }}
+          ref: refs/tags/v${{ needs.get-tag.outputs.pkg-version }}
+          token: ${{ secrets.GITHUB_TOKEN }}
