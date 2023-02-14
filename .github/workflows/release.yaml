@@ -67,7 +67,7 @@ jobs:
           ref: refs/tags/v${{ needs.get-tag.outputs.pkg-version }}
           token: ${{ secrets.GITHUB_TOKEN }}
   push-to-registry:
-    name: Push Docker image to Docker Hub
+    name: Push Docker image to Github registry
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     needs:
       - get-tag
