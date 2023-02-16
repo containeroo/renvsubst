@@ -100,5 +100,4 @@ jobs:
             org.opencontainers.image.source=https://github.com/containeroo/renvsubst
             org.opencontainers.image.version=${{ needs.get-tag.outputs.pkg-version }}
           tags: |
-            ghcr.io/containeroo/renvsubst:latest
             ghcr.io/containeroo/renvsubst:${{ needs.get-tag.outputs.pkg-version }}
