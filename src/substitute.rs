@@ -73,6 +73,15 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
             continue;
         }
 
+        // check if value before was a dollar sign or a slash
+        if !flags.no_escape
+            && start_index > 1 // variable is not at the beginning of the line
+            && line.chars().nth(start_index - 1).unwrap() == '$'
+        {
+            start_index += 1;
+            continue;
+        }
+
         let mut var_start: usize = start_index + 1;
         let mut var_end: usize = start_index + 1;
         let mut brace_ended: bool = false;
@@ -80,7 +89,6 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
         let original_var: &str; // original variable name, including the braces
         let mut default_value: String = "".to_string(); // part after the ':-' in ${VARNAME:-default_value}
 
-        // create a mach to line.chars().nth(var_end).unwrap or else
         match line.chars().nth(var_end) {
             // check if the character after '$' is a '{' (${VARNAME} or ${VARNAME:-default_value})
             Some(c) if c == '{' => {
@@ -88,7 +96,7 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
                 var_end = var_start;
 
                 // check if the character after '{' is a number
-                // if so, skip because it is not a variable => ${1VAR}
+                // if so, skip because it is not a valid variable => ${1VAR}
                 // var_start < line_len means that the { is not at the end of the line
                 if var_start < line_len && line.chars().nth(var_start).unwrap().is_numeric() {
                     new_line.push('$');
@@ -167,14 +175,7 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
             }
         }
 
-        // check if value before was a dollar sign
-        // start_index > 1 means that the variable is not at the beginning of the line
-        if !flags.no_escape && start_index > 1 && line.chars().nth(start_index - 1).unwrap() == '$'
-        {
-            start_index += 1;
-            continue;
-        }
-
+        // check if filters are set and if so, if filters match
         if matches_filters(filters, var_name) == Some(false) {
             new_line.push_str(original_var);
             start_index = if brace_ended { var_end + 1 } else { var_end };
@@ -193,7 +194,7 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
     return Ok(new_line);
 }
 
-// function to perform the substitution on the input file(s) and write the result to output file
+// function to perform the substitution on the input file and write the result to output file
 pub fn perform_substitution(
     input_file: Box<dyn std::io::Read>,
     mut output_file: Box<dyn std::io::Write>,
@@ -202,6 +203,9 @@ pub fn perform_substitution(
 ) -> Result<(), String> {
     let reader = BufReader::new(input_file);
     let mut buffer = vec![]; // Vector to store the processed lines
+
+    // replace variables in each line and write the replaced line in a buffer
+    // if no error occurs, write the butter to the wanted output_file (or stdout)
     for line in reader.lines() {
         let line = line.unwrap();
         // Replace variables with their values

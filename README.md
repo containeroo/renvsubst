@@ -38,14 +38,14 @@ Usage: renvsubst [PARAMETERS] [FLAGS] [FILTERS]
 | `--suffix`                   | Only replace variables with the specified suffix.                                                                        |
 | `--variable` [VARIABLE_NAME] | Specify variable to replace. If not provided, all variables will be replaced. Variables can be specified multiple times. |
 
-The variables will be substituted according to the specified prefix, suffix, or variable name. If none of these options are provided, all variables will be substituted. When one or more options are specified, only variables that match the given prefix, suffix, or variable will be replaced, while all others will remain unchanged.
+The variables will be substituted according to the specified prefix, suffix, or variable name. If none of these options are provided, all variables will be substituted. When one or more options are specified, only variables that match the given prefix, suffix, or variable name will be replaced, while all others will remain unchanged.
 
 ## Escaping
 
 To retain a variable's original value and prevent it from being substituted by an environment variable, add a second dollar sign ($).
 For example, to escape VAR_NAME, use `$$VAR_NAME`, `$${VAR_NAME}`, or `$${VAR_NAME:-DEFAULT_VALUE}`. The second dollar sign will be removed, resulting in `$VAR_NAME`, `${VAR_NAME}`, or `${VAR_NAME:-DEFAULT_VALUE}`.
 
-To turn off escaping entirely, use the `--no-escape` flag. Escaping is evaluated after the evaluation of the variable, so you only need to escape text like this:
+To turn off escaping entirely, use the `--no-escape` flag.
 
 `$${VAR_NAME}` will be replaced with `${VAR_NAME}`.
 `$$VAR_NAME` will be replaced with `$VAR_NAME`.

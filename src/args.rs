@@ -13,7 +13,7 @@ Parameters:
 Flags:
   --fail-on-unset                  Fail if an environment variable is not set.
   --fail-on-empty                  Fail if an environment variable is empty.
-  --fail-fast                      Alias for --fail-on-unset and --fail-on-empty.
+  --strict                         Alias for --fail-on-unset and --fail-on-empty.
                                    Fails if an environment variable is either not set or empty.
   --no-replace-unset               Do not replace variables that are not set in the environment.
   --no-replace-empty               Do not replace variables that are set but empty in the environment.
@@ -29,7 +29,7 @@ Filters:
   --variable [VARIABLE]...         Specify the variables to replace. If not provided, all variables will be replaced.
                                    Variables can be specified multiple times.
 
-The variables will be substituted according to the specified prefix, suffix, or variable name. If none of these options are provided, all variables will be substituted. When one or more options are specified, only variables that match the given prefix, suffix, or variable will be replaced, while all others will remain unchanged.
+The variables will be substituted according to the specified prefix, suffix, or variable name. If none of these options are provided, all variables will be substituted. When one or more options are specified, only variables that match the given prefix, suffix, or variable name will be replaced, while all others will remain unchanged.
 
 Escaping:
 To retain a variable's original value and prevent it from being substituted by an environment variable, add a second dollar sign ($). The second dollar sign will be removed during substitution. Only valid variables must be escaped.
@@ -38,6 +38,7 @@ To retain a variable's original value and prevent it from being substituted by a
 
 const DEFAULT_TEXT: &str = "renvsubst will substitute all (bash-like) environment variables in the format of $VAR_NAME, ${VAR_NAME} or ${VAR_NAME:-DEFAULT_VALUE} with their corresponding values from the environment or the default value if provided. If the variable is not valid, it remains as is.\nA valid variable name starts with a letter or underscore, followed by any combination of letters, numbers, or underscores.";
 
+// struct to store flags
 pub struct Flags {
     pub fail_on_unset: bool,
     pub fail_on_empty: bool,
@@ -46,11 +47,13 @@ pub struct Flags {
     pub no_escape: bool,
 }
 
+// struct to store optional filters
 pub struct Filters {
     pub prefix: Option<String>,
     pub suffix: Option<String>,
     pub variables: Option<Vec<String>>,
 }
+
 // struct to store command line arguments
 pub struct Args {
     pub input_file: Option<String>,
@@ -205,7 +208,7 @@ pub fn get_args() -> Args {
             "{}",
             HELP_TEXT.replace(
                 "{MESSAGE}",
-                "ERROR: --fail-fast cannot be used without --fail-on-unset or --fail-on-empty"
+                "ERROR: --strict cannot be used without --fail-on-unset or --fail-on-empty"
             )
         );
         std::process::exit(1);
