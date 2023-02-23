@@ -88,7 +88,6 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64
-          push: true
           labels: |
             org.opencontainers.image.title=renvsubst
             org.opencontainers.image.description=renvsubst
