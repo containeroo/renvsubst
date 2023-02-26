@@ -73,15 +73,6 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
             continue;
         }
 
-        // check if value before was a dollar sign or a slash
-        if !flags.no_escape
-            && start_index > 1 // variable is not at the beginning of the line
-            && line.chars().nth(start_index - 1).unwrap() == '$'
-        {
-            start_index += 1;
-            continue;
-        }
-
         let mut var_start: usize = start_index + 1;
         let mut var_end: usize = start_index + 1;
         let mut brace_ended: bool = false;
@@ -173,6 +164,15 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
                 start_index += 1;
                 continue;
             }
+        }
+
+        // check if value before was a dollar sign or a slash
+        if !flags.no_escape
+            && start_index > 1 // variable is not at the beginning of the line
+            && line.chars().nth(start_index - 1).unwrap() == '$'
+        {
+            start_index += 1;
+            continue;
         }
 
         // check if filters are set and if so, if filters match
