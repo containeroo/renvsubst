@@ -6,7 +6,12 @@ use crate::file_io::{open_input_file, open_output_file};
 use args::{get_args, Args};
 use substitute::perform_substitution;
 
-const VERSION: &str = "0.1.36";
+const VERSION: &str = "0.1.37";
+
+// Use Jemalloc only for musl-64 bits platforms
+#[cfg(all(target_env = "musl", target_pointer_width = "64"))]
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 fn main() {
     let Args {
