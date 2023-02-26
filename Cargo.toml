@@ -1,6 +1,6 @@
 [package]
 name = "renvsubst"
-version = "0.1.35"
+version = "0.1.36"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -9,11 +9,12 @@ edition = "2021"
 tempfile = "*"
 
 [profile.release]
-opt-level = 'z'     # Optimize for size
-lto = true          # Enable link-time optimization
-codegen-units = 1   # Reduce number of codegen units to increase optimizations
-panic = 'abort'     # Abort on panic
-strip = true        # Strip symbols from binary*
-
-[target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
-version = "0.5.0"
+opt-level = "z"
+debug = false
+rpath = false
+lto = true
+panic = "abort"
+codegen-units = 1
+panic-abort-tests = true
+incremental = false
+overflow-checks = true
