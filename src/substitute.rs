@@ -2,10 +2,43 @@ use crate::args::{Filters, Flags};
 use std::env;
 use std::io::{BufRead, BufReader};
 
-// get environment variable value
+/// Retrieves the value of an environment variable and performs additional checks according to the specified `Flags`.
+///
+/// # Arguments
+///
+/// * `var_name` - A string reference to the name of the environment variable to retrieve.
+/// * `original_variable` - A string reference to the original value of the variable (used for the `no_replace_*` flags).
+/// * `default_value` - A string reference to the default value to use if the environment variable is not set.
+/// * `flags` - A reference to a `Flags` object containing additional behavior settings.
+///
+/// # Returns
+///
+/// Returns a `Result` that is either an `Ok` containing the retrieved variable value, or an `Err` containing an error message if the `fail_on_empty` or `fail_on_unset` flags are set and the variable value does not meet the specified criteria.
+///
+/// # Errors
+///
+/// Returns an error if the `fail_on_empty` flag is set and the variable value is empty, or if the `fail_on_unset` flag is set, the variable value is empty, and the default value is also empty.
+///
+/// # Examples
+///
+/// ```
+/// let var_name = "MY_ENV_VAR";
+/// let default_value = "default_value";
+/// let flags = Flags {
+///     fail_on_empty: false,
+///     fail_on_unset: false,
+///     no_replace_empty: false,
+///     no_replace_unset: false,
+///     no_escape: false,
+/// };
+///
+/// let result = get_env_var_value(var_name, "", default_value, &flags);
+///
+/// assert_eq!(result, Ok(default_value.to_string()));
+/// ```
 fn get_env_var_value(
     var_name: &str,
-    original_variable: String,
+    original_variable: &str,
     default_value: &str,
     flags: &Flags,
 ) -> Result<String, String> {
@@ -18,22 +51,44 @@ fn get_env_var_value(
         return Err(format!("environment variable '{}' is not set", var_name));
     }
     if flags.no_replace_empty && var_value.is_empty() && default_value.is_empty() {
-        return Ok(original_variable);
+        return Ok(original_variable.to_string());
     }
     if flags.no_replace_unset && var_value.is_empty() && default_value.is_empty() {
-        return Ok(original_variable);
+        return Ok(original_variable.to_string());
     }
 
     return Ok(var_value);
 }
 
-// checks if a filter is set and if the variable name matches the filter
-// returns None if no filters are set
+/// Determines whether a given variable name matches any of the filters in the specified `Filters` object.
+///
+/// # Arguments
+///
+/// * `filters` - A reference to a `Filters` object containing optional filter criteria.
+/// * `var_name` - A string reference to the variable name to be tested.
+///
+/// # Returns
+///
+/// Returns `Some(true)` if the variable name matches any of the filters, `Some(false)` if it doesn't match any of the filters, or `None` if no filters are set.
+///
+/// # Examples
+///
+/// ```
+/// let filters = Filters {
+///     prefix: Some("prefixed_".to_string()),
+///     suffix: Some("_suffixed".to_string()),
+///     variables: Some(vec!["my_variable".to_string(), "another_variable".to_string()]),
+/// };
+///
+/// assert_eq!(matches_filters(&filters, "prefixed_variable"), Some(true));
+/// assert_eq!(matches_filters(&filters, "variable_suffixed"), Some(true));
+/// assert_eq!(matches_filters(&filters, "my_variable"), Some(true));
+/// assert_eq!(matches_filters(&filters, "another_variable"), Some(true));
+/// assert_eq!(matches_filters(&filters, "your_variable"), Some(false));
+/// ```
 fn matches_filters(filters: &Filters, var_name: &str) -> Option<bool> {
-    // has_filter is true if at least one filter is set
-    let has_filter: bool =
-        filters.prefix.is_some() || filters.suffix.is_some() || filters.variables.is_some();
-    if !has_filter {
+    // return None if no filters are set
+    if !(filters.prefix.is_some() || filters.suffix.is_some() || filters.variables.is_some()) {
         return None;
     }
 
@@ -51,150 +106,246 @@ fn matches_filters(filters: &Filters, var_name: &str) -> Option<bool> {
         .as_ref()
         .map_or(false, |v| v.contains(&var_name.to_string()));
 
-    // has_match is true if the var_name matches at least one filter
-    let has_match: bool = match_prefix || match_suffix || match_variable;
-
-    return Some(has_match);
+    return Some(match_prefix || match_suffix || match_variable);
 }
 
-// substitute variables in the line
+/// Processes a single line of text and performs variable substitution according to the specified `Flags` and `Filters`.
+///
+/// # Arguments
+///
+/// * `line` - A string reference to the line of text to process.
+/// * `flags` - A reference to a `Flags` object containing additional behavior settings.
+/// * `filters` - A reference to a `Filters` object containing optional filter criteria for variable names.
+///
+/// # Returns
+///
+/// Returns a `Result` that is either an `Ok` containing the processed line of text with variable substitutions, or an `Err` containing an error message if an error occurs during variable substitution.
+///
+/// # Errors
+///
+/// Returns an error if an error occurs during variable substitution.
+///
+/// # Examples
+///
+/// ```
+/// let line = "Hello, ${NAME:-User}! How are you, ${NAME}?";
+/// let flags = Flags {
+///     fail_on_empty: false,
+///     fail_on_unset: false,
+///     no_replace_empty: false,
+///     no_replace_unset: false,
+///     no_escape: false,
+/// };
+/// let filters = Filters {
+///     prefix: None,
+///     suffix: None,
+///     variables: None,
+/// };
+///
+/// let result = process_line(line, &flags, &filters);
+///
+/// assert!(result.is_ok());
+/// assert_eq!(result.unwrap(), "Hello, User! How are you, ?");
+/// ```
 fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, String> {
-    let mut start_index: usize = 0;
-    let mut new_line: String = String::new();
-    let line_len: usize = line.len();
+    let mut new_line = String::with_capacity(line.len());
+    let mut iter = line.chars().peekable();
 
-    while start_index < line_len {
-        let c: char = line.chars().nth(start_index).unwrap(); // current character
-
+    while let Some(c) = iter.next() {
         if c != '$' {
-            // if the character is not a '$', skip substitution
             new_line.push(c);
-            start_index += 1;
             continue;
         }
 
-        let mut var_start: usize = start_index + 1;
-        let mut var_end: usize = start_index + 1;
-        let mut brace_ended: bool = false;
-        let var_name: &str; // extracted variable name
-        let original_var: &str; // original variable name, including the braces
-        let mut default_value: String = "".to_string(); // part after the ':-' in ${VARNAME:-default_value}
+        let next_char = iter.peek();
 
-        match line.chars().nth(var_end) {
-            // check if the character after '$' is a '{' (${VARNAME} or ${VARNAME:-default_value})
-            Some(c) if c == '{' => {
-                var_start += 1; // skip the '{' character
-                var_end = var_start;
+        if !flags.no_escape && next_char == Some(&'$') {
+            // if inside here, then we have a double $
+            iter.next(); // skip the second $
+            new_line.push(c);
 
-                // check if the character after '{' is a number
-                // if so, skip because it is not a valid variable => ${1VAR}
-                // var_start < line_len means that the { is not at the end of the line
-                if var_start < line_len && line.chars().nth(var_start).unwrap().is_numeric() {
-                    new_line.push('$');
-                    start_index += 1;
+            if iter.peek().is_none() {
+                // double $ at the end of the line
+                new_line.push(c);
+                continue;
+            }
+
+            // if the next character is not a valid variable character, then push the second $
+            if !iter
+                .peek()
+                .map(|c| c.is_ascii_alphabetic() || c == &'_')
+                .unwrap_or(false)
+            {
+                new_line.push(c);
+            }
+
+            continue;
+        }
+
+        //let mut var_start = i + 1;
+        //et mut var_end = var_start;
+        let mut brace_ended = false;
+        let mut original_variable: String = String::new();
+        let mut var_name: String = String::new();
+        let mut default_value: String = String::new();
+
+        // match next character after the $
+        match next_char {
+            // Handles ${VAR} and ${VAR:-DEFAULT}
+            Some('{') => {
+                iter.next(); // skip the '{'
+
+                // if next character is a number,
+                // it is not a valid variable, eg. ${1VAR} or ${1VAR:-DEFAULT}
+                if let Some(next) = iter.peek().filter(|next| next.is_ascii_digit()) {
+                    // append ${ and the number ($ and { are skipped)
+                    new_line.push_str(&format!("${{{}", next));
+                    iter.next(); // skip the number
                     continue;
                 }
 
-                let mut default_value_found: bool = false;
-                let mut default_value_start: usize = var_start;
+                let mut default_value_found = false;
+                let mut default_error = false;
 
-                // iterate over the characters until the closing brace is found
-                // in the same loop, check if a default value is provided
-                while var_end < line_len {
-                    // check if the character is a ':' this can be a default value
-                    if line.chars().nth(var_end).unwrap() == ':' {
-                        // check if var_end + 1 is out of bounds
-                        // this is only necessary if it is a broken variable like ${VARNAME:
-                        if (var_end + 1) >= line_len {
-                            break;
-                        }
-                        // check if the next character is a '-'
-                        if line.chars().nth(var_end + 1).unwrap() != '-' {
-                            // if the next character is not a '-', it is not a default value
+                while let Some(c) = iter.next() {
+                    // check if possible default value => :
+                    if c == ':' {
+                        // if next character is not '-', then the ':' is not part of the default value
+                        if iter.peek() != Some(&'-') {
+                            // if reached here, then the ':' is not part of the default value
+                            default_error = true;
                             break;
                         }
                         default_value_found = true;
-                        default_value_start = var_end;
-                        var_end += 1; // skip also '-' characters
+                        iter.next(); // skip the '-'
+                        continue;
                     }
 
-                    if line.chars().nth(var_end).unwrap() == '}' {
-                        // brace is closed, finish searching
+                    if c == '}' {
                         brace_ended = true;
                         break;
                     }
-                    var_end += 1; // end not found, continue searching
+
+                    if default_value_found {
+                        default_value.push(c);
+                        continue;
+                    }
+
+                    var_name.push(c); // append the "regular" character to the variable name
                 }
 
-                // if the brace is not closed, do not any substitution
+                if default_error {
+                    // this only occurs if the ':' is not part of the default value
+
+                    // append everything that was iterated over
+                    new_line.push_str(&format!("${{{}", var_name));
+
+                    // append found default value
+                    if default_value_found {
+                        new_line.push_str(&format!(":-{}", default_value));
+                    }
+
+                    // append the "broken" :
+                    new_line.push(':');
+                    continue; // continue to the next character
+                }
+
                 if !brace_ended {
-                    new_line.push('$');
-                    start_index += 1;
+                    // append everything that was iterated over
+                    new_line.push_str(&format!("${{{}", var_name));
+                    if default_value_found {
+                        new_line.push_str(&format!(":-{}", default_value));
+                    }
                     continue;
                 }
 
+                original_variable.push_str(&format!("${{{}", var_name));
+
                 if default_value_found {
-                    // +2 to skip the ':-'
-                    default_value = line[default_value_start + 2..var_end].to_string();
-                } else {
-                    // no default value found, set to the end of the variable name
-                    default_value_start = var_end;
+                    original_variable.push_str(&format!(":-{}", default_value));
                 }
-
-                original_var = &line[var_start - 2..var_end + 1]; // with dollar sign and braces
-                var_name = &line[var_start..default_value_start]; // extract the variable name
+                original_variable.push('}');
             }
-            // processing of $VARNAME
-            Some(c) if c.is_alphabetic() || c == '_' => {
-                // search for the end of the variable name
-                while var_end < line_len
-                    && (line.chars().nth(var_end).unwrap().is_alphanumeric()
-                        || line.chars().nth(var_end).unwrap() == '_')
-                {
-                    var_end += 1;
+            // Handles $VAR and $VAR
+            Some(next) if next.is_ascii_alphabetic() || next == &'_' => {
+                // look ahead to see if the next character is valid
+                // peek does not consume the character
+                // if the character ahead is valid, it will be consumed with iter.next()
+                while let Some(c) = iter.peek() {
+                    if !c.is_ascii_alphanumeric() && c != &'_' {
+                        break;
+                    }
+                    var_name.push(*c);
+                    iter.next(); // consume character
                 }
-
-                original_var = &line[var_start - 1..var_end]; // with dollar sign
-                var_name = &line[var_start..var_end]; // extract the variable name
+                original_variable = format!("${}", var_name);
             }
-            // if the character after '$' is not a '{' and not an alphabetic character and not '_',
-            // then we don't do any substitution
+            // Everything else
             _ => {
                 new_line.push(c);
-                start_index += 1;
                 continue;
             }
         }
 
-        // check if value before was a dollar sign or a slash
-        if !flags.no_escape
-            && start_index > 1 // variable is not at the beginning of the line
-            && line.chars().nth(start_index - 1).unwrap() == '$'
-        {
-            start_index += 1;
+        if matches_filters(filters, &var_name) == Some(false) {
+            new_line.push_str(&original_variable);
             continue;
         }
 
-        // check if filters are set and if so, if filters match
-        if matches_filters(filters, var_name) == Some(false) {
-            new_line.push_str(original_var);
-            start_index = if brace_ended { var_end + 1 } else { var_end };
-            continue;
-        }
-
-        match get_env_var_value(var_name, original_var.to_string(), &default_value, flags) {
+        match get_env_var_value(&var_name, &original_variable, &default_value, flags) {
             Ok(val) => new_line.push_str(&val),
             Err(err) => return Err(err),
         }
-
-        // if the variable name ends with a brace, then we don't include the brace in the substitution
-        start_index = if brace_ended { var_end + 1 } else { var_end };
     }
 
-    return Ok(new_line);
+    Ok(new_line)
 }
 
-// function to perform the substitution on the input file and write the result to output file
+/// Processes an input file and performs variable substitution according to the specified `Flags` and `Filters`.
+///
+/// # Arguments
+///
+/// * `input_file` - A boxed input file stream (e.g. `std::fs::File`) containing the text to process.
+/// * `output_file` - A boxed output file stream (e.g. `std::fs::File` or `std::io::stdout()`) to write the processed text to.
+/// * `flags` - A reference to a `Flags` object containing additional behavior settings.
+/// * `filters` - A reference to a `Filters` object containing optional filter criteria for variable names.
+///
+/// # Returns
+///
+/// Returns `Ok(())` if the processing is successful, or an `Err` containing an error message if an error occurs during variable substitution or writing to the output file.
+///
+/// # Errors
+///
+/// Returns an error if an error occurs during variable substitution or writing to the output file.
+///
+/// # Examples
+///
+/// ```
+/// use std::io::{Read, Write};
+///
+/// let content = "Hello, ${NAME:-User}! How are you, ${NAME}?";
+/// let flags = Flags {
+///     fail_on_empty: false,
+///     fail_on_unset: false,
+///     no_replace_empty: false,
+///     no_replace_unset: false,
+///     no_escape: false,
+/// };
+/// let filters = Filters {
+///     prefix: None,
+///     suffix: None,
+///     variables: None,
+/// };
+///
+/// //convert line to match input_file from perform_substitution
+/// let line = Box::new(content.as_bytes());
+///
+/// let result = perform_substitution(line, Box::new(std::io::stdout()), &flags, &filters);
+///
+/// assert!(result.is_ok());
+/// assert_eq!(result.unwrap(), ());
+
+/// ```
 pub fn perform_substitution(
     input_file: Box<dyn std::io::Read>,
     mut output_file: Box<dyn std::io::Write>,
@@ -230,7 +381,6 @@ pub fn perform_substitution(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
 
     const EMPTY_FLAGS: Flags = Flags {
         no_escape: false,
@@ -302,6 +452,24 @@ mod tests {
         let line = "${_BRACES_VAR_WITH_DASH}".to_string();
         let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
         assert_eq!(result, Ok("value".to_string()));
+    }
+
+    #[test]
+    fn test_process_line_regular_var_found_long_value() {
+        // description: regular variable found
+        // test: $REGULAR_VAR_FOUND
+        // env: REGULAR_VAR_FOUND=value
+        // result: value
+        env::set_var(
+            "REGULAR_VAR_LONG_FOUND",
+            "valuevaluevaluevaluevaluevaluevaluevaluevaluevaluevalue",
+        );
+        let line = "$REGULAR_VAR_LONG_FOUND".to_string();
+        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        assert_eq!(
+            result,
+            Ok("valuevaluevaluevaluevaluevaluevaluevaluevaluevaluevalue".to_string())
+        );
     }
 
     #[test]
@@ -451,7 +619,7 @@ mod tests {
 
     #[test]
     fn test_process_line_escape_var_double_dollar_no_escape() {
-        // description: escape variable, double dollar, no replace unset, no escape
+        // description: escape variable, double dollar, no escape
         // test: I have a pa$$word
         // env: -
         // result: I have a pa$$word
@@ -859,7 +1027,7 @@ mod tests {
 
     #[test]
     fn test_process_line_double_dollar_end_escape_true() {
-        // description: double dollar sign at the end of line, escape true
+        // description: double dollar sign at the end of line, no escape true
         // test: this is a test line with two dollar sign at the end of line $$
         // env: -
         // result: this is a test line with two dollar sign at the end of line $$
@@ -1042,6 +1210,7 @@ mod tests {
             Ok("this var $ENV1 should not be touched. this test_var1 has a prefix. This var1_test has a suffix.".to_string())
         );
     }
+
     #[test]
     fn test_process_line_regular_var_list_variables() {
         // description: regular variable with a list of variables
@@ -1307,6 +1476,7 @@ mod tests {
             Some(false)
         );
     }
+
     #[test]
     fn test_matches_filters_variables_prefix_suffix_not_found() {
         // description: variables, prefix and suffix filter not found
@@ -1326,6 +1496,7 @@ mod tests {
             Some(false)
         );
     }
+
     #[test]
     fn test_evaluate_variable_regular_var() {
         // description: regular variable
@@ -1338,7 +1509,7 @@ mod tests {
         let default_value = "";
         let result = get_env_var_value(
             &var_name,
-            original_var.to_string(),
+            original_var,
             default_value,
             &Flags { ..EMPTY_FLAGS },
         );
@@ -1357,7 +1528,7 @@ mod tests {
         let default_value = "default";
         let result = get_env_var_value(
             &var_name,
-            original_var.to_string(),
+            original_var,
             default_value,
             &Flags { ..EMPTY_FLAGS },
         );
@@ -1376,7 +1547,7 @@ mod tests {
         let default_value = "";
         let result = get_env_var_value(
             &var_name,
-            original_var.to_string(),
+            original_var,
             default_value,
             &Flags {
                 no_replace_empty: true,
@@ -1400,7 +1571,7 @@ mod tests {
         let default_value = "";
         let result = get_env_var_value(
             &var_name,
-            original_var.to_string(),
+            original_var,
             default_value,
             &Flags {
                 no_replace_unset: true,
@@ -1421,7 +1592,7 @@ mod tests {
         let default_value = "";
         let result = get_env_var_value(
             &var_name,
-            original_var.to_string(),
+            original_var,
             default_value,
             &Flags {
                 no_replace_unset: true,
@@ -1447,7 +1618,7 @@ mod tests {
         let default_value = "";
         let result = get_env_var_value(
             &var_name,
-            original_var.to_string(),
+            original_var,
             default_value,
             &Flags {
                 fail_on_empty: true,
@@ -1468,7 +1639,7 @@ mod tests {
         let default_value = "";
         let result = get_env_var_value(
             &var_name,
-            original_var.to_string(),
+            original_var,
             default_value,
             &Flags {
                 fail_on_unset: true,
@@ -1489,7 +1660,7 @@ mod tests {
         let default_value = "";
         let result = get_env_var_value(
             &var_name,
-            original_var.to_string(),
+            original_var,
             default_value,
             &Flags {
                 fail_on_unset: true,
@@ -1499,5 +1670,87 @@ mod tests {
         );
         // check if the result is an error
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_example_process_line() {
+        let line = "Hello, ${NAME:-User}! How are you, ${NAME}?";
+        let flags = Flags {
+            fail_on_empty: false,
+            fail_on_unset: false,
+            no_replace_empty: false,
+            no_replace_unset: false,
+            no_escape: false,
+        };
+        let filters = Filters {
+            prefix: None,
+            suffix: None,
+            variables: None,
+        };
+
+        let result = process_line(line, &flags, &filters);
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "Hello, User! How are you, ?");
+    }
+
+    #[test]
+    fn test_example_match_filters() {
+        let filters = Filters {
+            prefix: Some("prefixed_".to_string()),
+            suffix: Some("_suffixed".to_string()),
+            variables: Some(vec![
+                "my_variable".to_string(),
+                "another_variable".to_string(),
+            ]),
+        };
+
+        assert_eq!(matches_filters(&filters, "prefixed_variable"), Some(true));
+        assert_eq!(matches_filters(&filters, "variable_suffixed"), Some(true));
+        assert_eq!(matches_filters(&filters, "my_variable"), Some(true));
+        assert_eq!(matches_filters(&filters, "another_variable"), Some(true));
+        assert_eq!(matches_filters(&filters, "your_variable"), Some(false));
+    }
+
+    #[test]
+    fn test_example_get_env_var_value() {
+        let var_name = "MY_ENV_VAR";
+        let default_value = "default_value";
+        let flags = Flags {
+            fail_on_empty: false,
+            fail_on_unset: false,
+            no_replace_empty: false,
+            no_replace_unset: false,
+            no_escape: false,
+        };
+
+        let result = get_env_var_value(var_name, "", default_value, &flags);
+
+        assert_eq!(result, Ok(default_value.to_string()));
+    }
+
+    #[test]
+    fn test_example_perform_substitution() {
+        let content = "Hello, ${NAME:-User}! How are you, ${NAME}?";
+        let flags = Flags {
+            fail_on_empty: false,
+            fail_on_unset: false,
+            no_replace_empty: false,
+            no_replace_unset: false,
+            no_escape: false,
+        };
+        let filters = Filters {
+            prefix: None,
+            suffix: None,
+            variables: None,
+        };
+
+        // convert line to match input_file from perform_substitution
+        let line = Box::new(content.as_bytes());
+
+        let result = perform_substitution(line, Box::new(std::io::stdout()), &flags, &filters);
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), ());
     }
 }

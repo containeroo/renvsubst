@@ -1,6 +1,7 @@
 use crate::VERSION;
 use std::env;
 
+/// Template for the help text.
 const HELP_TEXT: &str = "Usage: renvsubst [PARAMETERS] [FLAGS] [FILTERS]
 
 {MESSAGE}
@@ -36,9 +37,22 @@ To retain a variable's original value and prevent it from being substituted by a
 
 ";
 
+/// Default text to be displayed when the program is called without any arguments.
 const DEFAULT_TEXT: &str = "renvsubst will substitute all (bash-like) environment variables in the format of $VAR_NAME, ${VAR_NAME} or ${VAR_NAME:-DEFAULT_VALUE} with their corresponding values from the environment or the default value if provided. If the variable is not valid, it remains as is.\nA valid variable name starts with a letter or underscore, followed by any combination of letters, numbers, or underscores.";
 
-// struct to store flags
+/// The `Flags` struct represents a set of command-line flags that modify the behavior of
+/// `envsubst`. These flags control how the program handles unset and empty variables and
+/// whether it performs variable substitution.
+///
+/// # Fields
+///
+/// * `fail_on_unset`: if true, `envsubst` fails if a variable is not defined in the environment.
+/// * `fail_on_empty`: if true, `envsubst` fails if a variable is defined but its value is empty.
+/// * `no_replace_unset`: if true, `envsubst` does not replace variables that are not defined
+///   in the environment with an empty string.
+/// * `no_replace_empty`: if true, `envsubst` does not replace variables that have an empty value
+///   with an empty string.
+/// * `no_escape`: if true, `envsubst` does not escape variables with two dollar signs ($$).
 pub struct Flags {
     pub fail_on_unset: bool,
     pub fail_on_empty: bool,
@@ -47,14 +61,47 @@ pub struct Flags {
     pub no_escape: bool,
 }
 
-// struct to store optional filters
+/// Represents a set of filters to apply to environment variables during substitution.
+///
+/// This struct includes an optional `prefix` and `suffix` to restrict which variables will be substituted. If a
+/// `prefix` or `suffix` is specified, only environment variables whose names start with the `prefix` or end with
+/// the `suffix` will be substituted. If a `prefix` and a `suffix` are both specified, only environment variables
+/// whose names start with the `prefix` and end with the `suffix` will be substituted.
+///
+/// Additionally, this struct includes an optional list of `variables` to substitute. If the `variables` field is
+/// present, only the specified environment variables will be substituted. If the `variables` field is `None`,
+/// all environment variables will be substituted.
 pub struct Filters {
     pub prefix: Option<String>,
     pub suffix: Option<String>,
     pub variables: Option<Vec<String>>,
 }
 
-// struct to store command line arguments
+/// Represents the arguments passed to the program.
+///
+/// `input_file` is the name of the input file, if provided. If not, the program will read from stdin.
+///
+/// `output_file` is the name of the output file, if provided. If not, the program will write to stdout.
+///
+/// `flags` controls the behavior of the program. The following flags are supported:
+///
+/// * `fail_on_unset`: If set to `true`, the program will exit with an error if a variable is referenced that has not been set.
+///
+/// * `fail_on_empty`: If set to `true`, the program will exit with an error if a variable is set to an empty string.
+///
+/// * `no_replace_unset`: If set to `true`, the program will not replace variables that have not been set with their default values.
+///
+/// * `no_replace_empty`: If set to `true`, the program will not replace variables that are set to an empty string with their default values.
+///
+/// * `no_escape`: If set to `true`, the program will not treat "$$" as an escape sequence.
+///
+/// `filters` controls which variables will be replaced. The following filters are supported:
+///
+/// * `prefix`: Only variables with this prefix will be replaced.
+///
+/// * `suffix`: Only variables with this suffix will be replaced.
+///
+/// * `variables`: Only the variables specified in this list will be replaced.
 pub struct Args {
     pub input_file: Option<String>,
     pub output_file: Option<String>, // output file name, if provided
@@ -62,7 +109,18 @@ pub struct Args {
     pub filters: Filters,            // filters to control which variables will be replaced
 }
 
-// function to parse command line arguments
+/// Parses the command line arguments and returns a struct containing the input file,
+/// output file, flags, and filters that will be used by the main program. If an error
+/// occurs, an error message is printed to standard error output and the program exits.
+///
+/// # Examples
+///
+/// ```
+/// let args = get_args();
+/// let input_file = open_input_file(args.input_file)?;
+/// let output_file = open_output_file(args.output_file)?;
+/// perform_substitution(input_file, output_file, &args.flags, &args.filters)?;
+/// ```
 pub fn get_args() -> Args {
     let mut args = env::args();
 

@@ -1,7 +1,35 @@
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
 
-// function to open input file, if provided, otherwise use stdin
+/// Opens an input file and returns a boxed reader. If the input file is not
+/// provided or is "-", stdin is used instead.
+///
+/// # Arguments
+///
+/// * `input_file` - An optional string containing the file path to open. If the string is `None` or `"-"`, then standard input is used instead.
+///
+/// # Returns
+///
+/// Returns a boxed `Read` trait object on success, or an error string on failure.
+///
+/// # Errors
+///
+/// This function returns an error string if the input file fails to open for any reason.
+///
+/// # Examples
+///
+/// ```
+/// use std::io::Read;
+///
+/// let file_path = "input.txt";
+/// let input_file = Some(file_path.to_string());
+/// let mut reader = match open_input_file(input_file) {
+///     Ok(reader) => reader,
+///     Err(e) => panic!("Failed to open input file: {}", e),
+/// };
+/// let mut buffer = String::new();
+/// reader.read_to_string(&mut buffer).expect("Failed to read input file");
+/// ```
 pub fn open_input_file(input_file: Option<String>) -> Result<Box<dyn Read>, String> {
     // check if file is None or "-"
     let file = match input_file {
@@ -17,7 +45,34 @@ pub fn open_input_file(input_file: Option<String>) -> Result<Box<dyn Read>, Stri
     }
 }
 
-// function to open output file, if provided, otherwise use stdout
+/// Opens an output file and returns a boxed writer. If the output file is not
+/// provided or is "-", stdout is used instead.
+///
+/// # Arguments
+///
+/// * `output_file` - An optional string containing the file path to create. If the string is `None` or `"-"`, then standard output is used instead.
+///
+/// # Returns
+///
+/// Returns a boxed `Write` trait object on success, or an error string on failure.
+///
+/// # Errors
+///
+/// This function returns an error string if the output file fails to create for any reason.
+///
+/// # Examples
+///
+/// ```
+/// use std::io::Write;
+///
+/// let file_path = "output.txt";
+/// let output_file = Some(file_path.to_string());
+/// let mut writer = match open_output_file(output_file) {
+///     Ok(writer) => writer,
+///     Err(e) => panic!("Failed to create output file: {}", e),
+/// };
+/// writer.write_all(b"Hello, world!").expect("Failed to write to output file");
+/// ```
 pub fn open_output_file(output_file: Option<String>) -> Result<Box<dyn Write>, String> {
     // check if file is None or "-"
     let file = match output_file {
@@ -83,4 +138,5 @@ mod tests {
         output_file.close().unwrap();
         assert!(result.is_ok());
     }
+
 }
