@@ -1,9 +1,9 @@
 mod args;
 mod file_io;
 mod substitute;
+use crate::args::parse_args;
 use crate::file_io::{open_input_file, open_output_file};
-use args::{parse_args};
-use substitute::perform_substitution;
+use crate::substitute::perform_substitution;
 
 const VERSION: &str = "0.2.0";
 
@@ -13,12 +13,10 @@ const VERSION: &str = "0.2.0";
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 fn main() {
-    let args = parse_args().unwrap_or_else(
-        |e| {
-          eprintln!("{}", e);
-          std::process::exit(1);
-        },
-    );
+    let args = parse_args().unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        std::process::exit(1);
+    });
 
     // open input file, can be stdin
     let input_file = open_input_file(args.input_file).unwrap_or_else(|e| {
