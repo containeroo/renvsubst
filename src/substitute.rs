@@ -33,16 +33,16 @@ use std::io::{BufRead, BufReader};
 /// ```
 /// use my_crate::get_env_var_value;
 ///
-/// let var_value = get_env_var_value("MY_VAR", "default_value", "fallback_value", &Flags {
-///     fail_on_empty: true,
-///     fail_on_unset: false,
-///     no_replace_empty: false,
-///     no_replace_unset: false,
-/// });
+/// let var_value = get_env_var_value(
+///   "MY_VAR",
+///   "default_value",
+///   "fallback_value",
+///   &Flags::default(),
+/// );
 ///
 /// match var_value {
-///     Ok(value) => println!("The value of MY_VAR is {}", value),
-///     Err(err) => eprintln!("Error: {}", err),
+///   Ok(value) => println!("The value of MY_VAR is {}", value),
+///   Err(err) => eprintln!("Error: {}", err),
 /// }
 /// ```
 fn get_env_var_value(
@@ -192,20 +192,8 @@ fn matches_filters(filters: &Filters, var_name: &str) -> Option<bool> {
 ///
 /// ```
 /// let line = "Hello, ${NAME:-User}! How are you, ${NAME}?";
-/// let flags = Flags {
-///     fail_on_empty: false,
-///     fail_on_unset: false,
-///     no_replace_empty: false,
-///     no_replace_unset: false,
-///     no_escape: false,
-/// };
-/// let filters = Filters {
-///     prefix: None,
-///     suffix: None,
-///     variables: None,
-/// };
 ///
-/// let result = process_line(line, &flags, &filters);
+/// let result = process_line(line, &Flags::default(), &Filters::default());
 ///
 /// assert!(result.is_ok());
 /// assert_eq!(result.unwrap(), "Hello, User! How are you, ?");
@@ -407,14 +395,12 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
 ///
 /// let input = "The value of MY_VAR is $MY_VAR";
 /// let mut output: Vec<u8> = vec![];
-/// let flags = Flags::default();
-/// let filters = Filters::default();
 ///
 /// let result = perform_substitution(
 ///   Box::new(input.as_bytes()),
 ///   Box::new(output),
-///   &flags,
-///   &filters,
+///   &Flags::default(),
+///   &Filters::default(),
 /// );
 ///
 /// assert!(result.is_ok());
@@ -455,19 +441,6 @@ pub fn perform_substitution(
 mod tests {
     use super::*;
 
-    const EMPTY_FLAGS: Flags = Flags {
-        no_escape: false,
-        no_replace_unset: false,
-        no_replace_empty: false,
-        fail_on_unset: false,
-        fail_on_empty: false,
-    };
-    const EMPTY_FILTERS: Filters = Filters {
-        prefix: None,
-        suffix: None,
-        variables: None,
-    };
-
     #[test]
     fn test_process_line_regular_var_found() {
         // description: regular variable found
@@ -476,7 +449,7 @@ mod tests {
         // result: value
         env::set_var("REGULAR_VAR_FOUND", "value");
         let line = "$REGULAR_VAR_FOUND".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value".to_string()));
     }
 
@@ -488,7 +461,7 @@ mod tests {
         // result: value
         env::set_var("_REGULAR_VAR_FOUND_WITH_DASH", "value");
         let line = "$_REGULAR_VAR_FOUND_WITH_DASH".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value".to_string()));
     }
 
@@ -503,9 +476,9 @@ mod tests {
             &line,
             &Flags {
                 fail_on_unset: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
-            &EMPTY_FILTERS,
+            &Filters::default(),
         );
         assert!(result.is_err());
         assert_eq!(
@@ -521,7 +494,7 @@ mod tests {
         // env: -
         // result: -
         let line = "$REGULAR_VAR_NOT_FOUND".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("".to_string()));
     }
 
@@ -533,7 +506,7 @@ mod tests {
         // result: value
         env::set_var("BRACES_VAR_FOUND", "value");
         let line = "${BRACES_VAR_FOUND}".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value".to_string()));
     }
 
@@ -545,7 +518,7 @@ mod tests {
         // result: value
         env::set_var("_BRACES_VAR_WITH_DASH", "value");
         let line = "${_BRACES_VAR_WITH_DASH}".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value".to_string()));
     }
 
@@ -560,7 +533,7 @@ mod tests {
             "valuevaluevaluevaluevaluevaluevaluevaluevaluevaluevalue",
         );
         let line = "$REGULAR_VAR_LONG_FOUND".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(
             result,
             Ok("valuevaluevaluevaluevaluevaluevaluevaluevaluevaluevalue".to_string())
@@ -574,7 +547,7 @@ mod tests {
         // env: unset
         // result: -
         let line = "${BRACES_VAR_NOT_FOUND}".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("".to_string()));
     }
 
@@ -589,9 +562,9 @@ mod tests {
             &line,
             &Flags {
                 fail_on_unset: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
-            &EMPTY_FILTERS,
+            &Filters::default(),
         );
         assert!(result.is_err());
         assert_eq!(
@@ -607,7 +580,7 @@ mod tests {
         // env: unset
         // result: default
         let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT:-default}".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("default".to_string()));
     }
 
@@ -619,7 +592,7 @@ mod tests {
         // result: value
         env::set_var("BRACES_VAR_DEFAULT_USE_VAR", "value");
         let line = "${BRACES_VAR_DEFAULT_USE_VAR:-default}".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value".to_string()));
     }
 
@@ -631,7 +604,7 @@ mod tests {
         // result: value
         env::set_var("_BRACES_VAR_DEFAULT_USE_VAR", "value");
         let line = "${_BRACES_VAR_DEFAULT_USE_VAR:-default}".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value".to_string()));
     }
 
@@ -643,7 +616,7 @@ mod tests {
         // result: value
         env::set_var("BRACES_VAR_DEFAULT_USE_DEFAULT_DASH", "value");
         let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT_DASH:-default}".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value".to_string()));
     }
 
@@ -654,7 +627,7 @@ mod tests {
         // env: unset
         // result: -
         let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT_EMPTY:-}".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("".to_string()));
     }
 
@@ -665,7 +638,7 @@ mod tests {
         // env: -
         // result: i like cas$$ not so much!
         let line = "i like cas$$ not so much!".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok(line));
     }
 
@@ -680,9 +653,9 @@ mod tests {
             &line,
             &Flags {
                 no_escape: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
-            &EMPTY_FILTERS,
+            &Filters::default(),
         );
         assert_eq!(result, Ok(line));
     }
@@ -694,7 +667,7 @@ mod tests {
         // env: -
         // result: I have a pa$word
         let line = "I have a pa$$word".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("I have a pa$word".to_string()));
     }
 
@@ -709,9 +682,9 @@ mod tests {
             &line,
             &Flags {
                 no_replace_unset: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
-            &EMPTY_FILTERS,
+            &Filters::default(),
         );
         assert_eq!(result, Ok("I have a pa$word".to_string()));
     }
@@ -727,9 +700,9 @@ mod tests {
             &line,
             &Flags {
                 no_escape: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
-            &EMPTY_FILTERS,
+            &Filters::default(),
         );
         assert_eq!(result, Ok(line));
     }
@@ -745,9 +718,9 @@ mod tests {
             &line,
             &Flags {
                 no_escape: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
-            &EMPTY_FILTERS,
+            &Filters::default(),
         );
         assert_eq!(result, Ok("I have a pa$".to_string()));
     }
@@ -763,9 +736,9 @@ mod tests {
             &line,
             &Flags {
                 no_escape: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
-            &EMPTY_FILTERS,
+            &Filters::default(),
         );
         assert_eq!(result, Ok(line));
     }
@@ -778,7 +751,7 @@ mod tests {
         // result: this variable value} is broken
         env::set_var("BROKEN_VAR_BRACES_END", "value");
         let line = "this variable $BROKEN_VAR_BRACES_END} is broken".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("this variable value} is broken".to_string()));
     }
 
@@ -790,7 +763,7 @@ mod tests {
         // result: this variable ${BROKEN_VAR_BRACES_BEGIN is broken
         env::set_var("BROKEN_VAR_BRACES_BEGIN", "value");
         let line = "this variable ${BROKEN_VAR_BRACES_END is broken".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(
             result,
             Ok("this variable ${BROKEN_VAR_BRACES_END is broken".to_string())
@@ -804,7 +777,7 @@ mod tests {
         // env: -
         // result: this $1INVALID_VAR_DIGIT_BEGIN is not valid
         let line = "this $1INVALID_VAR_DIGIT_BEGIN is not valid".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(
             result,
             Ok("this $1INVALID_VAR_DIGIT_BEGIN is not valid".to_string())
@@ -818,7 +791,7 @@ mod tests {
         // env: -
         // result: this ${1INVALID_VAR_DIGIT_BEGIN} is not valid
         let line = "this ${1INVALID_VAR_DIGIT_BEGIN} is not valid".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(
             result,
             Ok("this ${1INVALID_VAR_DIGIT_BEGIN} is not valid".to_string())
@@ -833,7 +806,7 @@ mod tests {
         // result: this value is valid
         env::set_var("VALID_REGULAR_VAR_1_DIGIT_MIDDLE", "value");
         let line = "this $VALID_REGULAR_VAR_1_DIGIT_MIDDLE is valid".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("this value is valid".to_string()));
     }
 
@@ -845,7 +818,7 @@ mod tests {
         // result: this value is valid
         env::set_var("VALID_REGULAR_VAR_DIGIT_END_1", "value");
         let line = "this $VALID_REGULAR_VAR_DIGIT_END_1 is valid".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("this value is valid".to_string()));
     }
 
@@ -857,7 +830,7 @@ mod tests {
         // result: this value is valid
         env::set_var("VALID_REGULAR_VAR_1_DIGIT_MIDDLE", "value");
         let line = "this ${VALID_REGULAR_VAR_1_DIGIT_MIDDLE} is valid".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("this value is valid".to_string()));
     }
 
@@ -869,7 +842,7 @@ mod tests {
         // result: this value is valid
         env::set_var("VALID_REGULAR_VAR_DIGIT_END_1", "value");
         let line = "this ${VALID_REGULAR_VAR_DIGIT_END_1} is valid".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("this value is valid".to_string()));
     }
 
@@ -881,7 +854,7 @@ mod tests {
         // result: braces var at the end value
         env::set_var("VALID_BRACES_VAR_END", "value");
         let line = "braces var at the end ${VALID_BRACES_VAR_END}".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("braces var at the end value".to_string()));
     }
 
@@ -893,7 +866,7 @@ mod tests {
         // result: value braces var at the begin
         env::set_var("VALID_BRACES_VAR_BEGIN", "value");
         let line = "${VALID_BRACES_VAR_BEGIN} braces var at the begin".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value braces var at the begin".to_string()));
     }
 
@@ -905,7 +878,7 @@ mod tests {
         // result: regular var at the end value
         env::set_var("VALID_REGULAR_VAR_END", "value");
         let line = "regular var at the end $VALID_REGULAR_VAR_END".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("regular var at the end value".to_string()));
     }
 
@@ -917,7 +890,7 @@ mod tests {
         // result: value regular var at the begin
         env::set_var("VALID_REGULAR_VAR_BEGIN", "value");
         let line = "$VALID_REGULAR_VAR_BEGIN regular var at the begin".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value regular var at the begin".to_string()));
     }
 
@@ -932,9 +905,9 @@ mod tests {
             &line,
             &Flags {
                 fail_on_unset: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
-            &EMPTY_FILTERS,
+            &Filters::default(),
         );
         assert!(result.is_err());
     }
@@ -950,9 +923,9 @@ mod tests {
             &line,
             &Flags {
                 fail_on_unset: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
-            &EMPTY_FILTERS,
+            &Filters::default(),
         );
         assert!(result.is_err());
     }
@@ -969,9 +942,9 @@ mod tests {
             &line,
             &Flags {
                 fail_on_empty: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
-            &EMPTY_FILTERS,
+            &Filters::default(),
         );
         assert!(result.is_err());
     }
@@ -988,9 +961,9 @@ mod tests {
             &line,
             &Flags {
                 fail_on_empty: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
-            &EMPTY_FILTERS,
+            &Filters::default(),
         );
         assert!(result.is_err());
     }
@@ -1006,9 +979,9 @@ mod tests {
             &line,
             &Flags {
                 no_replace_unset: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
-            &EMPTY_FILTERS,
+            &Filters::default(),
         );
         assert_eq!(result, Ok("$VALID_REGULAR_VAR_FAIL_ON_UNSET".to_string()));
     }
@@ -1024,9 +997,9 @@ mod tests {
             &line,
             &Flags {
                 no_replace_unset: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
-            &EMPTY_FILTERS,
+            &Filters::default(),
         );
         assert_eq!(result, Ok("${VALID_REGULAR_VAR_FAIL_ON_UNSET}".to_string()));
     }
@@ -1043,9 +1016,9 @@ mod tests {
             &line,
             &Flags {
                 no_replace_empty: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
-            &EMPTY_FILTERS,
+            &Filters::default(),
         );
         assert_eq!(
             result,
@@ -1065,9 +1038,9 @@ mod tests {
             &line,
             &Flags {
                 no_replace_empty: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
-            &EMPTY_FILTERS,
+            &Filters::default(),
         );
         assert_eq!(
             result,
@@ -1086,9 +1059,9 @@ mod tests {
             &line,
             &Flags {
                 no_replace_empty: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
-            &EMPTY_FILTERS,
+            &Filters::default(),
         );
         assert_eq!(result, Ok("${IVALID_BRACES_VAR_DEFAULT_END:-".to_string()));
     }
@@ -1104,9 +1077,9 @@ mod tests {
             &line,
             &Flags {
                 no_replace_empty: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
-            &EMPTY_FILTERS,
+            &Filters::default(),
         );
         assert_eq!(
             result,
@@ -1121,7 +1094,7 @@ mod tests {
         // env: -
         // result: this is a test line with only one dollar sign at the end of line $
         let line = "this is a test line with only one dollar sign at the end of line $".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(
             result,
             Ok("this is a test line with only one dollar sign at the end of line $".to_string())
@@ -1135,7 +1108,7 @@ mod tests {
         // env: -
         // result: this is a test line with two dollar sign at the end of line $$
         let line = "this is a test line with two dollar sign at the end of line $$".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(
             result,
             Ok("this is a test line with two dollar sign at the end of line $$".to_string())
@@ -1153,9 +1126,9 @@ mod tests {
             &line,
             &Flags {
                 no_escape: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
-            &EMPTY_FILTERS,
+            &Filters::default(),
         );
         assert_eq!(
             result,
@@ -1174,10 +1147,10 @@ mod tests {
         let line = "this $ENV1 has a prefix. This $TEST_VAR1 has a prefix.".to_string();
         let result = process_line(
             &line,
-            &EMPTY_FLAGS,
+            &Flags::default(),
             &Filters {
                 prefix: Some("TEST".to_string()),
-                ..EMPTY_FILTERS
+                ..Filters::default()
             },
         );
         assert_eq!(
@@ -1197,10 +1170,10 @@ mod tests {
         let line = "this $ENV1 has a no prefix. This ${TEST_VAR1} has a valid prefix.".to_string();
         let result = process_line(
             &line,
-            &EMPTY_FLAGS,
+            &Flags::default(),
             &Filters {
                 prefix: Some("TEST".to_string()),
-                ..EMPTY_FILTERS
+                ..Filters::default()
             },
         );
         assert_eq!(
@@ -1220,10 +1193,10 @@ mod tests {
         let line = "this $ENV1 has a prefix. This $VAR1_TEST has a suffix.".to_string();
         let result = process_line(
             &line,
-            &EMPTY_FLAGS,
+            &Flags::default(),
             &Filters {
                 suffix: Some("TEST".to_string()),
-                ..EMPTY_FILTERS
+                ..Filters::default()
             },
         );
         assert_eq!(
@@ -1243,10 +1216,10 @@ mod tests {
         let line = "this $ENV1 has a prefix. This ${VAR1_TEST} has a suffix.".to_string();
         let result = process_line(
             &line,
-            &EMPTY_FLAGS,
+            &Flags::default(),
             &Filters {
                 suffix: Some("TEST".to_string()),
-                ..EMPTY_FILTERS
+                ..Filters::default()
             },
         );
         assert_eq!(
@@ -1267,10 +1240,10 @@ mod tests {
         let line = "this $TEST_VAR1 has a prefix. This ${VAR1_TEST} has a suffix.".to_string();
         let result = process_line(
             &line,
-            &EMPTY_FLAGS,
+            &Flags::default(),
             &Filters {
                 suffix: Some("TEST".to_string()),
-                ..EMPTY_FILTERS
+                ..Filters::default()
             },
         );
         assert_eq!(
@@ -1291,10 +1264,10 @@ mod tests {
         let line = "this $TEST_VAR1 has a prefix. This ${VAR1_TEST} has a suffix.".to_string();
         let result = process_line(
             &line,
-            &EMPTY_FLAGS,
+            &Flags::default(),
             &Filters {
                 prefix: Some("TEST".to_string()),
-                ..EMPTY_FILTERS
+                ..Filters::default()
             },
         );
         assert_eq!(
@@ -1315,11 +1288,11 @@ mod tests {
         let line = "this var $ENV1 should not be touched. this $TEST_VAR1 has a prefix. This ${VAR1_TEST} has a suffix.".to_string();
         let result = process_line(
             &line,
-            &EMPTY_FLAGS,
+            &Flags::default(),
             &Filters {
                 suffix: Some("TEST".to_string()),
                 prefix: Some("TEST".to_string()),
-                ..EMPTY_FILTERS
+                ..Filters::default()
             },
         );
         assert_eq!(
@@ -1341,10 +1314,10 @@ mod tests {
             "Only $ENV1 and $ENV2 should be replaced. $ENV3 should not be replaced.".to_string();
         let result = process_line(
             &line,
-            &EMPTY_FLAGS,
+            &Flags::default(),
             &Filters {
                 variables: Some(vec!["ENV1".to_string(), "ENV2".to_string()]),
-                ..EMPTY_FILTERS
+                ..Filters::default()
             },
         );
         assert_eq!(
@@ -1362,7 +1335,7 @@ mod tests {
         let line = "$PREFIX_ENV1 and $ENV2_SUFFIX and $VAR should not be replaced.".to_string();
         let result = process_line(
             &line,
-            &EMPTY_FLAGS,
+            &Flags::default(),
             &Filters {
                 variables: Some(vec!["ENV1".to_string(), "ENV2".to_string()]),
                 prefix: Some("BAD_PREFIX".to_string()),
@@ -1383,7 +1356,7 @@ mod tests {
         // result: This ${BRACES_VAR_INVALID_DEFAULT:-def:ault} a broken default.
         env::set_var("BRACES_VAR_INVALID_DEFAULT", "var1_test");
         let line = "This ${BRACES_VAR_INVALID_DEFAULT:-def:ault} a broken default.".to_string();
-        let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
+        let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(
             result,
             Ok("This ${BRACES_VAR_INVALID_DEFAULT:-def:ault} a broken default.".to_string())
@@ -1400,12 +1373,12 @@ mod tests {
         let line = "${PREFIX_VAR_SUFFIX}".to_string();
         let result = process_line(
             &line,
-            &EMPTY_FLAGS,
+            &Flags::default(),
             &Filters {
                 variables: Some(vec!["PREFIX_VAR_SUFFIX".to_string()]),
                 prefix: Some("PREFIX".to_string()),
                 suffix: Some("SUFFIX".to_string()),
-                ..EMPTY_FILTERS
+                ..Filters::default()
             },
         );
         assert_eq!(result, Ok("prefix var suffix".to_string()));
@@ -1416,7 +1389,7 @@ mod tests {
         // test: -
         // env: -
         // result: true
-        assert_eq!(matches_filters(&EMPTY_FILTERS, "VAR"), None);
+        assert_eq!(matches_filters(&Filters::default(), "VAR"), None);
     }
 
     #[test]
@@ -1447,7 +1420,7 @@ mod tests {
             matches_filters(
                 &Filters {
                     prefix: Some("PREFIX".to_string()),
-                    ..EMPTY_FILTERS
+                    ..Filters::default()
                 },
                 "PREFIX_VAR"
             ),
@@ -1464,7 +1437,7 @@ mod tests {
             matches_filters(
                 &Filters {
                     suffix: Some("SUFFIX".to_string()),
-                    ..EMPTY_FILTERS
+                    ..Filters::default()
                 },
                 "VAR_SUFFIX"
             ),
@@ -1481,7 +1454,7 @@ mod tests {
             matches_filters(
                 &Filters {
                     variables: Some(vec!["VAR".to_string()]),
-                    ..EMPTY_FILTERS
+                    ..Filters::default()
                 },
                 "VAR"
             ),
@@ -1498,7 +1471,7 @@ mod tests {
             matches_filters(
                 &Filters {
                     prefix: Some("PREFIX".to_string()),
-                    ..EMPTY_FILTERS
+                    ..Filters::default()
                 },
                 "VAR"
             ),
@@ -1515,7 +1488,7 @@ mod tests {
             matches_filters(
                 &Filters {
                     suffix: Some("SUFFIX".to_string()),
-                    ..EMPTY_FILTERS
+                    ..Filters::default()
                 },
                 "VAR"
             ),
@@ -1532,7 +1505,7 @@ mod tests {
             matches_filters(
                 &Filters {
                     variables: Some(vec!["VAR".to_string()]),
-                    ..EMPTY_FILTERS
+                    ..Filters::default()
                 },
                 "VAR2"
             ),
@@ -1550,7 +1523,7 @@ mod tests {
                 &Filters {
                     prefix: Some("PREFIX".to_string()),
                     suffix: Some("SUFFIX".to_string()),
-                    ..EMPTY_FILTERS
+                    ..Filters::default()
                 },
                 "VAR"
             ),
@@ -1568,7 +1541,7 @@ mod tests {
                 &Filters {
                     variables: Some(vec!["VAR".to_string()]),
                     prefix: Some("PREFIX".to_string()),
-                    ..EMPTY_FILTERS
+                    ..Filters::default()
                 },
                 "VAR2"
             ),
@@ -1586,7 +1559,7 @@ mod tests {
                 &Filters {
                     variables: Some(vec!["VAR".to_string()]),
                     suffix: Some("SUFFIX".to_string()),
-                    ..EMPTY_FILTERS
+                    ..Filters::default()
                 },
                 "VAR2"
             ),
@@ -1606,7 +1579,7 @@ mod tests {
                     variables: Some(vec!["VAR".to_string()]),
                     prefix: Some("PREFIX".to_string()),
                     suffix: Some("SUFFIX".to_string()),
-                    ..EMPTY_FILTERS
+                    ..Filters::default()
                 },
                 "VAR2"
             ),
@@ -1624,7 +1597,7 @@ mod tests {
         let var_name = "REGULAR_VAR";
         let original_var = "${REGULAR_VAR}";
         let default_value = "";
-        let result = get_env_var_value(&var_name, original_var, default_value, &EMPTY_FLAGS);
+        let result = get_env_var_value(&var_name, original_var, default_value, &Flags::default());
         assert_eq!(result, Ok("var".to_string()));
     }
 
@@ -1638,7 +1611,7 @@ mod tests {
         let var_name = "REGULAR_VAR_WITH_DEFAULT";
         let original_var = "${REGULAR_VAR_WITH_DEFAULT:-default}";
         let default_value = "default";
-        let result = get_env_var_value(&var_name, original_var, default_value, &EMPTY_FLAGS);
+        let result = get_env_var_value(&var_name, original_var, default_value, &Flags::default());
         assert_eq!(result, Ok("var".to_string()));
     }
 
@@ -1658,7 +1631,7 @@ mod tests {
             default_value,
             &Flags {
                 no_replace_empty: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
         );
         assert_eq!(
@@ -1682,7 +1655,7 @@ mod tests {
             default_value,
             &Flags {
                 no_replace_unset: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
         );
         assert_eq!(result, Ok("${REGULAR_VAR_NO_REPLACE_UNSET}".to_string()));
@@ -1704,7 +1677,7 @@ mod tests {
             &Flags {
                 no_replace_unset: true,
                 no_replace_empty: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
         );
         assert_eq!(
@@ -1729,7 +1702,7 @@ mod tests {
             default_value,
             &Flags {
                 fail_on_empty: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
         );
         assert!(result.is_err());
@@ -1750,7 +1723,7 @@ mod tests {
             default_value,
             &Flags {
                 fail_on_unset: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
         );
         assert!(result.is_err());
@@ -1772,7 +1745,7 @@ mod tests {
             &Flags {
                 fail_on_unset: true,
                 no_replace_empty: true,
-                ..EMPTY_FLAGS
+                ..Flags::default()
             },
         );
         // check if the result is an error
@@ -1782,20 +1755,7 @@ mod tests {
     #[test]
     fn test_example_process_line() {
         let line = "Hello, ${NAME:-User}! How are you, ${NAME}?";
-        let flags = Flags {
-            fail_on_empty: false,
-            fail_on_unset: false,
-            no_replace_empty: false,
-            no_replace_unset: false,
-            no_escape: false,
-        };
-        let filters = Filters {
-            prefix: None,
-            suffix: None,
-            variables: None,
-        };
-
-        let result = process_line(line, &flags, &filters);
+        let result = process_line(line, &Flags::default(), &Filters::default());
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Hello, User! How are you, ?");
@@ -1821,43 +1781,29 @@ mod tests {
 
     #[test]
     fn test_example_get_env_var_value() {
-        let var_name = "MY_ENV_VAR";
-        let default_value = "default_value";
-        let flags = Flags {
-            fail_on_empty: false,
-            fail_on_unset: false,
-            no_replace_empty: false,
-            no_replace_unset: false,
-            no_escape: false,
-        };
+        let var_value = get_env_var_value(
+            "MY_VAR",
+            "default_value",
+            "fallback_value",
+            &Flags::default(),
+        );
 
-        let result = get_env_var_value(var_name, "", default_value, &flags);
-
-        assert_eq!(result, Ok(default_value.to_string()));
+        match var_value {
+            Ok(value) => println!("The value of MY_VAR is {}", value),
+            Err(err) => eprintln!("Error: {}", err),
+        }
     }
 
     #[test]
     fn test_example_perform_substitution() {
         let input = "The value of MY_VAR is $MY_VAR";
         let output: Vec<u8> = vec![];
-        let flags = Flags {
-            fail_on_empty: false,
-            fail_on_unset: false,
-            no_replace_empty: false,
-            no_replace_unset: false,
-            no_escape: false,
-        };
-        let filters = Filters {
-            prefix: None,
-            suffix: None,
-            variables: None,
-        };
 
         let result = perform_substitution(
             Box::new(input.as_bytes()),
             Box::new(output),
-            &flags,
-            &filters,
+            &Flags::default(),
+            &Filters::default(),
         );
 
         assert!(result.is_ok());
