@@ -261,12 +261,12 @@ pub fn get_args() -> Args {
     }
 
     // --strict implies --fail-on-unset and --fail-on-empty
-    if strict && !(fail_on_unset || fail_on_empty) {
+    if strict && (fail_on_unset || fail_on_empty) {
         eprintln!(
             "{}",
             HELP_TEXT.replace(
                 "{MESSAGE}",
-                "ERROR: --strict cannot be used without --fail-on-unset or --fail-on-empty"
+                "ERROR: --strict cannot be used with --fail-on-unset or --fail-on-empty"
             )
         );
         std::process::exit(1);
