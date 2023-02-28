@@ -12,6 +12,18 @@ const VERSION: &str = "0.2.0";
 #[global_allocator]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
+/// The entry point of the program.
+///
+/// This function parses the command line arguments, opens the input and output files
+/// (or uses stdin/stdout if not specified), and performs a substitution operation on
+/// the input data according to the provided flags and filters.
+///
+/// # Examples
+///
+/// ```
+/// // Perform a substitution on the contents of `input.txt`, writing the result to `output.txt`
+/// renvsubst -i input.txt -o output.txt
+/// ```
 fn main() {
     let args = parse_args().unwrap_or_else(|e| {
         eprintln!("{}", e);
