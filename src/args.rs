@@ -4,7 +4,8 @@ use std::env;
 /// Template for the help text.
 const HELP_TEXT: &str = "Usage: renvsubst [PARAMETERS] [FLAGS] [FILTERS]
 
-{MESSAGE}
+renvsubst will substitute all (bash-like) environment variables in the format of $VAR_NAME, ${VAR_NAME} or ${VAR_NAME:-DEFAULT_VALUE} with their corresponding values from the environment or the default value if provided. If the variable is not valid, it remains as is.
+A valid variable name starts with a letter or underscore, followed by any combination of letters, numbers, or underscores.
 
 Parameters:
   -i [INPUT_FILE]                  Specify the input file. Use - to read from stdin.
@@ -25,8 +26,10 @@ Flags:
   -v                               Show the version of the program.
 
 Filters:
-  --prefix [PREFIX]                Only replace variables with the specified prefix.
-  --suffix [SUFFIX]                Only replace variables with the specified suffix.
+  --prefix [PREFIX]...             Only replace variables with the specified prefix.
+                                   Prefixes can be specified multiple times.
+  --suffix [SUFFIX]...             Only replace variables with the specified suffix.
+                                   Suffixes can be specified multiple times.
   --variable [VARIABLE]...         Specify the variables to replace. If not provided, all variables will be replaced.
                                    Variables can be specified multiple times.
 
@@ -36,9 +39,6 @@ Escaping:
 To retain a variable's original value and prevent it from being substituted by an environment variable, add a second dollar sign ($). The second dollar sign will be removed during substitution. Only valid variables must be escaped.
 
 ";
-
-/// Default text to be displayed when the program is called without any arguments.
-const DEFAULT_TEXT: &str = "renvsubst will substitute all (bash-like) environment variables in the format of $VAR_NAME, ${VAR_NAME} or ${VAR_NAME:-DEFAULT_VALUE} with their corresponding values from the environment or the default value if provided. If the variable is not valid, it remains as is.\nA valid variable name starts with a letter or underscore, followed by any combination of letters, numbers, or underscores.";
 
 /// The `Flags` struct represents a set of command-line flags that modify the behavior of
 /// `envsubst`. These flags control how the program handles unset and empty variables and
@@ -100,8 +100,8 @@ impl Default for Flags {
 /// present, only the specified environment variables will be substituted. If the `variables` field is `None`,
 /// all environment variables will be substituted.
 pub struct Filters {
-    pub prefix: Option<String>,
-    pub suffix: Option<String>,
+    pub prefixes: Option<Vec<String>>,
+    pub suffixes: Option<Vec<String>>,
     pub variables: Option<Vec<String>>,
 }
 
@@ -119,8 +119,8 @@ impl Default for Filters {
 
     fn default() -> Self {
         Self {
-            prefix: None,
-            suffix: None,
+            prefixes: None,
+            suffixes: None,
             variables: None,
         }
     }
@@ -158,25 +158,29 @@ pub struct Args {
     pub filters: Filters,            // filters to control which variables will be replaced
 }
 
-/// Parses the command line arguments and returns a struct containing the input file,
-/// output file, flags, and filters that will be used by the main program. If an error
-/// occurs, an error message is printed to standard error output and the program exits.
+/// Parses the command-line arguments and returns a struct representing the arguments.
+///
+/// # Arguments
+///
+/// None.
+///
+/// # Returns
+///
+/// A `Result` with the parsed arguments as a struct on success, or an error message on failure.
 ///
 /// # Examples
 ///
+/// ```rust
+/// use crate::parse_args;
+///
+/// let args = parse_args().unwrap();
 /// ```
-/// let args = parse_args();
-/// let input_file = open_input_file(args.input_file)?;
-/// let output_file = open_output_file(args.output_file)?;
-/// perform_substitution(input_file, output_file, &args.flags, &args.filters)?;
-/// ```
-pub fn parse_args() -> Args {
-    let mut args = env::args();
+pub fn parse_args() -> Result<Args, String> {
+    let mut args = env::args().peekable();
 
     // check if arguments was passed
     if args.len() == 1 {
-        eprintln!("{}", HELP_TEXT.replace("{MESSAGE}", DEFAULT_TEXT));
-        std::process::exit(1);
+        return Err(HELP_TEXT.to_string());
     }
 
     args.next(); // skip program name
@@ -191,19 +195,28 @@ pub fn parse_args() -> Args {
     let mut no_replace: bool = false; // intermediate variable. If set, no_replace_unset and no_replace_empty will be set to true
     let mut no_escape: bool = false;
     let mut variables: Option<Vec<String>> = None;
-    let mut suffix: Option<String> = None;
-    let mut prefix: Option<String> = None;
+    let mut suffixes: Option<Vec<String>> = None;
+    let mut prefixes: Option<Vec<String>> = None;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "-h" => {
-                println!("{}", HELP_TEXT.replace("{MESSAGE}", DEFAULT_TEXT));
-                std::process::exit(0);
+            "-h" => return Err(HELP_TEXT.to_string()),
+            "-v" => return Err(format!("version {}", VERSION)),
+
+            "-o" => {
+                output_file = Some(args.next().unwrap_or_else(|| {
+                    "ERROR: -o requires an output file to be specified or - to write to stdout"
+                        .to_string()
+                }));
             }
-            "-v" => {
-                println!("version {}", VERSION);
-                std::process::exit(0);
+            "-i" => {
+                input_file = Some(args.next().unwrap_or_else(|| {
+                    "ERROR: -i requires an input file to be specified or - to read from stdin"
+                        .to_string()
+                }));
             }
+
+            // flags
             "--fail-on-unset" => fail_on_unset = true,
             "--fail-on-empty" => fail_on_empty = true,
             "--strict" => strict = true, // alias for --fail-on-unset and --fail-on-empty
@@ -211,114 +224,48 @@ pub fn parse_args() -> Args {
             "--no-replace-empty" => no_replace_empty = true,
             "--no-replace" => no_replace = true, // alias for --no-replace-unset and --no-replace-empty
             "--no-escape" => no_escape = true,
-            "-o" => {
-                output_file = Some(args.next().unwrap_or_else(|| {
-                    eprintln!(
-                        "{}",
-                        HELP_TEXT.replace(
-                            "{MESSAGE}",
-                            "ERROR: -o requires an output file to be specified"
-                        )
-                    );
-                    std::process::exit(1);
-                }))
-            }
-            "-i" => {
-                input_file = Some(args.next().unwrap_or_else(|| {
-                    eprintln!(
-                    "{}",
-                    HELP_TEXT.replace(
-                        "{MESSAGE}",
-                        "ERROR: -i requires an input file to be specified or - to read from stdin"
-                    )
-                );
-                    std::process::exit(1);
-                }))
-            }
+
+            // filters
             "--prefix" => {
-                prefix = Some(args.next().unwrap_or_else(|| {
-                    eprintln!(
-                        "{}",
-                        HELP_TEXT.replace(
-                            "{MESSAGE}",
-                            "ERROR: --prefix requires a prefix to be specified"
-                        )
-                    );
-                    std::process::exit(1);
-                }))
+                prefixes.get_or_insert_with(Vec::new).push(
+                    args.next()
+                        .ok_or_else(|| "ERROR: --prefix requires a prefix to be specified")?,
+                );
             }
             "--suffix" => {
-                suffix = Some(args.next().unwrap_or_else(|| {
-                    eprintln!(
-                        "{}",
-                        HELP_TEXT.replace(
-                            "{MESSAGE}",
-                            "ERROR: --suffix requires a suffix to be specified"
-                        )
-                    );
-                    std::process::exit(1);
-                }))
+                suffixes.get_or_insert_with(Vec::new).push(
+                    args.next()
+                        .ok_or_else(|| "ERROR: --suffix requires a suffix to be specified")?,
+                );
             }
             "--variable" => {
-                // push variable to vector
-                variables
-                    .get_or_insert_with(Vec::new)
-                    .push(args.next().unwrap_or_else(|| {
-                        eprintln!(
-                            "{}",
-                            HELP_TEXT.replace(
-                                "{MESSAGE}",
-                                "ERROR: --variable requires a variable to be specified"
-                            )
-                        );
-                        std::process::exit(1);
-                    }))
-            }
-            _ => {
-                // If the argument is not known, write an error message and exit
-                eprintln!(
-                    "{}",
-                    HELP_TEXT.replace("{MESSAGE}", &format!("ERROR: Unknown flag: {}", arg))
+                variables.get_or_insert_with(Vec::new).push(
+                    args.next()
+                        .ok_or_else(|| "ERROR: --variable requires a variable to be specified")?,
                 );
-                std::process::exit(1);
+            }
+            // unknown argument
+            _ => {
+                return Err(format!("ERROR: Unknown flag: {}", arg));
             }
         }
     }
 
     // fail if --fail-on-unset and --no-replace-unset are used together
     if fail_on_unset && no_replace_unset {
-        eprintln!(
-            "{}",
-            HELP_TEXT.replace(
-                "{MESSAGE}",
-                "ERROR: --fail-on-unset cannot be used with --no-replace-unset"
-            )
-        );
-        std::process::exit(1);
+        return Err("ERROR: --fail-on-unset cannot be used with --no-replace-unset".to_string());
     }
 
     // fail if --fail-on-empty and --no-replace-empty are used together
     if fail_on_empty && no_replace_empty {
-        eprintln!(
-            "{}",
-            HELP_TEXT.replace(
-                "{MESSAGE}",
-                "ERROR: --fail-on-empty cannot be used with --no-replace-empty"
-            )
-        );
-        std::process::exit(1);
+        return Err("ERROR: --fail-on-empty cannot be used with --no-replace-empty".to_string());
     }
 
     // --strict implies --fail-on-unset and --fail-on-empty
     if strict && (fail_on_unset || fail_on_empty) {
-        eprintln!(
-            "{}",
-            HELP_TEXT.replace(
-                "{MESSAGE}",
-                "ERROR: --strict cannot be used with --fail-on-unset or --fail-on-empty"
-            )
+        return Err(
+            "ERROR: --strict cannot be used with --fail-on-unset or --fail-on-empty".to_string(),
         );
-        std::process::exit(1);
     }
 
     // --strict implies --fail-on-unset and --fail-on-empty
@@ -329,14 +276,10 @@ pub fn parse_args() -> Args {
 
     // --no-replace implies --no-replace-unset and --no-replace-empty
     if no_replace && (no_replace_unset || no_replace_empty) {
-        eprintln!(
-            "{}",
-            HELP_TEXT.replace(
-                "{MESSAGE}",
-                "ERROR: --no-replace cannot be used with --fail-on-unset or --fail-on-empty"
-            )
+        return Err(
+            "ERROR: --no-replace cannot be used with --fail-on-unset or --fail-on-empty"
+                .to_string(),
         );
-        std::process::exit(1);
     }
 
     // set no_replace_unset and no_replace_empty to true if no_replace is used
@@ -354,16 +297,16 @@ pub fn parse_args() -> Args {
     };
 
     let filters = Filters {
-        prefix,
-        suffix,
+        prefixes,
+        suffixes,
         variables,
     };
 
     // Return the parsed arguments as a struct
-    Args {
+    return Ok(Args {
         input_file,
         output_file,
         flags,
         filters,
-    }
+    });
 }

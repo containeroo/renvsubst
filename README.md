@@ -32,11 +32,13 @@ Usage: renvsubst [PARAMETERS] [FLAGS] [FILTERS]
 
 ## Filters
 
+Every filter can be specified multiple times!
+
 | Parameter                    | Description                                                                                                              |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `--prefix`                   | Only replace variables with the specified prefix.                                                                        |
 | `--suffix`                   | Only replace variables with the specified suffix.                                                                        |
-| `--variable` [VARIABLE_NAME] | Specify variable to replace. If not provided, all variables will be replaced. Variables can be specified multiple times. |
+| `--variable` [VARIABLE_NAME] | Specify variable to replace. If not provided, all variables will be replaced.                                            |
 
 The variables will be substituted according to the specified prefix, suffix, or variable name. If none of these options are provided, all variables will be substituted. When one or more options are specified, only variables that match the given prefix, suffix, or variable name will be replaced, while all others will remain unchanged.
 
@@ -70,6 +72,7 @@ It has more than "\${AMOUNT}" different variables.
 You can also use "\${UNSET_VARIABLE:-default}" values inside variables like "\$\${UNSET_VARIABLE:-default}".
 Here are more variable like "\${PREFIXED_VARIABLE_1}" and "\${VARIABLE_1_SUFFIXED}".
 Here are more "\$PREFIXED_VARIABLE_2" and "\$VARIABLE_2_SUFFIXED" variables!
+Here are other prefixed "\$prefixed_VARIABLE_3" and suffixed "\$VARIABLE_3_suffixed" variables!
 EOF
 ```
 
@@ -80,8 +83,10 @@ export FILE_NAME=test.txt
 export AMOUNT=1
 export PREFIXED_VARIABLE_1="variable with a prefix"
 export PREFIXED_VARIABLE_2="another variable with a prefix"
+export prefixed_VARIABLE_3="small letters prefix"
 export VARIABLE_1_SUFFIXED="variable with a suffix"
 export VARIABLE_2_SUFFIXED="another variable with a suffix"
+export VARIABLE_3_suffixed="small letters suffix"
 ```
 
 ### Commands
@@ -96,9 +101,10 @@ renvsubst -i test.txt
 # output:
 This is a "test.txt" file.
 It has more than "1" different variables.
-You can also use "default" values inside variables like ${UNSET_VARIABLE:-default}.
+You can also use "default" values inside variables like "$${UNSET_VARIABLE:-default}".
 Here are more variable like "variable with a prefix" and "variable with a suffix".
 Here are more "another variable with a prefix" and "another variable with a suffix" variables!
+Here are other prefixed "small letters prefix" and suffixed "small letters suffix" variables!
 ```
 
 #### filter variables
@@ -111,9 +117,10 @@ renvsubst -i test.txt --variable AMOUNT --variable UNSET_VARIABLE
 # output:
 This is a "$FILE_NAME" file.
 It has more than "1" different variables.
-You can also use "default" values inside variables like ${UNSET_VARIABLE:-default}.
+You can also use "default" values inside variables like "$${UNSET_VARIABLE:-default}".
 Here are more variable like "${PREFIXED_VARIABLE_1}" and "${VARIABLE_1_SUFFIXED}".
 Here are more "$PREFIXED_VARIABLE_2" and "$VARIABLE_2_SUFFIXED" variables!
+Here are other prefixed "$prefixed_VARIABLE_3" and suffixed "$VARIABLE_3_suffixed" variables!
 ```
 
 #### filter with prefix
@@ -126,9 +133,10 @@ renvsubst -i test.txt --prefix PREFIXED
 # output:
 This is a "$FILE_NAME" file.
 It has more than "${AMOUNT}" different variables.
-You can also use "${UNSET_VARIABLE:-default}" values inside variables like ${UNSET_VARIABLE:-default}.
+You can also use "${UNSET_VARIABLE:-default}" values inside variables like "$${UNSET_VARIABLE:-default}".
 Here are more variable like "variable with a prefix" and "${VARIABLE_1_SUFFIXED}".
 Here are more "another variable with a prefix" and "$VARIABLE_2_SUFFIXED" variables!
+Here are other prefixed "$prefixed_VARIABLE_3" and suffixed "$VARIABLE_3_suffixed" variables!
 ```
 
 #### filter with suffix
@@ -139,22 +147,24 @@ renvsubst -i test.txt --suffix SUFFIXED
 # output:
 This is a "$FILE_NAME" file.
 It has more than "${AMOUNT}" different variables.
-You can also use "${UNSET_VARIABLE:-default}" values inside variables like ${UNSET_VARIABLE:-default}.
+You can also use "${UNSET_VARIABLE:-default}" values inside variables like "$${UNSET_VARIABLE:-default}".
 Here are more variable like "${PREFIXED_VARIABLE_1}" and "variable with a suffix".
 Here are more "$PREFIXED_VARIABLE_2" and "another variable with a suffix" variables!
+Here are other prefixed "$prefixed_VARIABLE_3" and suffixed "$VARIABLE_3_suffixed" variables!
 ```
 
 ## multiple filter
 
 ```sh
-renvsubst -i test.txt --prefix PREFIXED --suffix SUFFIXED
+renvsubst -i test.txt --prefix PREFIXED --prefix prefixed --suffix SUFFIXED
 
 # output:
 This is a "$FILE_NAME" file.
 It has more than "${AMOUNT}" different variables.
-You can also use "${UNSET_VARIABLE:-default}" values inside variables like "${UNSET_VARIABLE:-default}".
+You can also use "${UNSET_VARIABLE:-default}" values inside variables like "$${UNSET_VARIABLE:-default}".
 Here are more variable like "variable with a prefix" and "variable with a suffix".
 Here are more "another variable with a prefix" and "another variable with a suffix" variables!
+Here are other prefixed "" and suffixed "$VARIABLE_3_suffixed" variables!
 ```
 
 ## container

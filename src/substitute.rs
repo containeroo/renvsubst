@@ -132,19 +132,19 @@ fn get_env_var_value(
 /// ```
 fn matches_filters(filters: &Filters, var_name: &str) -> Option<bool> {
     // return None if no filters are set
-    if !(filters.prefix.is_some() || filters.suffix.is_some() || filters.variables.is_some()) {
+    if !(filters.prefixes.is_some() || filters.suffixes.is_some() || filters.variables.is_some()) {
         return None;
     }
 
     // check if the variable name matches the filters
     let match_prefix: bool = filters
-        .prefix
+        .prefixes
         .as_ref()
-        .map_or(false, |p| var_name.starts_with(p));
+        .map_or(false, |p| p.iter().any(|item| var_name.starts_with(item)));
     let match_suffix: bool = filters
-        .suffix
+        .suffixes
         .as_ref()
-        .map_or(false, |s| var_name.ends_with(s));
+        .map_or(false, |s| s.iter().any(|item| var_name.ends_with(item)));
     let match_variable: bool = filters
         .variables
         .as_ref()
@@ -1149,7 +1149,7 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                prefix: Some("TEST".to_string()),
+                prefixes: Some(vec!["TEST".to_string()]),
                 ..Filters::default()
             },
         );
@@ -1172,7 +1172,7 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                prefix: Some("TEST".to_string()),
+                prefixes: Some(vec!["TEST".to_string()]),
                 ..Filters::default()
             },
         );
@@ -1195,7 +1195,7 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                suffix: Some("TEST".to_string()),
+                suffixes: Some(vec!["TEST".to_string()]),
                 ..Filters::default()
             },
         );
@@ -1203,6 +1203,54 @@ mod tests {
             result,
             Ok("this $ENV1 has a prefix. This var1_test has a suffix.".to_string())
         );
+    }
+
+    #[test]
+    fn test_process_line_regular_var_multiple_suffix() {
+        // description: regular variable with multiple suffix
+        // test: this $ENV1 has no suffix. This "$VAR_FIRST" has a suffix. And this "${VAR_SECOND}" has another suffix.
+        // env: ENV1=env1, VAR_FIRST=first suffix, VAR_SECOND=second suffix
+        // result: this this $ENV1 has a prefix. This "first suffix" has a suffix. And this "second suffix" has another suffix.
+        env::set_var("ENV1", "env1");
+        env::set_var("VAR_FIRST", "first suffix");
+        env::set_var("VAR_SECOND", "second suffix");
+        let line = "this this $ENV1 has no suffix. This \"$VAR_FIRST\" has a suffix. And this \"${VAR_SECOND}\" has another suffix.".to_string();
+        let result = process_line(
+            &line,
+            &Flags::default(),
+            &Filters {
+                suffixes: Some(vec!["FIRST".to_string(), "SECOND".to_string()]),
+                ..Filters::default()
+            },
+        );
+        assert_eq!(
+          result,
+          Ok("this this $ENV1 has no suffix. This \"first suffix\" has a suffix. And this \"second suffix\" has another suffix.".to_string())
+      );
+    }
+
+    #[test]
+    fn test_process_line_regular_var_multiple_prefix() {
+        // description: regular variable with multiple prefix
+        // test: this $ENV1 has no prefix. This "$FIRST_VAR" has a prefix. And this "${SECOND_VAR}" has another suffix.
+        // env: ENV1=env1, FIRST_VAR=first prefix, SECOND_VAR=second prefix
+        // result: this this $ENV1 has no prefix. This "first suffix" has a suffix. And this "second suffix" has another suffix.
+        env::set_var("ENV1", "env1");
+        env::set_var("FIRST_VAR", "first prefix");
+        env::set_var("SECOND_VAR", "second prefix");
+        let line = "this this $ENV1 has no prefix. This \"$FIRST_VAR\" has a prefix. And this \"${SECOND_VAR}\" has another prefix.".to_string();
+        let result = process_line(
+            &line,
+            &Flags::default(),
+            &Filters {
+                prefixes: Some(vec!["FIRST".to_string(), "SECOND".to_string()]),
+                ..Filters::default()
+            },
+        );
+        assert_eq!(
+          result,
+          Ok("this this $ENV1 has no prefix. This \"first prefix\" has a prefix. And this \"second prefix\" has another prefix.".to_string())
+      );
     }
 
     #[test]
@@ -1218,7 +1266,7 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                suffix: Some("TEST".to_string()),
+                suffixes: Some(vec!["TEST".to_string()]),
                 ..Filters::default()
             },
         );
@@ -1242,7 +1290,7 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                suffix: Some("TEST".to_string()),
+                suffixes: Some(vec!["TEST".to_string()]),
                 ..Filters::default()
             },
         );
@@ -1266,7 +1314,7 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                prefix: Some("TEST".to_string()),
+                prefixes: Some(vec!["TEST".to_string()]),
                 ..Filters::default()
             },
         );
@@ -1277,11 +1325,11 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_braces_var_valid_prefix_valid_suffix() {
+    fn test_process_line_braces_var_valid_no_prefix_valid_suffix() {
         // description: braces variable with suffix
-        // test: this $ENV1 has a prefix. This $VAR1_TEST has a suffix.
+        // test: this var $ENV1 should not be touched. this $TEST_VAR1 has a prefix. This ${VAR1_TEST} has a suffix.
         // env: ENV1=env1, VAR1_TEST=var1_var
-        // result:this $ENV1 has a prefix. This test_var1 has a suffix.
+        // result:this $ENV1 has a prefix. This test_var1 has a suffix. This var1_test has a suffix.
         env::set_var("ENV1", "env1");
         env::set_var("TEST_VAR1", "test_var1");
         env::set_var("VAR1_TEST", "var1_test");
@@ -1290,14 +1338,13 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                suffix: Some("TEST".to_string()),
-                prefix: Some("TEST".to_string()),
+                suffixes: Some(vec!["TEST".to_string()]),
                 ..Filters::default()
             },
         );
         assert_eq!(
             result,
-            Ok("this var $ENV1 should not be touched. this test_var1 has a prefix. This var1_test has a suffix.".to_string())
+            Ok("this var $ENV1 should not be touched. this $TEST_VAR1 has a prefix. This var1_test has a suffix.".to_string())
         );
     }
 
@@ -1338,8 +1385,8 @@ mod tests {
             &Flags::default(),
             &Filters {
                 variables: Some(vec!["ENV1".to_string(), "ENV2".to_string()]),
-                prefix: Some("BAD_PREFIX".to_string()),
-                suffix: Some("BAD_SUFFIX".to_string()),
+                prefixes: Some(vec!["BAD_PREFIX".to_string()]),
+                suffixes: Some(vec!["BAD_SUFFIX".to_string()]),
             },
         );
         assert_eq!(
@@ -1376,8 +1423,8 @@ mod tests {
             &Flags::default(),
             &Filters {
                 variables: Some(vec!["PREFIX_VAR_SUFFIX".to_string()]),
-                prefix: Some("PREFIX".to_string()),
-                suffix: Some("SUFFIX".to_string()),
+                prefixes: Some(vec!["PREFIX".to_string()]),
+                suffixes: Some(vec!["SUFFIX".to_string()]),
                 ..Filters::default()
             },
         );
@@ -1402,8 +1449,8 @@ mod tests {
             matches_filters(
                 &Filters {
                     variables: Some(vec!["VAR".to_string()]),
-                    prefix: Some("PREFIX".to_string()),
-                    suffix: Some("SUFFIX".to_string()),
+                    prefixes: Some(vec!["PREFIX".to_string()]),
+                    suffixes: Some(vec!["SUFFIX".to_string()]),
                 },
                 "PREFIX_VAR_SUFFIX"
             ),
@@ -1419,7 +1466,7 @@ mod tests {
         assert_eq!(
             matches_filters(
                 &Filters {
-                    prefix: Some("PREFIX".to_string()),
+                    prefixes: Some(vec!["PREFIX".to_string()]),
                     ..Filters::default()
                 },
                 "PREFIX_VAR"
@@ -1436,7 +1483,7 @@ mod tests {
         assert_eq!(
             matches_filters(
                 &Filters {
-                    suffix: Some("SUFFIX".to_string()),
+                    suffixes: Some(vec!["SUFFIX".to_string()]),
                     ..Filters::default()
                 },
                 "VAR_SUFFIX"
@@ -1470,7 +1517,7 @@ mod tests {
         assert_eq!(
             matches_filters(
                 &Filters {
-                    prefix: Some("PREFIX".to_string()),
+                    prefixes: Some(vec!["PREFIX".to_string()]),
                     ..Filters::default()
                 },
                 "VAR"
@@ -1487,7 +1534,7 @@ mod tests {
         assert_eq!(
             matches_filters(
                 &Filters {
-                    suffix: Some("SUFFIX".to_string()),
+                    suffixes: Some(vec!["SUFFIX".to_string()]),
                     ..Filters::default()
                 },
                 "VAR"
@@ -1521,8 +1568,8 @@ mod tests {
         assert_eq!(
             matches_filters(
                 &Filters {
-                    prefix: Some("PREFIX".to_string()),
-                    suffix: Some("SUFFIX".to_string()),
+                    prefixes: Some(vec!["PREFIX".to_string()]),
+                    suffixes: Some(vec!["SUFFIX".to_string()]),
                     ..Filters::default()
                 },
                 "VAR"
@@ -1540,7 +1587,7 @@ mod tests {
             matches_filters(
                 &Filters {
                     variables: Some(vec!["VAR".to_string()]),
-                    prefix: Some("PREFIX".to_string()),
+                    prefixes: Some(vec!["PREFIX".to_string()]),
                     ..Filters::default()
                 },
                 "VAR2"
@@ -1558,7 +1605,7 @@ mod tests {
             matches_filters(
                 &Filters {
                     variables: Some(vec!["VAR".to_string()]),
-                    suffix: Some("SUFFIX".to_string()),
+                    suffixes: Some(vec!["SUFFIX".to_string()]),
                     ..Filters::default()
                 },
                 "VAR2"
@@ -1577,8 +1624,8 @@ mod tests {
             matches_filters(
                 &Filters {
                     variables: Some(vec!["VAR".to_string()]),
-                    prefix: Some("PREFIX".to_string()),
-                    suffix: Some("SUFFIX".to_string()),
+                    prefixes: Some(vec!["PREFIX".to_string()]),
+                    suffixes: Some(vec!["SUFFIX".to_string()]),
                     ..Filters::default()
                 },
                 "VAR2"
@@ -1764,8 +1811,8 @@ mod tests {
     #[test]
     fn test_example_match_filters() {
         let filters = Filters {
-            prefix: Some("prefixed_".to_string()),
-            suffix: Some("_suffixed".to_string()),
+            prefixes: Some(vec!["prefixed_".to_string()]),
+            suffixes: Some(vec!["_suffixed".to_string()]),
             variables: Some(vec![
                 "my_variable".to_string(),
                 "another_variable".to_string(),
