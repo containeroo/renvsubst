@@ -61,6 +61,34 @@ pub struct Flags {
     pub no_escape: bool,
 }
 
+impl Default for Flags {
+    /// Returns a new instance of `Flags` with all fields set to their default values.
+    ///
+    /// * `fail_on_unset`: `false`
+    /// * `fail_on_empty`: `false`
+    /// * `no_replace_unset`: `false`
+    /// * `no_replace_empty`: `false`
+    /// * `no_escape`: `false`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use my_crate::Flags;
+    ///
+    /// let flags = Flags::default();
+    /// assert_eq!(flags.fail_on_unset, false);
+    /// ```
+    fn default() -> Self {
+        Self {
+            fail_on_unset: false,
+            fail_on_empty: false,
+            no_replace_unset: false,
+            no_replace_empty: false,
+            no_escape: false,
+        }
+    }
+}
+
 /// Represents a set of filters to apply to environment variables during substitution.
 ///
 /// This struct includes an optional `prefix` and `suffix` to restrict which variables will be substituted. If a
@@ -75,6 +103,27 @@ pub struct Filters {
     pub prefix: Option<String>,
     pub suffix: Option<String>,
     pub variables: Option<Vec<String>>,
+}
+
+impl Default for Filters {
+    /// Returns a new instance of `Filters` with all fields set to `None`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use my_crate::Filters;
+    ///
+    /// let filters = Filters::default();
+    /// assert_eq!(filters.prefix, None);
+    /// ```
+
+    fn default() -> Self {
+        Self {
+            prefix: None,
+            suffix: None,
+            variables: None,
+        }
+    }
 }
 
 /// Represents the arguments passed to the program.
