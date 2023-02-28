@@ -18,6 +18,7 @@ codegen-units = 1
 panic-abort-tests = true
 incremental = false
 overflow-checks = true
+strip = true
 
 [target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
 version = "0.5.0"
