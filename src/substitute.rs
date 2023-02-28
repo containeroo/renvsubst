@@ -2,39 +2,48 @@ use crate::args::{Filters, Flags};
 use std::env;
 use std::io::{BufRead, BufReader};
 
-/// Retrieves the value of an environment variable and performs additional checks according to the specified `Flags`.
+/// Retrieves the value of the environment variable specified by `var_name`, and returns it as a `String`.
+/// If the variable is not set, the function checks if `default_value` is set, and returns it if it is.
+/// If `default_value` is not set, the function returns the value of `original_variable`.
+///
+/// The function also supports additional configuration options through the `flags` argument.
 ///
 /// # Arguments
 ///
-/// * `var_name` - A string reference to the name of the environment variable to retrieve.
-/// * `original_variable` - A string reference to the original value of the variable (used for the `no_replace_*` flags).
-/// * `default_value` - A string reference to the default value to use if the environment variable is not set.
-/// * `flags` - A reference to a `Flags` object containing additional behavior settings.
+/// * `var_name`: A string slice that represents the name of the environment variable to retrieve.
+/// * `original_variable`: A string slice that represents the original value of the variable, to be used as a fallback.
+/// * `default_value`: A string slice that represents the default value to be used if the environment variable is not set.
+/// * `flags`: A reference to a `Flags` struct that contains various configuration options.
+///
+/// # Configuration Options
+///
+/// The `flags` struct has the following fields:
+///
+/// * `fail_on_empty`: If `true`, the function returns an error if the environment variable is set to an empty string.
+/// * `fail_on_unset`: If `true`, the function returns an error if the environment variable is not set.
+/// * `no_replace_empty`: If `true`, the function returns the value of `original_variable` if the environment variable is set to an empty string.
+/// * `no_replace_unset`: If `true`, the function returns the value of `original_variable` if the environment variable is not set.
 ///
 /// # Returns
 ///
-/// Returns a `Result` that is either an `Ok` containing the retrieved variable value, or an `Err` containing an error message if the `fail_on_empty` or `fail_on_unset` flags are set and the variable value does not meet the specified criteria.
-///
-/// # Errors
-///
-/// Returns an error if the `fail_on_empty` flag is set and the variable value is empty, or if the `fail_on_unset` flag is set, the variable value is empty, and the default value is also empty.
+/// Returns a `Result` that contains either the variable value as a `String`, or an error message as a `String`.
 ///
 /// # Examples
 ///
 /// ```
-/// let var_name = "MY_ENV_VAR";
-/// let default_value = "default_value";
-/// let flags = Flags {
-///     fail_on_empty: false,
+/// use my_crate::get_env_var_value;
+///
+/// let var_value = get_env_var_value("MY_VAR", "default_value", "fallback_value", &Flags {
+///     fail_on_empty: true,
 ///     fail_on_unset: false,
 ///     no_replace_empty: false,
 ///     no_replace_unset: false,
-///     no_escape: false,
-/// };
+/// });
 ///
-/// let result = get_env_var_value(var_name, "", default_value, &flags);
-///
-/// assert_eq!(result, Ok(default_value.to_string()));
+/// match var_value {
+///     Ok(value) => println!("The value of MY_VAR is {}", value),
+///     Err(err) => eprintln!("Error: {}", err),
+/// }
 /// ```
 fn get_env_var_value(
     var_name: &str,
@@ -42,38 +51,73 @@ fn get_env_var_value(
     default_value: &str,
     flags: &Flags,
 ) -> Result<String, String> {
-    let var_value = env::var(var_name).unwrap_or(default_value.to_string());
+    match env::var(var_name) {
+        // If the variable value is empty, and the default value is empty,
+        // and the `fail_on_empty` flag is set, return an error.
+        Ok(value) if value.is_empty() && default_value.is_empty() && flags.fail_on_empty => {
+            return Err(format!("environment variable '{}' is empty", var_name))
+        }
 
-    if flags.fail_on_empty && var_value.is_empty() {
-        return Err(format!("environment variable '{}' is empty", var_name));
-    }
-    if flags.fail_on_unset && var_value.is_empty() && default_value.is_empty() {
-        return Err(format!("environment variable '{}' is not set", var_name));
-    }
-    if flags.no_replace_empty && var_value.is_empty() && default_value.is_empty() {
-        return Ok(original_variable.to_string());
-    }
-    if flags.no_replace_unset && var_value.is_empty() && default_value.is_empty() {
-        return Ok(original_variable.to_string());
-    }
+        // If the variable value is empty, and the default value is not empty,
+        // and the `no_replace_empty` flag is not set, return the default value.
+        Ok(value) if value.is_empty() && !default_value.is_empty() && !flags.no_replace_empty => {
+            return Ok(default_value.to_owned())
+        }
 
-    return Ok(var_value);
+        // If the variable value is empty, and the `no_replace_empty` flag is set,
+        // return the original variable value.
+        Ok(value) if value.is_empty() && flags.no_replace_empty => {
+            return Ok(original_variable.to_owned())
+        }
+
+        // If the variable value is not empty, return the variable value.
+        Ok(value) => return Ok(value),
+
+        // If the environment variable is not set, and the default value is not empty,
+        // return the default value.
+        Err(_) if !default_value.is_empty() => return Ok(default_value.to_owned()),
+
+        // If the environment variable is not set, and the `fail_on_unset` flag is set,
+        // return an error.
+        Err(_) if flags.fail_on_unset => {
+            return Err(format!("environment variable '{}' is not set", var_name))
+        }
+
+        // If the environment variable is not set, and the `no_replace_unset` flag is set,
+        // return the original variable value.
+        Err(_) if flags.no_replace_unset => return Ok(original_variable.to_owned()),
+
+        // If none of the above conditions are met, return an empty string.
+        // This is wanted behavior, as we don't want to replace the variable if it's not set.
+        Err(_) => return Ok("".to_owned()),
+    }
 }
-
-/// Determines whether a given variable name matches any of the filters in the specified `Filters` object.
+/// Determines whether a given variable name matches a set of filters.
 ///
 /// # Arguments
 ///
-/// * `filters` - A reference to a `Filters` object containing optional filter criteria.
-/// * `var_name` - A string reference to the variable name to be tested.
+/// * `filters`: A reference to a `Filters` struct that contains the filter criteria.
+/// * `var_name`: A string slice that represents the name of the variable to match against the filters.
 ///
 /// # Returns
 ///
-/// Returns `Some(true)` if the variable name matches any of the filters, `Some(false)` if it doesn't match any of the filters, or `None` if no filters are set.
+/// Returns an `Option` that contains either `true` or `false` if the variable name matches the filters, or `None` if no filters are set.
+///
+/// # Filters
+///
+/// The `Filters` struct has the following fields:
+///
+/// * `prefix`: A string slice that represents the prefix that variable names must have in order to match.
+/// * `suffix`: A string slice that represents the suffix that variable names must have in order to match.
+/// * `variables`: A vector of string slices that represents the variable names that must match.
+///
+/// If none of these fields are set, the function returns `None`.
 ///
 /// # Examples
 ///
 /// ```
+/// use my_crate::matches_filters;
+///
 /// let filters = Filters {
 ///     prefix: Some("prefixed_".to_string()),
 ///     suffix: Some("_suffixed".to_string()),
@@ -109,21 +153,40 @@ fn matches_filters(filters: &Filters, var_name: &str) -> Option<bool> {
     return Some(match_prefix || match_suffix || match_variable);
 }
 
-/// Processes a single line of text and performs variable substitution according to the specified `Flags` and `Filters`.
+/// Processes a single line of text and replaces all instances of environment variables with their values.
 ///
 /// # Arguments
 ///
-/// * `line` - A string reference to the line of text to process.
-/// * `flags` - A reference to a `Flags` object containing additional behavior settings.
-/// * `filters` - A reference to a `Filters` object containing optional filter criteria for variable names.
+/// * `line`: A string slice that represents the line of text to process.
+/// * `flags`: A reference to a `Flags` struct that contains various configuration options.
+/// * `filters`: A reference to a `Filters` struct that contains the filter criteria for which variables to replace.
 ///
 /// # Returns
 ///
-/// Returns a `Result` that is either an `Ok` containing the processed line of text with variable substitutions, or an `Err` containing an error message if an error occurs during variable substitution.
+/// Returns a `Result` that contains the processed line of text as a `String`, or an error message as a `String`.
 ///
-/// # Errors
+/// # Environment Variables
 ///
-/// Returns an error if an error occurs during variable substitution.
+/// Environment variables are specified in the text using the `$VAR` or `${VAR}` syntax, where `VAR` is the name of the variable.
+/// The `${VAR}` syntax can also include a default value, such as `${VAR:-DEFAULT}`, which specifies that if the `VAR` variable is not set, the default value `DEFAULT` should be used instead.
+///
+/// # Configuration Options
+///
+/// The `flags` struct has the following fields:
+///
+/// * `fail_on_empty`: If `true`, the function returns an error if an environment variable is set to an empty string.
+/// * `fail_on_unset`: If `true`, the function returns an error if an environment variable is not set.
+/// * `no_replace_empty`: If `true`, the function does not replace variables that are set to an empty string.
+/// * `no_replace_unset`: If `true`, the function does not replace variables that are not set.
+/// * `no_escape`: If `true`, the function does not treat `$$` as an escape sequence for a literal `$`.
+///
+/// The `filters` struct has the following fields:
+///
+/// * `prefix`: A string slice that represents the prefix that variable names must have in order to be replaced.
+/// * `suffix`: A string slice that represents the suffix that variable names must have in order to be replaced.
+/// * `variables`: A vector of string slices that represents the variable names that must be replaced.
+///
+/// If none of these fields are set, all variables are replaced.
 ///
 /// # Examples
 ///
@@ -301,50 +364,60 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
     Ok(new_line)
 }
 
-/// Processes an input file and performs variable substitution according to the specified `Flags` and `Filters`.
+/// Reads input from a file or standard input, processes each line by replacing environment variables with their values, and writes the processed output to a file or standard output.
 ///
 /// # Arguments
 ///
-/// * `input_file` - A boxed input file stream (e.g. `std::fs::File`) containing the text to process.
-/// * `output_file` - A boxed output file stream (e.g. `std::fs::File` or `std::io::stdout()`) to write the processed text to.
-/// * `flags` - A reference to a `Flags` object containing additional behavior settings.
-/// * `filters` - A reference to a `Filters` object containing optional filter criteria for variable names.
+/// * `input_file`: A box that contains a `std::io::Read` trait object that represents the input stream.
+/// * `output_file`: A box that contains a `std::io::Write` trait object that represents the output stream.
+/// * `flags`: A reference to a `Flags` struct that contains various configuration options.
+/// * `filters`: A reference to a `Filters` struct that contains the filter criteria for which variables to replace.
 ///
 /// # Returns
 ///
-/// Returns `Ok(())` if the processing is successful, or an `Err` containing an error message if an error occurs during variable substitution or writing to the output file.
+/// Returns a `Result` that contains `()` if the operation was successful, or an error message as a `String` if an error occurred.
 ///
-/// # Errors
+/// # Environment Variables
 ///
-/// Returns an error if an error occurs during variable substitution or writing to the output file.
+/// Environment variables are specified in the text using the `$VAR` or `${VAR}` syntax, where `VAR` is the name of the variable.
+/// The `${VAR}` syntax can also include a default value, such as `${VAR:-DEFAULT}`, which specifies that if the `VAR` variable is not set, the default value `DEFAULT` should be used instead.
+///
+/// # Configuration Options
+///
+/// The `flags` struct has the following fields:
+///
+/// * `fail_on_empty`: If `true`, the function returns an error if an environment variable is set to an empty string.
+/// * `fail_on_unset`: If `true`, the function returns an error if an environment variable is not set.
+/// * `no_replace_empty`: If `true`, the function does not replace variables that are set to an empty string.
+/// * `no_replace_unset`: If `true`, the function does not replace variables that are not set.
+/// * `no_escape`: If `true`, the function does not treat `$$` as an escape sequence for a literal `$`.
+///
+/// The `filters` struct has the following fields:
+///
+/// * `prefix`: A string slice that represents the prefix that variable names must have in order to be replaced.
+/// * `suffix`: A string slice that represents the suffix that variable names must have in order to be replaced.
+/// * `variables`: A vector of string slices that represents the variable names that must be replaced.
+///
+/// If none of these fields are set, all variables are replaced.
 ///
 /// # Examples
 ///
 /// ```
-/// use std::io::{Read, Write};
+/// use my_crate::{perform_substitution, Flags, Filters};
 ///
-/// let content = "Hello, ${NAME:-User}! How are you, ${NAME}?";
-/// let flags = Flags {
-///     fail_on_empty: false,
-///     fail_on_unset: false,
-///     no_replace_empty: false,
-///     no_replace_unset: false,
-///     no_escape: false,
-/// };
-/// let filters = Filters {
-///     prefix: None,
-///     suffix: None,
-///     variables: None,
-/// };
+/// let input = "The value of MY_VAR is $MY_VAR";
+/// let mut output: Vec<u8> = vec![];
+/// let flags = Flags::default();
+/// let filters = Filters::default();
 ///
-/// //convert line to match input_file from perform_substitution
-/// let line = Box::new(content.as_bytes());
-///
-/// let result = perform_substitution(line, Box::new(std::io::stdout()), &flags, &filters);
+/// let result = perform_substitution(
+///   Box::new(input.as_bytes()),
+///   Box::new(output),
+///   &flags,
+///   &filters,
+/// );
 ///
 /// assert!(result.is_ok());
-/// assert_eq!(result.unwrap(), ());
-
 /// ```
 pub fn perform_substitution(
     input_file: Box<dyn std::io::Read>,
@@ -420,6 +493,28 @@ mod tests {
     }
 
     #[test]
+    fn test_process_line_regular_var_not_found_fail_on_unset() {
+        // description: regular variable not found
+        // test: $REGULAR_VAR_NOT_FOUND
+        // env: -
+        // result: -
+        let line = "$REGULAR_VAR_NOT_FOUND".to_string();
+        let result = process_line(
+            &line,
+            &Flags {
+                fail_on_unset: true,
+                ..EMPTY_FLAGS
+            },
+            &EMPTY_FILTERS,
+        );
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "environment variable 'REGULAR_VAR_NOT_FOUND' is not set"
+        );
+    }
+
+    #[test]
     fn test_process_line_regular_var_not_found() {
         // description: regular variable not found
         // test: $REGULAR_VAR_NOT_FOUND
@@ -481,6 +576,28 @@ mod tests {
         let line = "${BRACES_VAR_NOT_FOUND}".to_string();
         let result = process_line(&line, &EMPTY_FLAGS, &EMPTY_FILTERS);
         assert_eq!(result, Ok("".to_string()));
+    }
+
+    #[test]
+    fn test_process_line_braces_var_not_found_fail_on_unset() {
+        // description: braces variable not found
+        // test: ${BRACES_VAR_NOT_FOUND}
+        // env: unset
+        // result: -
+        let line = "${BRACES_VAR_NOT_FOUND}".to_string();
+        let result = process_line(
+            &line,
+            &Flags {
+                fail_on_unset: true,
+                ..EMPTY_FLAGS
+            },
+            &EMPTY_FILTERS,
+        );
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "environment variable 'BRACES_VAR_NOT_FOUND' is not set"
+        );
     }
 
     #[test]
@@ -1507,12 +1624,7 @@ mod tests {
         let var_name = "REGULAR_VAR";
         let original_var = "${REGULAR_VAR}";
         let default_value = "";
-        let result = get_env_var_value(
-            &var_name,
-            original_var,
-            default_value,
-            &Flags { ..EMPTY_FLAGS },
-        );
+        let result = get_env_var_value(&var_name, original_var, default_value, &EMPTY_FLAGS);
         assert_eq!(result, Ok("var".to_string()));
     }
 
@@ -1526,12 +1638,7 @@ mod tests {
         let var_name = "REGULAR_VAR_WITH_DEFAULT";
         let original_var = "${REGULAR_VAR_WITH_DEFAULT:-default}";
         let default_value = "default";
-        let result = get_env_var_value(
-            &var_name,
-            original_var,
-            default_value,
-            &Flags { ..EMPTY_FLAGS },
-        );
+        let result = get_env_var_value(&var_name, original_var, default_value, &EMPTY_FLAGS);
         assert_eq!(result, Ok("var".to_string()));
     }
 
@@ -1731,7 +1838,8 @@ mod tests {
 
     #[test]
     fn test_example_perform_substitution() {
-        let content = "Hello, ${NAME:-User}! How are you, ${NAME}?";
+        let input = "The value of MY_VAR is $MY_VAR";
+        let output: Vec<u8> = vec![];
         let flags = Flags {
             fail_on_empty: false,
             fail_on_unset: false,
@@ -1745,12 +1853,13 @@ mod tests {
             variables: None,
         };
 
-        // convert line to match input_file from perform_substitution
-        let line = Box::new(content.as_bytes());
-
-        let result = perform_substitution(line, Box::new(std::io::stdout()), &flags, &filters);
+        let result = perform_substitution(
+            Box::new(input.as_bytes()),
+            Box::new(output),
+            &flags,
+            &filters,
+        );
 
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), ());
     }
 }
