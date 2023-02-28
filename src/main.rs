@@ -3,7 +3,8 @@ mod file_io;
 mod substitute;
 use crate::file_io::{open_input_file, open_output_file};
 
-use args::{get_args, Args};
+use args::{parse_args, Args};
+use std::env;
 use substitute::perform_substitution;
 
 const VERSION: &str = "0.2.0";
@@ -19,7 +20,7 @@ fn main() {
         output_file,
         flags,
         filters,
-    } = get_args();
+    } = parse_args();
 
     // open input file, can be stdin
     let input_file = open_input_file(input_file).unwrap_or_else(|e| {

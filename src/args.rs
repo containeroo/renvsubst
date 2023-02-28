@@ -165,17 +165,17 @@ pub struct Args {
 /// # Examples
 ///
 /// ```
-/// let args = get_args();
+/// let args = parse_args();
 /// let input_file = open_input_file(args.input_file)?;
 /// let output_file = open_output_file(args.output_file)?;
 /// perform_substitution(input_file, output_file, &args.flags, &args.filters)?;
 /// ```
-pub fn get_args() -> Args {
+pub fn parse_args() -> Args {
     let mut args = env::args();
 
     // check if arguments was passed
     if args.len() == 1 {
-        println!("{}", HELP_TEXT.replace("{MESSAGE}", DEFAULT_TEXT));
+        eprintln!("{}", HELP_TEXT.replace("{MESSAGE}", DEFAULT_TEXT));
         std::process::exit(1);
     }
 
