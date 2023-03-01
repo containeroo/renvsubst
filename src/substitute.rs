@@ -1,6 +1,6 @@
 use crate::args::{Filters, Flags};
+use std::env;
 use std::io::{BufRead, BufReader};
-use std::{collections::HashSet, env};
 
 /// Retrieves the value of the environment variable specified by `var_name`, and returns it as a `String`.
 /// If the variable is not set, the function checks if `default_value` is set, and returns it if it is.
@@ -440,6 +440,8 @@ pub fn perform_substitution(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
+
 
     #[test]
     fn test_process_line_regular_var_found() {
