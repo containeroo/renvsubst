@@ -1,8 +1,7 @@
-use crate::VERSION;
 use std::{env, collections::HashSet};
 
 /// Template for the help text.
-const HELP_TEXT: &str = "Usage: renvsubst [PARAMETERS] [FLAGS] [FILTERS]
+pub const HELP_TEXT: &str = "Usage: renvsubst [PARAMETERS] [FLAGS] [FILTERS]
 
 renvsubst will substitute all (bash-like) environment variables in the format of $VAR_NAME, ${VAR_NAME} or ${VAR_NAME:-DEFAULT_VALUE} with their corresponding values from the environment or the default value if provided. If the variable is not valid, it remains as is.
 A valid variable name starts with a letter or underscore, followed by any combination of letters, numbers, or underscores.
@@ -69,40 +68,13 @@ To retain a variable's original value and prevent it from being substituted by a
 /// assert_eq!(flags.no_replace_empty, false);
 /// assert_eq!(flags.no_escape, false);
 /// ```
+#[derive(Default)]
 pub struct Flags {
     pub fail_on_unset: bool,
     pub fail_on_empty: bool,
     pub no_replace_unset: bool,
     pub no_replace_empty: bool,
     pub no_escape: bool,
-}
-
-impl Default for Flags {
-    /// Returns a new instance of `Flags` with all fields set to their default values.
-    ///
-    /// * `fail_on_unset`: `false`
-    /// * `fail_on_empty`: `false`
-    /// * `no_replace_unset`: `false`
-    /// * `no_replace_empty`: `false`
-    /// * `no_escape`: `false`
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use my_crate::Flags;
-    ///
-    /// let flags = Flags::default();
-    /// assert_eq!(flags.fail_on_unset, false);
-    /// ```
-    fn default() -> Self {
-        Self {
-            fail_on_unset: false,
-            fail_on_empty: false,
-            no_replace_unset: false,
-            no_replace_empty: false,
-            no_escape: false,
-        }
-    }
 }
 
 /// Configuration filters that control which variables will be replaced in the output.
@@ -133,31 +105,11 @@ impl Default for Flags {
 /// assert_eq!(filters.suffixes, None);
 /// assert_eq!(filters.variables, None);
 /// ```
+#[derive(Default)]
 pub struct Filters {
     pub prefixes: Option<HashSet<String>>, // An optional vector of strings that specifies the variable prefixes to search for in the input file. If set to `None`, the program will not search for variables with a prefix.
     pub suffixes: Option<HashSet<String>>, // An optional vector of strings that specifies the variable suffixes to search for in the input file. If set to `None`, the program will not search for variables with a suffix.
     pub variables: Option<HashSet<String>>, // An optional vector of strings that specifies the exact variable names to search for in the input file. If set to `None`, the program will not search for specific variable names.
-}
-
-impl Default for Filters {
-    /// Returns a new instance of `Filters` with all fields set to `None`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use my_crate::Filters;
-    ///
-    /// let filters = Filters::default();
-    /// assert_eq!(filters.prefix, None);
-    /// ```
-
-    fn default() -> Self {
-        Self {
-            prefixes: None,
-            suffixes: None,
-            variables: None,
-        }
-    }
 }
 
 /// Command-line arguments that control the behavior of the variable substitution program.
@@ -206,51 +158,14 @@ impl Default for Filters {
 /// assert_eq!(args.flags, Flags::default());
 /// assert_eq!(args.filters, Filters::default());
 /// ```
+#[derive(Default)]
 pub struct Args {
-    pub version: Option<String>,
-    pub help: Option<String>,
+    pub version: bool,
+    pub help: bool,
     pub input_file: Option<String>,
     pub output_file: Option<String>, // output file name, if provided
     pub flags: Flags,                // flags to control the behavior of the program
     pub filters: Filters,            // filters to control which variables will be replaced
-}
-
-/// Returns a new `Args` instance with default values.
-///
-/// The `Default` implementation for `Args` returns a new `Args` instance with the following default
-/// values:
-///
-/// * `version`: `None`
-/// * `help`: `None`
-/// * `input_file`: `None`
-/// * `output_file`: `None`
-/// * `flags`: A `Flags` instance with default values.
-/// * `filters`: A `Filters` instance with default values.
-///
-/// # Examples
-///
-/// ```
-/// // Create a new Args instance with default values
-/// let args = Args::default();
-///
-/// assert_eq!(args.version, None);
-/// assert_eq!(args.help, None);
-/// assert_eq!(args.input_file, None);
-/// assert_eq!(args.output_file, None);
-/// assert_eq!(args.flags, Flags::default());
-/// assert_eq!(args.filters, Filters::default());
-/// ```
-impl Default for Args {
-    fn default() -> Self {
-        Args {
-            version: None,
-            help: None,
-            input_file: None,
-            output_file: None,
-            flags: Flags::default(),
-            filters: Filters::default(),
-        }
-    }
 }
 
 /// Parses the command line arguments and returns an `Args` struct with the parsed values.
@@ -320,13 +235,13 @@ pub fn parse_args() -> Result<Args, String> {
         match arg.as_str() {
             "-h" => {
                 return Ok(Args {
-                    help: Some(HELP_TEXT.to_string()),
+                    help: true,
                     ..Default::default()
                 })
             }
             "-v" => {
                 return Ok(Args {
-                    version: Some(VERSION.to_string()),
+                    version: true,
                     ..Default::default()
                 })
             }
@@ -432,8 +347,8 @@ pub fn parse_args() -> Result<Args, String> {
 
     // Return the parsed arguments as a struct
     return Ok(Args {
-        help: None,
-        version: None,
+        help: false,
+        version: false,
         input_file,
         output_file,
         flags,
