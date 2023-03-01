@@ -30,6 +30,18 @@ fn main() {
         std::process::exit(1);
     });
 
+    // print version and exit if requested
+    if args.version.is_some() {
+        println!("renvsubst {}", args.version.unwrap());
+        std::process::exit(0);
+    }
+
+    // print help and exit if requested
+    if args.help.is_some() {
+        println!("{}", args.help.unwrap());
+        std::process::exit(0);
+    }
+
     // open input file, can be stdin
     let input_file = open_input_file(args.input_file).unwrap_or_else(|e| {
         eprintln!("ERROR: {}", e);
