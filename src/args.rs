@@ -14,7 +14,7 @@ Parameters:
 Flags:
   --fail-on-unset                  Fail if an environment variable is not set.
   --fail-on-empty                  Fail if an environment variable is empty.
-  --strict                         Alias for --fail-on-unset and --fail-on-empty.
+  --fail                           Alias for --fail-on-unset and --fail-on-empty.
                                    Fails if an environment variable is either not set or empty.
   --no-replace-unset               Do not replace variables that are not set in the environment.
   --no-replace-empty               Do not replace variables that are set but empty in the environment.
@@ -222,7 +222,7 @@ pub fn parse_args() -> Result<Args, String> {
     let mut output_file = None;
     let mut fail_on_empty: bool = false;
     let mut fail_on_unset = false;
-    let mut strict: bool = false; // intermediate variable. If set, fail_on_unset and fail_on_empty will be set to true
+    let mut fail: bool = false; // intermediate variable. If set, fail_on_unset and fail_on_empty will be set to true
     let mut no_replace_unset: bool = false;
     let mut no_replace_empty: bool = false;
     let mut no_replace: bool = false; // intermediate variable. If set, no_replace_unset and no_replace_empty will be set to true
@@ -262,7 +262,7 @@ pub fn parse_args() -> Result<Args, String> {
             // flags
             "--fail-on-unset" => fail_on_unset = true,
             "--fail-on-empty" => fail_on_empty = true,
-            "--strict" => strict = true, // alias for --fail-on-unset and --fail-on-empty
+            "--fail" => fail = true, // alias for --fail-on-unset and --fail-on-empty
             "--no-replace-unset" => no_replace_unset = true,
             "--no-replace-empty" => no_replace_empty = true,
             "--no-replace" => no_replace = true, // alias for --no-replace-unset and --no-replace-empty
@@ -304,15 +304,15 @@ pub fn parse_args() -> Result<Args, String> {
         return Err("ERROR: --fail-on-empty cannot be used with --no-replace-empty".to_string());
     }
 
-    // --strict implies --fail-on-unset and --fail-on-empty
-    if strict && (fail_on_unset || fail_on_empty) {
+    // --fail implies --fail-on-unset and --fail-on-empty
+    if fail && (fail_on_unset || fail_on_empty) {
         return Err(
-            "ERROR: --strict cannot be used with --fail-on-unset or --fail-on-empty".to_string(),
+            "ERROR: --fail cannot be used with --fail-on-unset or --fail-on-empty".to_string(),
         );
     }
 
-    // --strict implies --fail-on-unset and --fail-on-empty
-    if strict {
+    // --fail implies --fail-on-unset and --fail-on-empty
+    if fail {
         fail_on_unset = true;
         fail_on_empty = true;
     }

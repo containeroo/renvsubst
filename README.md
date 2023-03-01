@@ -22,7 +22,7 @@ Usage: renvsubst [PARAMETERS] [FLAGS] [FILTERS]
 | -------------------- | ------------------------------------------------------- |
 | `--fail-on-unset`    | Fail if an environment variable is not set.             |
 | `--fail-on-empty`    | Fail if an environment variable is empty.               |
-| `--strict`           | Alias for `--fail-on-unset` and `--fail-on-empty`.      |
+| `--fail`             | Alias for `--fail-on-unset` and `--fail-on-empty`.      |
 | `--no-replace-unset` | Do not replace variables that are not set.              |
 | `--no-replace-empty` | Do not replace variables that are empty.                |
 | `--no-replace`       | Alias for`--no-replace-unset` and `--no-replace-empty`. |
