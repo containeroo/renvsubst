@@ -40,19 +40,35 @@ To retain a variable's original value and prevent it from being substituted by a
 
 ";
 
-/// The `Flags` struct represents a set of command-line flags that modify the behavior of
-/// `envsubst`. These flags control how the program handles unset and empty variables and
-/// whether it performs variable substitution.
+/// Configuration flags that control the behavior of the variable substitution operation.
+///
+/// The `Flags` struct contains several boolean flags that control the behavior of the variable
+/// substitution operation. These flags determine whether the program should fail if a variable
+/// is unset or empty, whether the program should perform variable replacement if a variable is
+/// unset or empty, and whether the program should escape special characters in the output.
 ///
 /// # Fields
 ///
-/// * `fail_on_unset`: if true, `envsubst` fails if a variable is not defined in the environment.
-/// * `fail_on_empty`: if true, `envsubst` fails if a variable is defined but its value is empty.
-/// * `no_replace_unset`: if true, `envsubst` does not replace variables that are not defined
-///   in the environment with an empty string.
-/// * `no_replace_empty`: if true, `envsubst` does not replace variables that have an empty value
-///   with an empty string.
-/// * `no_escape`: if true, `envsubst` does not escape variables with two dollar signs ($$).
+/// * `fail_on_unset`: If set to `true`, the program will fail if a variable is unset.
+/// * `fail_on_empty`: If set to `true`, the program will fail if a variable is empty.
+/// * `no_replace_unset`: If set to `true`, the program will not perform variable replacement
+///                        if a variable is unset.
+/// * `no_replace_empty`: If set to `true`, the program will not perform variable replacement
+///                        if a variable is empty.
+/// * `no_escape`: If set to `true`, the program will not escape special characters in the output.
+///
+/// # Examples
+///
+/// ```
+/// // Create a new Flags instance with default values
+/// let flags = Flags::default();
+///
+/// assert_eq!(flags.fail_on_unset, false);
+/// assert_eq!(flags.fail_on_empty, false);
+/// assert_eq!(flags.no_replace_unset, false);
+/// assert_eq!(flags.no_replace_empty, false);
+/// assert_eq!(flags.no_escape, false);
+/// ```
 pub struct Flags {
     pub fail_on_unset: bool,
     pub fail_on_empty: bool,
@@ -89,16 +105,34 @@ impl Default for Flags {
     }
 }
 
-/// Represents a set of filters to apply to environment variables during substitution.
+/// Configuration filters that control which variables will be replaced in the output.
 ///
-/// This struct includes an optional `prefix` and `suffix` to restrict which variables will be substituted. If a
-/// `prefix` or `suffix` is specified, only environment variables whose names start with the `prefix` or end with
-/// the `suffix` will be substituted. If a `prefix` and a `suffix` are both specified, only environment variables
-/// whose names start with the `prefix` and end with the `suffix` will be substituted.
+/// The `Filters` struct contains several optional fields that control which variables will be
+/// replaced in the output. These fields specify prefixes, suffixes, and variable names that the
+/// program should search for in the input file and replace with their corresponding values.
 ///
-/// Additionally, this struct includes an optional list of `variables` to substitute. If the `variables` field is
-/// present, only the specified environment variables will be substituted. If the `variables` field is `None`,
-/// all environment variables will be substituted.
+/// # Fields
+///
+/// * `prefixes`: An optional vector of strings that specifies the variable prefixes to search for
+///               in the input file. If set to `None`, the program will not search for variables
+///               with a prefix.
+/// * `suffixes`: An optional vector of strings that specifies the variable suffixes to search for
+///               in the input file. If set to `None`, the program will not search for variables
+///               with a suffix.
+/// * `variables`: An optional vector of strings that specifies the exact variable names to search
+///                for in the input file. If set to `None`, the program will not search for specific
+///                variable names.
+///
+/// # Examples
+///
+/// ```
+/// // Create a new Filters instance with default values
+/// let filters = Filters::default();
+///
+/// assert_eq!(filters.prefixes, None);
+/// assert_eq!(filters.suffixes, None);
+/// assert_eq!(filters.variables, None);
+/// ```
 pub struct Filters {
     pub prefixes: Option<Vec<String>>,
     pub suffixes: Option<Vec<String>>,
@@ -126,54 +160,138 @@ impl Default for Filters {
     }
 }
 
-/// Represents the arguments passed to the program.
+/// Command-line arguments that control the behavior of the variable substitution program.
 ///
-/// `input_file` is the name of the input file, if provided. If not, the program will read from stdin.
+/// The `Args` struct contains several fields that control the behavior of the variable substitution
+/// program. These fields include options for displaying version and help information, specifying
+/// input and output files, and configuring the behavior of the variable substitution operation.
 ///
-/// `output_file` is the name of the output file, if provided. If not, the program will write to stdout.
+/// # Fields
 ///
-/// `flags` controls the behavior of the program. The following flags are supported:
+/// * `version`: An optional string that specifies the version number of the program. If set to
+///              `Some(version)`, the program will display the version number and exit when the
+///              `--version` flag is passed on the command line.
+/// * `help`: An optional string that specifies the help text for the program. If set to `Some(help)`,
+///           the program will display the help text and exit when the `--help` flag is passed on
+///           the command line.
+/// * `input_file`: An optional string that specifies the name of the input file. If set to `None`,
+///                  the program will read from stdin. The `--input` flag can be used to specify a
+///                  different input file.
+/// * `output_file`: An optional string that specifies the name of the output file. If set to `None`,
+///                   the program will write to stdout. The `--output` flag can be used to specify a
+///                   different output file.
+/// * `flags`: A `Flags` struct that controls the behavior of the variable substitution operation.
 ///
-/// * `fail_on_unset`: If set to `true`, the program will exit with an error if a variable is referenced that has not been set.
+///     The `Flags` struct contains several boolean flags that control the behavior of the variable
+///     substitution operation. These flags determine whether the program should fail if a variable
+///     is unset or empty, whether the program should perform variable replacement if a variable is
+///     unset or empty, and whether the program should escape special characters in the output.
 ///
-/// * `fail_on_empty`: If set to `true`, the program will exit with an error if a variable is set to an empty string.
+/// * `filters`: A `Filters` struct that controls which variables will be replaced in the output.
 ///
-/// * `no_replace_unset`: If set to `true`, the program will not replace variables that have not been set with their default values.
+///     The `Filters` struct contains several optional fields that control which variables will be
+///     replaced in the output. These fields specify prefixes, suffixes, and variable names that the
+///     program should search for in the input file and replace with their corresponding values.
 ///
-/// * `no_replace_empty`: If set to `true`, the program will not replace variables that are set to an empty string with their default values.
+/// # Examples
 ///
-/// * `no_escape`: If set to `true`, the program will not treat "$$" as an escape sequence.
+/// ```
+/// // Create a new Args instance with default values
+/// let args = Args::default();
 ///
-/// `filters` controls which variables will be replaced. The following filters are supported:
-///
-/// * `prefix`: Only variables with this prefix will be replaced.
-///
-/// * `suffix`: Only variables with this suffix will be replaced.
-///
-/// * `variables`: Only the variables specified in this list will be replaced.
+/// assert_eq!(args.version, None);
+/// assert_eq!(args.help, None);
+/// assert_eq!(args.input_file, None);
+/// assert_eq!(args.output_file, None);
+/// assert_eq!(args.flags, Flags::default());
+/// assert_eq!(args.filters, Filters::default());
+/// ```
 pub struct Args {
+    pub version: Option<String>,
+    pub help: Option<String>,
     pub input_file: Option<String>,
     pub output_file: Option<String>, // output file name, if provided
     pub flags: Flags,                // flags to control the behavior of the program
     pub filters: Filters,            // filters to control which variables will be replaced
 }
 
-/// Parses the command-line arguments and returns a struct representing the arguments.
+/// Returns a new `Args` instance with default values.
+///
+/// The `Default` implementation for `Args` returns a new `Args` instance with the following default
+/// values:
+///
+/// * `version`: `None`
+/// * `help`: `None`
+/// * `input_file`: `None`
+/// * `output_file`: `None`
+/// * `flags`: A `Flags` instance with default values.
+/// * `filters`: A `Filters` instance with default values.
+///
+/// # Examples
+///
+/// ```
+/// // Create a new Args instance with default values
+/// let args = Args::default();
+///
+/// assert_eq!(args.version, None);
+/// assert_eq!(args.help, None);
+/// assert_eq!(args.input_file, None);
+/// assert_eq!(args.output_file, None);
+/// assert_eq!(args.flags, Flags::default());
+/// assert_eq!(args.filters, Filters::default());
+/// ```
+impl Default for Args {
+    fn default() -> Self {
+        Args {
+            version: None,
+            help: None,
+            input_file: None,
+            output_file: None,
+            flags: Flags::default(),
+            filters: Filters::default(),
+        }
+    }
+}
+
+/// Parses the command line arguments and returns an `Args` struct with the parsed values.
+///
+/// This function takes the command line arguments as input and parses them to create an instance
+/// of the `Args` struct, which contains all of the program's configuration options. The struct's
+/// fields are populated based on the command line arguments, and default values are used for any
+/// fields that are not explicitly set.
+///
+/// If the `-h` flag is specified, the function returns early with a `show_help` field set to `true`.
+/// If the `-v` flag is specified, the function returns early with a `show_version` field set to `true`.
 ///
 /// # Arguments
 ///
 /// None.
 ///
-/// # Returns
+/// # Errors
 ///
-/// A `Result` with the parsed arguments as a struct on success, or an error message on failure.
+/// Returns an error if the arguments are invalid, such as if an unknown flag is specified or
+/// if a required argument is missing.
 ///
 /// # Examples
 ///
-/// ```rust
-/// use crate::parse_args;
+/// ```
+/// // Parse command line arguments and perform a substitution using the resulting configuration
+/// let args = parse_args().unwrap_or_else(|e| {
+///     eprintln!("{}", e);
+///     std::process::exit(1);
+/// });
 ///
-/// let args = parse_args().unwrap();
+///// print version and exit if requested
+/// if args.version.is_some() {
+///      println!("renvsubst {}", args.version.unwrap());
+///     std::process::exit(0);
+/// }
+///
+/// // print help and exit if requested
+/// if args.help.is_some() {
+///     println!("{}", args.help.unwrap());
+///     std::process::exit(0);
+/// }
 /// ```
 pub fn parse_args() -> Result<Args, String> {
     let mut args = env::args().peekable();
@@ -200,8 +318,18 @@ pub fn parse_args() -> Result<Args, String> {
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "-h" => return Err(HELP_TEXT.to_string()),
-            "-v" => return Err(format!("version {}", VERSION)),
+            "-h" => {
+                return Ok(Args {
+                    help: Some(HELP_TEXT.to_string()),
+                    ..Default::default()
+                })
+            }
+            "-v" => {
+                return Ok(Args {
+                    version: Some(VERSION.to_string()),
+                    ..Default::default()
+                })
+            }
 
             "-o" => {
                 output_file = Some(args.next().unwrap_or_else(|| {
@@ -304,6 +432,8 @@ pub fn parse_args() -> Result<Args, String> {
 
     // Return the parsed arguments as a struct
     return Ok(Args {
+        help: None,
+        version: None,
         input_file,
         output_file,
         flags,
