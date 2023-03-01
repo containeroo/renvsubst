@@ -1,5 +1,5 @@
 use crate::VERSION;
-use std::env;
+use std::{env, collections::HashSet};
 
 /// Template for the help text.
 const HELP_TEXT: &str = "Usage: renvsubst [PARAMETERS] [FLAGS] [FILTERS]
@@ -134,9 +134,9 @@ impl Default for Flags {
 /// assert_eq!(filters.variables, None);
 /// ```
 pub struct Filters {
-    pub prefixes: Option<Vec<String>>,
-    pub suffixes: Option<Vec<String>>,
-    pub variables: Option<Vec<String>>,
+    pub prefixes: Option<HashSet<String>>, // An optional vector of strings that specifies the variable prefixes to search for in the input file. If set to `None`, the program will not search for variables with a prefix.
+    pub suffixes: Option<HashSet<String>>, // An optional vector of strings that specifies the variable suffixes to search for in the input file. If set to `None`, the program will not search for variables with a suffix.
+    pub variables: Option<HashSet<String>>, // An optional vector of strings that specifies the exact variable names to search for in the input file. If set to `None`, the program will not search for specific variable names.
 }
 
 impl Default for Filters {
@@ -312,9 +312,9 @@ pub fn parse_args() -> Result<Args, String> {
     let mut no_replace_empty: bool = false;
     let mut no_replace: bool = false; // intermediate variable. If set, no_replace_unset and no_replace_empty will be set to true
     let mut no_escape: bool = false;
-    let mut variables: Option<Vec<String>> = None;
-    let mut suffixes: Option<Vec<String>> = None;
-    let mut prefixes: Option<Vec<String>> = None;
+    let mut variables: Option<HashSet<String>> = None;
+    let mut suffixes: Option<HashSet<String>> = None;
+    let mut prefixes: Option<HashSet<String>> = None;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -355,19 +355,19 @@ pub fn parse_args() -> Result<Args, String> {
 
             // filters
             "--prefix" => {
-                prefixes.get_or_insert_with(Vec::new).push(
+                prefixes.get_or_insert_with(HashSet::new).insert(
                     args.next()
                         .ok_or_else(|| "ERROR: --prefix requires a prefix to be specified")?,
                 );
             }
             "--suffix" => {
-                suffixes.get_or_insert_with(Vec::new).push(
+                suffixes.get_or_insert_with(HashSet::new).insert(
                     args.next()
                         .ok_or_else(|| "ERROR: --suffix requires a suffix to be specified")?,
                 );
             }
             "--variable" => {
-                variables.get_or_insert_with(Vec::new).push(
+                variables.get_or_insert_with(HashSet::new).insert(
                     args.next()
                         .ok_or_else(|| "ERROR: --variable requires a variable to be specified")?,
                 );

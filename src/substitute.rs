@@ -1,6 +1,6 @@
 use crate::args::{Filters, Flags};
-use std::env;
 use std::io::{BufRead, BufReader};
+use std::{collections::HashSet, env};
 
 /// Retrieves the value of the environment variable specified by `var_name`, and returns it as a `String`.
 /// If the variable is not set, the function checks if `default_value` is set, and returns it if it is.
@@ -1149,7 +1149,8 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                prefixes: Some(vec!["TEST".to_string()]),
+                // insert a prefix to test the prefix filter as HashSet
+                prefixes: Some(HashSet::from_iter(vec!["TEST".to_string()])),
                 ..Filters::default()
             },
         );
@@ -1172,7 +1173,7 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                prefixes: Some(vec!["TEST".to_string()]),
+                prefixes: Some(HashSet::from_iter(vec!["TEST".to_string()])),
                 ..Filters::default()
             },
         );
@@ -1195,7 +1196,7 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                suffixes: Some(vec!["TEST".to_string()]),
+                suffixes: Some(HashSet::from_iter(vec!["TEST".to_string()])),
                 ..Filters::default()
             },
         );
@@ -1219,7 +1220,10 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                suffixes: Some(vec!["FIRST".to_string(), "SECOND".to_string()]),
+                suffixes: Some(HashSet::from_iter(vec![
+                    "FIRST".to_string(),
+                    "SECOND".to_string(),
+                ])),
                 ..Filters::default()
             },
         );
@@ -1243,7 +1247,10 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                prefixes: Some(vec!["FIRST".to_string(), "SECOND".to_string()]),
+                prefixes: Some(HashSet::from_iter(vec![
+                    "FIRST".to_string(),
+                    "SECOND".to_string(),
+                ])),
                 ..Filters::default()
             },
         );
@@ -1266,7 +1273,7 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                suffixes: Some(vec!["TEST".to_string()]),
+                suffixes: Some(HashSet::from_iter(vec!["TEST".to_string()])),
                 ..Filters::default()
             },
         );
@@ -1290,7 +1297,7 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                suffixes: Some(vec!["TEST".to_string()]),
+                suffixes: Some(HashSet::from_iter(vec!["TEST".to_string()])),
                 ..Filters::default()
             },
         );
@@ -1314,7 +1321,7 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                prefixes: Some(vec!["TEST".to_string()]),
+                prefixes: Some(HashSet::from_iter(vec!["TEST".to_string()])),
                 ..Filters::default()
             },
         );
@@ -1338,7 +1345,7 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                suffixes: Some(vec!["TEST".to_string()]),
+                suffixes: Some(HashSet::from_iter(vec!["TEST".to_string()])),
                 ..Filters::default()
             },
         );
@@ -1363,7 +1370,10 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                variables: Some(vec!["ENV1".to_string(), "ENV2".to_string()]),
+                variables: Some(HashSet::from_iter(vec![
+                    "ENV1".to_string(),
+                    "ENV2".to_string(),
+                ])),
                 ..Filters::default()
             },
         );
@@ -1384,9 +1394,12 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                variables: Some(vec!["ENV1".to_string(), "ENV2".to_string()]),
-                prefixes: Some(vec!["BAD_PREFIX".to_string()]),
-                suffixes: Some(vec!["BAD_SUFFIX".to_string()]),
+                variables: Some(HashSet::from_iter(vec![
+                    "ENV1".to_string(),
+                    "ENV2".to_string(),
+                ])),
+                prefixes: Some(HashSet::from_iter(vec!["BAD_PREFIX".to_string()])),
+                suffixes: Some(HashSet::from_iter(vec!["BAD_SUFFIX".to_string()])),
             },
         );
         assert_eq!(
@@ -1422,9 +1435,9 @@ mod tests {
             &line,
             &Flags::default(),
             &Filters {
-                variables: Some(vec!["PREFIX_VAR_SUFFIX".to_string()]),
-                prefixes: Some(vec!["PREFIX".to_string()]),
-                suffixes: Some(vec!["SUFFIX".to_string()]),
+                variables: Some(HashSet::from_iter(vec!["PREFIX_VAR_SUFFIX".to_string()])),
+                prefixes: Some(HashSet::from_iter(vec!["PREFIX".to_string()])),
+                suffixes: Some(HashSet::from_iter(vec!["SUFFIX".to_string()])),
                 ..Filters::default()
             },
         );
@@ -1448,9 +1461,9 @@ mod tests {
         assert_eq!(
             matches_filters(
                 &Filters {
-                    variables: Some(vec!["VAR".to_string()]),
-                    prefixes: Some(vec!["PREFIX".to_string()]),
-                    suffixes: Some(vec!["SUFFIX".to_string()]),
+                    variables: Some(HashSet::from_iter(vec!["VAR".to_string()])),
+                    prefixes: Some(HashSet::from_iter(vec!["PREFIX".to_string()])),
+                    suffixes: Some(HashSet::from_iter(vec!["SUFFIX".to_string()])),
                 },
                 "PREFIX_VAR_SUFFIX"
             ),
@@ -1466,7 +1479,7 @@ mod tests {
         assert_eq!(
             matches_filters(
                 &Filters {
-                    prefixes: Some(vec!["PREFIX".to_string()]),
+                    prefixes: Some(HashSet::from_iter(vec!["PREFIX".to_string()])),
                     ..Filters::default()
                 },
                 "PREFIX_VAR"
@@ -1483,7 +1496,7 @@ mod tests {
         assert_eq!(
             matches_filters(
                 &Filters {
-                    suffixes: Some(vec!["SUFFIX".to_string()]),
+                    suffixes: Some(HashSet::from_iter(vec!["SUFFIX".to_string()])),
                     ..Filters::default()
                 },
                 "VAR_SUFFIX"
@@ -1500,7 +1513,7 @@ mod tests {
         assert_eq!(
             matches_filters(
                 &Filters {
-                    variables: Some(vec!["VAR".to_string()]),
+                    variables: Some(HashSet::from_iter(vec!["VAR".to_string()])),
                     ..Filters::default()
                 },
                 "VAR"
@@ -1517,7 +1530,7 @@ mod tests {
         assert_eq!(
             matches_filters(
                 &Filters {
-                    prefixes: Some(vec!["PREFIX".to_string()]),
+                    prefixes: Some(HashSet::from_iter(vec!["PREFIX".to_string()])),
                     ..Filters::default()
                 },
                 "VAR"
@@ -1534,7 +1547,7 @@ mod tests {
         assert_eq!(
             matches_filters(
                 &Filters {
-                    suffixes: Some(vec!["SUFFIX".to_string()]),
+                    suffixes: Some(HashSet::from_iter(vec!["SUFFIX".to_string()])),
                     ..Filters::default()
                 },
                 "VAR"
@@ -1551,7 +1564,7 @@ mod tests {
         assert_eq!(
             matches_filters(
                 &Filters {
-                    variables: Some(vec!["VAR".to_string()]),
+                    variables: Some(HashSet::from_iter(vec!["VAR".to_string()])),
                     ..Filters::default()
                 },
                 "VAR2"
@@ -1568,8 +1581,8 @@ mod tests {
         assert_eq!(
             matches_filters(
                 &Filters {
-                    prefixes: Some(vec!["PREFIX".to_string()]),
-                    suffixes: Some(vec!["SUFFIX".to_string()]),
+                    prefixes: Some(HashSet::from_iter(vec!["PREFIX".to_string()])),
+                    suffixes: Some(HashSet::from_iter(vec!["SUFFIX".to_string()])),
                     ..Filters::default()
                 },
                 "VAR"
@@ -1586,8 +1599,8 @@ mod tests {
         assert_eq!(
             matches_filters(
                 &Filters {
-                    variables: Some(vec!["VAR".to_string()]),
-                    prefixes: Some(vec!["PREFIX".to_string()]),
+                    variables: Some(HashSet::from_iter(vec!["VAR".to_string()])),
+                    prefixes: Some(HashSet::from_iter(vec!["PREFIX".to_string()])),
                     ..Filters::default()
                 },
                 "VAR2"
@@ -1604,8 +1617,8 @@ mod tests {
         assert_eq!(
             matches_filters(
                 &Filters {
-                    variables: Some(vec!["VAR".to_string()]),
-                    suffixes: Some(vec!["SUFFIX".to_string()]),
+                    variables: Some(HashSet::from_iter(vec!["VAR".to_string()])),
+                    suffixes: Some(HashSet::from_iter(vec!["SUFFIX".to_string()])),
                     ..Filters::default()
                 },
                 "VAR2"
@@ -1623,9 +1636,9 @@ mod tests {
         assert_eq!(
             matches_filters(
                 &Filters {
-                    variables: Some(vec!["VAR".to_string()]),
-                    prefixes: Some(vec!["PREFIX".to_string()]),
-                    suffixes: Some(vec!["SUFFIX".to_string()]),
+                    variables: Some(HashSet::from_iter(vec!["VAR".to_string()])),
+                    prefixes: Some(HashSet::from_iter(vec!["PREFIX".to_string()])),
+                    suffixes: Some(HashSet::from_iter(vec!["SUFFIX".to_string()])),
                     ..Filters::default()
                 },
                 "VAR2"
@@ -1811,12 +1824,12 @@ mod tests {
     #[test]
     fn test_example_match_filters() {
         let filters = Filters {
-            prefixes: Some(vec!["prefixed_".to_string()]),
-            suffixes: Some(vec!["_suffixed".to_string()]),
-            variables: Some(vec![
+            prefixes: Some(HashSet::from_iter(vec!["prefixed_".to_string()])),
+            suffixes: Some(HashSet::from_iter(vec!["_suffixed".to_string()])),
+            variables: Some(HashSet::from_iter(vec![
                 "my_variable".to_string(),
                 "another_variable".to_string(),
-            ]),
+            ])),
         };
 
         assert_eq!(matches_filters(&filters, "prefixed_variable"), Some(true));
