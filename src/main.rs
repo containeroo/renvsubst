@@ -7,11 +7,6 @@ use crate::substitute::perform_substitution;
 
 const VERSION: &str = "0.2.0";
 
-// Use Jemalloc only for musl-64 bits platforms
-#[cfg(all(target_env = "musl", target_pointer_width = "64"))]
-#[global_allocator]
-static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
-
 /// The entry point of the program.
 ///
 /// This function parses the command line arguments, opens the input and output files
