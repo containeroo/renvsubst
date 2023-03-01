@@ -1,11 +1,11 @@
 mod args;
 mod file_io;
 mod substitute;
-use crate::args::parse_args;
+use crate::args::{parse_args, HELP_TEXT};
 use crate::file_io::{open_input_file, open_output_file};
 use crate::substitute::perform_substitution;
 
-const VERSION: &str = "0.2.0";
+const VERSION: &str = "0.3.0";
 
 /// The entry point of the program.
 ///
@@ -26,14 +26,14 @@ fn main() {
     });
 
     // print version and exit if requested
-    if args.version.is_some() {
-        println!("renvsubst {}", args.version.unwrap());
+    if args.version {
+        println!("renvsubst {}", VERSION);
         std::process::exit(0);
     }
 
     // print help and exit if requested
-    if args.help.is_some() {
-        println!("{}", args.help.unwrap());
+    if args.help {
+        println!("{}", HELP_TEXT);
         std::process::exit(0);
     }
 
