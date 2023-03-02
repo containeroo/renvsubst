@@ -4,6 +4,7 @@ use std::{collections::HashSet, env};
 pub enum ParseArgsError {
     UnknownFlag(String),
     MissingValue(String),
+    MissingMandatoryParameter(String),
     ConflictingFlags(String),
 }
 
@@ -11,8 +12,9 @@ impl std::fmt::Display for ParseArgsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::UnknownFlag(flag) => write!(f, "Unknown flag: {}", flag),
-            Self::MissingValue(flag) => write!(f, "Flag {} requires a value", flag),
-            Self::ConflictingFlags(flags) => write!(f, "Flags {} cannot be used together", flags),
+            Self::MissingValue(flag) => write!(f, "Flag '{}' requires a value!", flag),
+            Self::ConflictingFlags(flags) => write!(f, "Flags {} cannot be used together!", flags),
+            Self::MissingMandatoryParameter(param) => write!(f, "Missing mandatory parameter: {}", param),
         }
     }
 }
@@ -57,7 +59,21 @@ impl Args {
         }
     }
 
-    pub fn parse_args() -> Result<Args, ParseArgsError> {
+    /// Parses command-line arguments and returns an `Args` struct with the parsed values.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ParseArgsError` if there is an error in parsing the arguments.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate:args:Args;
+    ///
+    /// let args = Args::parse()?;
+    /// println!("{:?}", args);
+    /// ```
+    pub fn parse() -> Result<Args, ParseArgsError> {
         let mut args = env::args().skip(1);
         let mut parsed_args = Self::new();
 
@@ -74,19 +90,19 @@ impl Args {
                 "-i" | "--input" => {
                     parsed_args.input_file = Some(
                         args.next()
-                            .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))?,
+                            .ok_or_else(|| ParseArgsError::MissingValue(arg))?,
                     );
                 }
                 "-o" | "--output" => {
                     parsed_args.output_file = Some(
                         args.next()
-                            .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))?,
+                            .ok_or_else(|| ParseArgsError::MissingValue(arg))?,
                     );
                 }
                 "--fail-on-unset" => {
                     if parsed_args.flags.no_replace_unset {
                         return Err(ParseArgsError::ConflictingFlags(format!(
-                            "{} and --no-replace-unset",
+                            "'{}' and '--no-replace-unset'",
                             arg
                         )));
                     }
@@ -95,7 +111,7 @@ impl Args {
                 "--fail-on-empty" => {
                     if parsed_args.flags.no_replace_empty {
                         return Err(ParseArgsError::ConflictingFlags(format!(
-                            "{} and --no-replace-empty",
+                            "'{}' and '--no-replace-empty'",
                             arg
                         )));
                     }
@@ -104,13 +120,13 @@ impl Args {
                 "--fail" => {
                     if parsed_args.flags.no_replace_unset {
                         return Err(ParseArgsError::ConflictingFlags(format!(
-                            "{} and --no-replace-unset",
+                            "'{}' and '--no-replace-unset'",
                             arg
                         )));
                     }
                     if parsed_args.flags.no_replace_empty {
                         return Err(ParseArgsError::ConflictingFlags(format!(
-                            "{} and --no-replace-empty",
+                            "'{}' and '--no-replace-empty'",
                             arg
                         )));
                     }
@@ -120,7 +136,7 @@ impl Args {
                 "--no-replace-unset" => {
                     if parsed_args.flags.fail_on_unset {
                         return Err(ParseArgsError::ConflictingFlags(format!(
-                            "{} and --fail-on-unset",
+                            "'{}' and '--fail-on-unset'",
                             arg
                         )));
                     }
@@ -129,7 +145,7 @@ impl Args {
                 "--no-replace-empty" => {
                     if parsed_args.flags.fail_on_empty {
                         return Err(ParseArgsError::ConflictingFlags(format!(
-                            "{} and --fail-on-empty",
+                            "'{}' and '--fail-on-empty'",
                             arg
                         )));
                     }
@@ -138,13 +154,13 @@ impl Args {
                 "--no-replace" => {
                     if parsed_args.flags.fail_on_unset {
                         return Err(ParseArgsError::ConflictingFlags(format!(
-                            "{} and --fail-on-unset",
+                            "'{}' and '--fail-on-unset'",
                             arg
                         )));
                     }
                     if parsed_args.flags.fail_on_empty {
                         return Err(ParseArgsError::ConflictingFlags(format!(
-                            "{} and --fail-on-empty",
+                            "'{}' and '--fail-on-empty'",
                             arg
                         )));
                     }
@@ -161,7 +177,7 @@ impl Args {
                         .get_or_insert_with(HashSet::new)
                         .insert(
                             args.next()
-                                .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))?,
+                                .ok_or_else(|| ParseArgsError::MissingValue(arg))?,
                         );
                 }
                 "--suffix" => {
@@ -171,7 +187,7 @@ impl Args {
                         .get_or_insert_with(HashSet::new)
                         .insert(
                             args.next()
-                                .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))?,
+                                .ok_or_else(|| ParseArgsError::MissingValue(arg))?,
                         );
                 }
                 "--variable" => {
@@ -181,7 +197,7 @@ impl Args {
                         .get_or_insert_with(HashSet::new)
                         .insert(
                             args.next()
-                                .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))?,
+                                .ok_or_else(|| ParseArgsError::MissingValue(arg))?,
                         );
                 }
                 _ => {
@@ -190,13 +206,16 @@ impl Args {
             }
         }
 
+        // input is the only required argument
+        if parsed_args.input_file.is_none() {
+            return Err(ParseArgsError::MissingMandatoryParameter("'-i|--input'".to_string()));
+        }
+
         return Ok(parsed_args);
     }
-
 }
 
-
-/// Template for the help text.
+/// Help text for the renvsubst.
 pub const HELP_TEXT: &str = "Usage: renvsubst [PARAMETERS] [FLAGS] [FILTERS]
 
 renvsubst will substitute all (bash-like) environment variables in the format of $VAR_NAME, ${VAR_NAME} or ${VAR_NAME:-DEFAULT_VALUE} with their corresponding values from the environment or the default value if provided. If the variable is not valid, it remains as is.

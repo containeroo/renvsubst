@@ -5,20 +5,8 @@ use crate::args::{Args, HELP_TEXT};
 use crate::file_io::{open_input_file, open_output_file};
 use crate::substitute::perform_substitution;
 
-/// The entry point of the program.
-///
-/// This function parses the command line arguments, opens the input and output files
-/// (or uses stdin/stdout if not specified), and performs a substitution operation on
-/// the input data according to the provided flags and filters.
-///
-/// # Examples
-///
-/// ```
-/// // Perform a substitution on the contents of `input.txt`, writing the result to `output.txt`
-/// renvsubst -i input.txt -o output.txt
-/// ```
 fn main() {
-    let args = Args::parse_args().unwrap_or_else(|e| {
+    let args = Args::parse().unwrap_or_else(|e| {
         eprintln!("ERROR: {}", e);
         std::process::exit(1);
     });
