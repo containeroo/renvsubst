@@ -1,7 +1,7 @@
 mod args;
 mod file_io;
 mod substitute;
-use crate::args::{parse_args, HELP_TEXT};
+use crate::args::{Args, HELP_TEXT};
 use crate::file_io::{open_input_file, open_output_file};
 use crate::substitute::perform_substitution;
 
@@ -20,8 +20,8 @@ const VERSION: &str = "0.3.0";
 /// renvsubst -i input.txt -o output.txt
 /// ```
 fn main() {
-    let args = parse_args().unwrap_or_else(|e| {
-        eprintln!("{}", e);
+    let args = Args::parse_args().unwrap_or_else(|e| {
+        eprintln!("ERROR: {}", e);
         std::process::exit(1);
     });
 
