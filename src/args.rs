@@ -21,41 +21,27 @@ impl std::error::Error for ParseArgsError {}
 
 #[derive(Debug, Default)]
 pub struct Flags {
-    #[doc = "If set to `true`, the program will fail if a variable is unset."]
     pub fail_on_unset: bool,
-    #[doc = "If set to `true`, the program will fail if a variable is empty."]
     pub fail_on_empty: bool,
-    #[doc = "If set to `true`, the program will not perform variable replacement if a variable is unset."]
     pub no_replace_unset: bool,
-    #[doc = "If set to `true`, the program will not perform variable replacement if a variable is empty."]
     pub no_replace_empty: bool,
-    #[doc = "If set to `true`, the program will not escape special characters in the output."]
     pub no_escape: bool,
 }
 
 #[derive(Debug, Default)]
 pub struct Filters {
-    #[doc = "An optional vector of strings that specifies the variable prefixes to search for in the input file. If set to `None`, the program will not search for variables with a prefix."]
     pub prefixes: Option<HashSet<String>>,
-    #[doc = "An optional vector of strings that specifies the variable suffixes to search for in the input file. If set to `None`, the program will not search for variables with a suffix."]
     pub suffixes: Option<HashSet<String>>,
-    #[doc = "An optional vector of strings that specifies the exact variable names to search for in the input file. If set to `None`, the program will not search for specific variable names."]
     pub variables: Option<HashSet<String>>,
 }
 
 #[derive(Debug, Default)]
 pub struct Args {
-    #[doc = "An optional string that specifies the version number of the program. If set to `Some(version)`, the program will display the version number and exit when the `--version` flag is passed on the command line."]
     pub version: bool,
-    #[doc = "An optional string that specifies the help text for the program. If set to `Some(help)`, the program will display the help text and exit when the `--help` flag is passed on the command line."]
     pub help: bool,
-    #[doc = "An optional string that specifies the name of the input file. If set to `None`, the program will read from stdin. The `--input` flag can be used to specify a different input file."]
     pub input_file: Option<String>,
-    #[doc = "An optional string that specifies the name of the output file. If set to `None`, the program will write to stdout. The `--output` flag can be used to specify a different output file."]
     pub output_file: Option<String>,
-    #[doc = "A `Flags` struct that controls the behavior of the variable substitution operation."]
     pub flags: Flags,
-    #[doc = "A `Filters` struct that controls which variables will be replaced in the output."]
     pub filters: Filters,
 }
 
@@ -168,7 +154,7 @@ impl Args {
                 "--no-escape" => {
                     parsed_args.flags.no_escape = true;
                 }
-                "--prefix" => {
+                "-p" | "--prefix" => {
                     parsed_args
                         .filters
                         .prefixes
@@ -217,9 +203,9 @@ renvsubst will substitute all (bash-like) environment variables in the format of
 A valid variable name starts with a letter or underscore, followed by any combination of letters, numbers, or underscores.
 
 Parameters:
-  -i [INPUT_FILE]                  Specify the input file. Use - to read from stdin.
+  -i|--input [INPUT_FILE]          Specify the input file. Use - to read from stdin.
                                    The input will be read line by line.
-  -o [OUTPUT_FILE]                 Specify the output file. If not provided, the output will be written to stdout.
+  -o|--output [OUTPUT_FILE]        Specify the output file. If not provided, the output will be written to stdout.
 
 Flags:
   --fail-on-unset                  Fail if an environment variable is not set.
@@ -231,8 +217,8 @@ Flags:
   --no-replace                     Alias for --no-replace-unset and --no-replace-empty.
                                    Does not replace variables that are either not set or empty in the environment.
   --no-escape                      Disable escaping of variables with two dollar signs ($$).
-  -h                               Show this help text.
-  -v                               Show the version of the program.
+  -h|--help                        Show this help text.
+  -v|--version                     Show the version of the program.
 
 Filters:
   --prefix [PREFIX]...             Only replace variables with the specified prefix.

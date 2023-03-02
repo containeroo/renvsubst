@@ -11,10 +11,10 @@ Usage: renvsubst [PARAMETERS] [FLAGS] [FILTERS]
 
 ## Parameters
 
-| Parameter            | Description                                                                       |
-| :------------------- | :-------------------------------------------------------------------------------- |
-| `-i` `[INPUT_FILE]`  | Specify the input file. Use `-` to read from `stdin`.                             |
-| `-o` `[OUTPUT_FILE]` | Specify the output file. If not provided, the output will be written to `stdout`. |
+| Parameter                          | Description                                                                       |
+| :--------------------------------- | :-------------------------------------------------------------------------------- |
+| `-i` \| `--input` `[INPUT_FILE]`   | Specify the input file. Use `-` to read from `stdin`.                             |
+| `-o` \| `--output` `[OUTPUT_FILE]` | Specify the output file. If not provided, the output will be written to `stdout`. |
 
 ## Flags
 
@@ -27,18 +27,18 @@ Usage: renvsubst [PARAMETERS] [FLAGS] [FILTERS]
 | `--no-replace-empty` | Do not replace variables that are empty.                |
 | `--no-replace`       | Alias for`--no-replace-unset` and `--no-replace-empty`. |
 | `--no-escape`        | Disable escaping of variables.                          |
-| `-h`                 | Show help text.                                         |
-| `-v`                 | Show the version of the program.                        |
+| `-h` \| `--help`     | Show help text.                                         |
+| `-v` \| `--version`  | Show the version of the program.                        |
 
 ## Filters
 
 Every filter can be specified multiple times!
 
-| Parameter                    | Description                                                                                                              |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `--prefix`                   | Only replace variables with the specified prefix.                                                                        |
-| `--suffix`                   | Only replace variables with the specified suffix.                                                                        |
-| `--variable` [VARIABLE_NAME] | Specify variable to replace. If not provided, all variables will be replaced.                                            |
+| Parameter                    | Description                                                                   |
+| ---------------------------- | ----------------------------------------------------------------------------- |
+| `--prefix` [PREFIX]          | Only replace variables with the specified prefix.                             |
+| `--suffix` [SUFFIX]          | Only replace variables with the specified suffix.                             |
+| `--variable` [VARIABLE_NAME] | Specify variable to replace. If not provided, all variables will be replaced. |
 
 The variables will be substituted according to the specified prefix, suffix, or variable name. If none of these options are provided, all variables will be substituted. When one or more options are specified, only variables that match the given prefix, suffix, or variable name will be replaced, while all others will remain unchanged.
 
@@ -96,7 +96,7 @@ export VARIABLE_3_suffixed="small letters suffix"
 Replace all variables inside `test.txt` and output the result to `stdout`:
 
 ```sh
-renvsubst -i test.txt
+renvsubst --input test.txt
 
 # output:
 This is a "test.txt" file.
@@ -128,7 +128,7 @@ Here are other prefixed "$prefixed_VARIABLE_3" and suffixed "$VARIABLE_3_suffixe
 Replace only variables with the prefix `PREFIXED`
 
 ```sh
-renvsubst -i test.txt --prefix PREFIXED
+renvsubst --input test.txt --prefix PREFIXED
 
 # output:
 This is a "$FILE_NAME" file.
@@ -156,7 +156,7 @@ Here are other prefixed "$prefixed_VARIABLE_3" and suffixed "$VARIABLE_3_suffixe
 ## multiple filter
 
 ```sh
-renvsubst -i test.txt --prefix PREFIXED --prefix prefixed --suffix SUFFIXED
+renvsubst --input test.txt --prefix PREFIXED --prefix prefixed --suffix SUFFIXED
 
 # output:
 This is a "$FILE_NAME" file.

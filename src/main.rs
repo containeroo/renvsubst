@@ -5,8 +5,6 @@ use crate::args::{Args, HELP_TEXT};
 use crate::file_io::{open_input_file, open_output_file};
 use crate::substitute::perform_substitution;
 
-const VERSION: &str = "0.3.0";
-
 /// The entry point of the program.
 ///
 /// This function parses the command line arguments, opens the input and output files
@@ -27,7 +25,7 @@ fn main() {
 
     // print version and exit if requested
     if args.version {
-        println!("renvsubst {}", VERSION);
+        println!("renvsubst {}", env!("CARGO_PKG_VERSION"));
         std::process::exit(0);
     }
 
