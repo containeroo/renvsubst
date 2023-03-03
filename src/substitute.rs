@@ -92,6 +92,7 @@ fn get_env_var_value(
         Err(_) => return Ok("".to_owned()),
     }
 }
+
 /// Determines whether a given variable name matches a set of filters.
 ///
 /// # Arguments
