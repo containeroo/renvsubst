@@ -15,14 +15,16 @@ jobs:
           toolchain: stable
       - name: Install macOS target
         run: rustup target add x86_64-apple-darwin
-      - name: Install musl target
-        run: rustup target add x86_64-unknown-linux-musl
+      - name: Install GNU target
+        run: rustup target add x86_64-unknown-linux-gnu
       - name: Run tests
         run: cargo test --verbose
       - name: Build for Linux (GNU)
         run: cargo build --release --target=x86_64-unknown-linux-gnu
       - name: Build for Linux (musl)
-        run: cargo build --release --target=x86_64-unknown-linux-musl
+        uses: ekidd/rust-musl-builder:latest
+        with:
+          args: cargo build --release --target=x86_64-unknown-linux-musl
       - name: Build for macOS
         run: cargo build --release --target=x86_64-apple-darwin
       - name: Create Release
