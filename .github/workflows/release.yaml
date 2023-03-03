@@ -13,10 +13,16 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+      - name: Install macOS target
+        run: rustup target add x86_64-apple-darwin
+      - name: Install musl target
+        run: rustup target add x86_64-unknown-linux-musl
       - name: Run tests
         run: cargo test --verbose
-      - name: Build for Linux
+      - name: Build for Linux (GNU)
         run: cargo build --release --target=x86_64-unknown-linux-gnu
+      - name: Build for Linux (musl)
+        run: cargo build --release --target=x86_64-unknown-linux-musl
       - name: Build for macOS
         run: cargo build --release --target=x86_64-apple-darwin
       - name: Create Release
@@ -30,11 +36,16 @@ jobs:
           body: Automated release created by GitHub Actions
           draft: false
           prerelease: false
-      - name: Upload Linux Binary
+      - name: Upload Linux Binary (GNU)
         uses: actions/upload-artifact@v2
         with:
-          name: renvsubst-linux
+          name: renvsubst-linux-gnu
           path: target/x86_64-unknown-linux-gnu/release/renvsubst
+      - name: Upload Linux Binary (musl)
+        uses: actions/upload-artifact@v2
+        with:
+          name: renvsubst-linux-musl
+          path: target/x86_64-unknown-linux-musl/release/renvsubst
       - name: Upload macOS Binary
         uses: actions/upload-artifact@v2
         with:
@@ -46,12 +57,9 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          labels: |
-              org.opencontainers.image.title=renvsubst
-              org.opencontainers.image.description=renvsubst
-              org.opencontainers.image.url=https://github.com/containeroo/renvsubst
-              org.opencontainers.image.source=https://github.com/containeroo/renvsubst
-              org.opencontainers.image.version=${{ needs.get-tag.outputs.pkg-version }}
           tags: |
-            ghcr.io/containeroo/renvsubst:latest
             ghcr.io/containeroo/renvsubst:${{ github.ref }}
+            ghcr.io/containeroo/renvsubst:latest
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
