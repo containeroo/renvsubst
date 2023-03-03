@@ -9,6 +9,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - name: Log in to GitHub Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Set up Rust stable
         uses: actions-rs/toolchain@v1
         with:
@@ -20,7 +26,7 @@ jobs:
       - name: Build for Linux (GNU)
         run: cargo build --release --target=x86_64-unknown-linux-gnu
       - name: Build for Linux (musl)
-        uses: ekidd/rust-musl-builder:latest
+        uses: ekidd/rust-musl-builder@stable
         with:
           build: cargo build --release
           target: x86_64-unknown-linux-musl
@@ -58,11 +64,8 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: .
-          dockerfile: Dockerfile
+          file: Dockerfile
           push: true
           tags: |
             ghcr.io/containeroo/renvsubst:${{ github.ref }}
             ghcr.io/containeroo/renvsubst:latest
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
