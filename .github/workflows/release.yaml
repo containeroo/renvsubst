@@ -17,16 +17,17 @@ jobs:
         run: rustup target add x86_64-apple-darwin
       - name: Install GNU target
         run: rustup target add x86_64-unknown-linux-gnu
-      - name: Run tests
-        run: cargo test --verbose
       - name: Build for Linux (GNU)
         run: cargo build --release --target=x86_64-unknown-linux-gnu
       - name: Build for Linux (musl)
         uses: ekidd/rust-musl-builder:latest
         with:
-          args: cargo build --release --target=x86_64-unknown-linux-musl
+          build: cargo build --release
+          target: x86_64-unknown-linux-musl
       - name: Build for macOS
         run: cargo build --release --target=x86_64-apple-darwin
+      - name: Run tests
+        run: cargo test --verbose
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -57,7 +58,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: .
-          file: Dockerfile
+          dockerfile: Dockerfile
           push: true
           tags: |
             ghcr.io/containeroo/renvsubst:${{ github.ref }}
