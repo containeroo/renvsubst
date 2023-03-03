@@ -6,6 +6,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      MACOSX_DEPLOYMENT_TARGET: 10.9
+      RUSTFLAGS: -Clink-arg=-mmacosx-version-min=10.9
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -22,16 +25,20 @@ jobs:
           toolchain: stable
       - name: Install macOS target
         run: rustup target add x86_64-apple-darwin
+      - name: Install GNU target
+        run: rustup target add x86_64-unknown-linux-gnu
       - name: Install musl target
         run: rustup target add x86_64-unknown-linux-musl
-      - name: Run tests
-        run: cargo test --verbose
-      - name: Build for Linux (GNU)
+
+      - name: Build for Linux
         run: cargo build --release --target=x86_64-unknown-linux-gnu
       - name: Build for Linux (musl)
         run: cargo build --release --target=x86_64-unknown-linux-musl
+
       - name: Build for macOS
         run: cargo build --release --target=x86_64-apple-darwin
+      - name: Run tests
+        run: cargo test --verbose
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -53,6 +60,7 @@ jobs:
         with:
           name: renvsubst-linux-musl
           path: target/x86_64-unknown-linux-musl/release/renvsubst
+
       - name: Upload macOS Binary
         uses: actions/upload-artifact@v2
         with:
