@@ -15,25 +15,23 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Set up Rust stable
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
       - name: Install macOS target
         run: rustup target add x86_64-apple-darwin
-      - name: Install GNU target
-        run: rustup target add x86_64-unknown-linux-gnu
+      - name: Install musl target
+        run: rustup target add x86_64-unknown-linux-musl
+      - name: Run tests
+        run: cargo test --verbose
       - name: Build for Linux (GNU)
         run: cargo build --release --target=x86_64-unknown-linux-gnu
       - name: Build for Linux (musl)
-        uses: ekidd/rust-musl-builder@stable
-        with:
-          build: cargo build --release
-          target: x86_64-unknown-linux-musl
+        run: cargo build --release --target=x86_64-unknown-linux-musl
       - name: Build for macOS
         run: cargo build --release --target=x86_64-apple-darwin
-      - name: Run tests
-        run: cargo test --verbose
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
