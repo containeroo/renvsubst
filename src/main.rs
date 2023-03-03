@@ -1,13 +1,15 @@
 mod args;
 mod file_io;
 mod substitute;
+mod utils;
 use crate::args::{Args, HELP_TEXT};
 use crate::file_io::{open_input_file, open_output_file};
 use crate::substitute::perform_substitution;
+use crate::utils::print_error;
 
 fn main() {
     let args = Args::parse().unwrap_or_else(|e| {
-        eprintln!("ERROR: {}", e);
+        print_error(&e.to_string());
         std::process::exit(1);
     });
 
@@ -25,18 +27,18 @@ fn main() {
 
     // open input file, can be stdin
     let input_file = open_input_file(args.input_file).unwrap_or_else(|e| {
-        eprintln!("ERROR: {}", e);
+        print_error(&e);
         std::process::exit(1);
     });
 
     // create output file, can be stdout
     let output_file = open_output_file(args.output_file).unwrap_or_else(|e| {
-        eprintln!("ERROR: {}", e);
+        print_error(&e);
         std::process::exit(1);
     });
 
     perform_substitution(input_file, output_file, &args.flags, &args.filters).unwrap_or_else(|e| {
-        eprintln!("ERROR: {}", e);
+        print_error(&e);
         std::process::exit(1);
     });
 }

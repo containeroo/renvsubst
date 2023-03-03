@@ -1,20 +1,30 @@
 use std::{collections::HashSet, env};
 
+/// An error that occurs while parsing command-line arguments.
 #[derive(Debug)]
 pub enum ParseArgsError {
+    /// An unknown flag was specified.
     UnknownFlag(String),
+
+    /// A value is missing for a given flag.
     MissingValue(String),
+
+    /// A mandatory parameter is missing.
     MissingMandatoryParameter(String),
+
+    /// Two or more conflicting flags were specified.
     ConflictingFlags(String),
 }
 
 impl std::fmt::Display for ParseArgsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::UnknownFlag(flag) => write!(f, "Unknown flag: {}", flag),
-            Self::MissingValue(flag) => write!(f, "Flag '{}' requires a value!", flag),
-            Self::ConflictingFlags(flags) => write!(f, "Flags {} cannot be used together!", flags),
-            Self::MissingMandatoryParameter(param) => write!(f, "Missing mandatory parameter: {}", param),
+            Self::UnknownFlag(flag) => return write!(f, "Unknown flag: {}", flag),
+            Self::MissingValue(flag) => return write!(f, "Flag '{}' requires a value!", flag),
+            Self::ConflictingFlags(flags) => return write!(f, "Flags {} cannot be used together!", flags),
+            Self::MissingMandatoryParameter(param) => {
+                return write!(f, "Missing mandatory parameter: {}", param)
+            }
         }
     }
 }
@@ -74,8 +84,31 @@ impl Args {
     /// println!("{:?}", args);
     /// ```
     pub fn parse() -> Result<Args, ParseArgsError> {
-        let mut args = env::args().skip(1);
+        let mut args = env::args().skip(1).peekable();
         let mut parsed_args = Self::new();
+
+        let start_params: HashSet<&'static str> = [
+            "-h",
+            "--help",
+            "-v",
+            "--version",
+            "-i",
+            "--input",
+            "-o",
+            "--output",
+            "--fail-on-unset",
+            "--fail-on-empty",
+            "--fail",
+            "--no-replace-unset",
+            "--no-replace-empty",
+            "--no-escape",
+            "--prefix",
+            "--suffix",
+            "--variable",
+        ]
+        .iter()
+        .cloned()
+        .collect();
 
         while let Some(arg) = args.next() {
             match arg.as_str() {
@@ -88,16 +121,38 @@ impl Args {
                     return Ok(parsed_args);
                 }
                 "-i" | "--input" => {
-                    parsed_args.input_file = Some(
-                        args.next()
-                            .ok_or_else(|| ParseArgsError::MissingValue(arg))?,
-                    );
+                    let arg_clone = arg.clone();
+                    let input_arg = args
+                        .peek()
+                        .ok_or_else(|| ParseArgsError::MissingValue(arg))?;
+                    // check if the next argument is a start parameter
+                    if start_params.contains(input_arg.as_str()) {
+                        return Err(ParseArgsError::MissingValue(arg_clone));
+                    }
+                    parsed_args
+                        .filters
+                        .prefixes
+                        .get_or_insert_with(HashSet::new)
+                        .insert(input_arg.to_string());
+
+                    args.next(); // skip the next argument since it is a valid prefix
                 }
                 "-o" | "--output" => {
-                    parsed_args.output_file = Some(
-                        args.next()
-                            .ok_or_else(|| ParseArgsError::MissingValue(arg))?,
-                    );
+                    let arg_clone = arg.clone();
+                    let output_arg = args
+                        .peek()
+                        .ok_or_else(|| ParseArgsError::MissingValue(arg))?;
+                    // check if the next argument is a start parameter
+                    if start_params.contains(output_arg.as_str()) {
+                        return Err(ParseArgsError::MissingValue(arg_clone));
+                    }
+                    parsed_args
+                        .filters
+                        .suffixes
+                        .get_or_insert_with(HashSet::new)
+                        .insert(output_arg.to_string());
+
+                    args.next(); // skip the next argument since it is a valid prefix
                 }
                 "--fail-on-unset" => {
                     if parsed_args.flags.no_replace_unset {
@@ -171,34 +226,56 @@ impl Args {
                     parsed_args.flags.no_escape = true;
                 }
                 "-p" | "--prefix" => {
+                    let arg_clone = arg.clone();
+                    let prefix_arg = args
+                        .peek()
+                        .ok_or_else(|| ParseArgsError::MissingValue(arg))?;
+                    // check if the next argument is a valid prefix
+                    if start_params.contains(prefix_arg.as_str()) {
+                        return Err(ParseArgsError::MissingValue(arg_clone));
+                    }
                     parsed_args
                         .filters
                         .prefixes
                         .get_or_insert_with(HashSet::new)
-                        .insert(
-                            args.next()
-                                .ok_or_else(|| ParseArgsError::MissingValue(arg))?,
-                        );
+                        .insert(prefix_arg.to_string());
+
+                    args.next(); // skip the next argument since it is a valid prefix
                 }
                 "--suffix" => {
+                    let arg_clone = arg.clone();
+                    let suffix_arg = args
+                        .peek()
+                        .ok_or_else(|| ParseArgsError::MissingValue(arg))?;
+                    // check if the next argument is a valid suffix
+                    if start_params.contains(suffix_arg.as_str()) {
+                        return Err(ParseArgsError::MissingValue(arg_clone));
+                    }
                     parsed_args
                         .filters
                         .suffixes
                         .get_or_insert_with(HashSet::new)
-                        .insert(
-                            args.next()
-                                .ok_or_else(|| ParseArgsError::MissingValue(arg))?,
-                        );
+                        .insert(suffix_arg.to_string());
+
+                    // skip the next argument since it is a valid suffix
+                    args.next();
                 }
                 "--variable" => {
+                    let arg_clone = arg.clone();
+                    let variable_arg = args
+                        .peek()
+                        .ok_or_else(|| ParseArgsError::MissingValue(arg))?;
+                    // check if the next argument is a valid variable
+                    if start_params.contains(variable_arg.as_str()) {
+                        return Err(ParseArgsError::MissingValue(arg_clone));
+                    }
                     parsed_args
                         .filters
                         .variables
                         .get_or_insert_with(HashSet::new)
-                        .insert(
-                            args.next()
-                                .ok_or_else(|| ParseArgsError::MissingValue(arg))?,
-                        );
+                        .insert(variable_arg.to_string());
+
+                    args.next(); // skip the next argument since it is a valid prefix
                 }
                 _ => {
                     return Err(ParseArgsError::UnknownFlag(arg));
@@ -208,7 +285,9 @@ impl Args {
 
         // input is the only required argument
         if parsed_args.input_file.is_none() {
-            return Err(ParseArgsError::MissingMandatoryParameter("'-i|--input'".to_string()));
+            return Err(ParseArgsError::MissingMandatoryParameter(
+                "'-i|--input'".to_string(),
+            ));
         }
 
         return Ok(parsed_args);
