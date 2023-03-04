@@ -22,6 +22,8 @@ jobs:
   build:
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
     runs-on: ${{ matrix.job.os }}
+    outputs:
+      project_version: ${{ steps.extract_crate_information.outputs.PROJECT_VERSION }}
     strategy:
       fail-fast: false
       matrix:
@@ -32,6 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Extract crate information
+        id: extract_crate_information
         shell: bash
         run: |
           echo "PROJECT_NAME=$(sed -n 's/^name = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
@@ -114,11 +117,12 @@ jobs:
             ${{ steps.package.outputs.PKG_PATH }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   docker:
     needs: build
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
+    env:
+      PROJECT_VERSION: ${{ needs.build.outputs.project_version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
