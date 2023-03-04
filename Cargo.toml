@@ -1,11 +1,13 @@
 [package]
 name = "renvsubst"
-version = "0.3.9"
+version = "0.3.10"
 edition = "2021"
+authors = ["gi8lino"]
+categories = ["command-line-utilities"]
+description = "Envsubst with some extra features written in Rust"
+repository = "https://github.com/containeroo/renvsubst"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
+[dev-dependencies]
 tempfile = "*"
 
 [profile.release]
