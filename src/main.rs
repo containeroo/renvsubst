@@ -6,9 +6,11 @@ use crate::args::{Args, HELP_TEXT};
 use crate::file_io::{open_input_file, open_output_file};
 use crate::substitute::perform_substitution;
 use crate::utils::print_error;
+use std::env;
 
 fn main() {
-    let args = Args::parse().unwrap_or_else(|e| {
+    // parse command line arguments
+    let args = Args::parse(env::args().skip(1)).unwrap_or_else(|e| {
         print_error(&e.to_string());
         std::process::exit(1);
     });
