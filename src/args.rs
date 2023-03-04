@@ -71,6 +71,43 @@ impl Args {
         }
     }
 
+    /// Validates the value of a given parameter against a set of allowed values.
+    ///
+    /// # Arguments
+    ///
+    /// * `arg` - A string slice representing the name of the parameter being validated.
+    /// * `arg_value` - An optional string slice representing the value of the parameter being validated.
+    /// * `start_params` - A reference to a `HashSet` containing the allowed values for the parameter.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ParseArgsError` if the value of the parameter is not in the allowed set of values.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::args::{Args, ParseArgsError};
+    ///
+    /// let start_params = vec!["foo", "bar"].into_iter().collect();
+    /// let result = Args::validate_param_value("--input", Some("baz"), &start_params);
+    /// assert_eq!(result.unwrap_err(), ParseArgsError::MissingValue("--input".to_owned()));
+    ///
+    /// let result = Args::validate_param_value("--input", Some("foo"), &start_params);
+    /// assert_eq!(result.unwrap(), "foo".to_owned());
+    /// ```
+    fn validate_param_value(
+        arg: &str,
+        arg_value: Option<&str>,
+        start_params: &HashSet<&'static str>,
+    ) -> Result<String, ParseArgsError> {
+        let value = arg_value.ok_or_else(|| ParseArgsError::MissingValue(arg.to_owned()))?;
+
+        if start_params.contains(value) {
+            return Err(ParseArgsError::MissingValue(arg.to_owned()));
+        }
+        return Ok(value.to_string());
+    }
+
     /// Parses command-line arguments and returns an `Args` struct with the parsed values.
     ///
     /// # Errors
@@ -86,9 +123,13 @@ impl Args {
     /// println!("{:?}", args);
     /// ```
     pub fn parse() -> Result<Args, ParseArgsError> {
-        let mut args = env::args().skip(1).peekable();
+        let mut args = env::args().skip(1);
         let mut parsed_args = Self::new();
 
+        // a set of all start parameters
+        // this is used to check if the next argument is a start parameter
+        // eg. if the current argument is "--input" and the next argument is "--fail-on-unset",
+        // then "--fail-on-unset" is a start parameter and "--input" has missing a value
         let start_params: HashSet<&'static str> = [
             "-h",
             "--help",
@@ -123,39 +164,25 @@ impl Args {
                     return Ok(parsed_args);
                 }
                 "-i" | "--input" => {
-                    let arg_clone = arg.clone();
                     let input_arg = args
-                        .peek()
-                        .ok_or_else(|| ParseArgsError::MissingValue(arg))?;
-                    // check if the next argument is a start parameter
-                    if start_params.contains(input_arg.as_str()) {
-                        return Err(ParseArgsError::MissingValue(arg_clone));
-                    }
-                    parsed_args
-                        .filters
-                        .prefixes
-                        .get_or_insert_with(HashSet::new)
-                        .insert(input_arg.to_string());
+                        .next()
+                        .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))?;
 
-                    args.next(); // skip the next argument since it is a valid prefix
+                    parsed_args.input_file = Some(Self::validate_param_value(
+                        &arg,
+                        Some(&input_arg),
+                        &start_params,
+                    )?);
                 }
                 "-o" | "--output" => {
-                    let arg_clone = arg.clone();
                     let output_arg = args
-                        .peek()
-                        .ok_or_else(|| ParseArgsError::MissingValue(arg))?;
-                    // check if the next argument is a start parameter
-                    if start_params.contains(output_arg.as_str()) {
-                        return Err(ParseArgsError::MissingValue(arg_clone));
-                    }
-                    parsed_args
-                        .filters
-                        .suffixes
-                        .get_or_insert_with(HashSet::new)
-                        .insert(output_arg.to_string());
-
-                    args.next(); // skip the next argument since it is a valid prefix
+                        .next()
+                        .ok_or_else(|| ParseArgsError::MissingValue(arg.to_owned()))?;
+                    let parsed_output =
+                        Self::validate_param_value(&arg, Some(&output_arg), &start_params)?;
+                    parsed_args.output_file = Some(parsed_output);
                 }
+                // flags
                 "--fail-on-unset" => {
                     if parsed_args.flags.no_replace_unset {
                         return Err(ParseArgsError::ConflictingFlags(format!(
@@ -227,58 +254,41 @@ impl Args {
                 "--no-escape" => {
                     parsed_args.flags.no_escape = true;
                 }
-                "-p" | "--prefix" => {
-                    let arg_clone = arg.clone();
+                // Filters
+                "--prefix" => {
                     let prefix_arg = args
-                        .peek()
-                        .ok_or_else(|| ParseArgsError::MissingValue(arg))?;
-                    // check if the next argument is a valid prefix
-                    if start_params.contains(prefix_arg.as_str()) {
-                        return Err(ParseArgsError::MissingValue(arg_clone));
-                    }
+                        .next()
+                        .ok_or_else(|| ParseArgsError::MissingValue(arg.to_owned()))?;
+                    Self::validate_param_value(&arg, Some(prefix_arg.as_str()), &start_params)?;
                     parsed_args
                         .filters
                         .prefixes
                         .get_or_insert_with(HashSet::new)
                         .insert(prefix_arg.to_string());
-
-                    args.next(); // skip the next argument since it is a valid prefix
                 }
                 "--suffix" => {
-                    let arg_clone = arg.clone();
                     let suffix_arg = args
-                        .peek()
-                        .ok_or_else(|| ParseArgsError::MissingValue(arg))?;
-                    // check if the next argument is a valid suffix
-                    if start_params.contains(suffix_arg.as_str()) {
-                        return Err(ParseArgsError::MissingValue(arg_clone));
-                    }
+                        .next()
+                        .ok_or_else(|| ParseArgsError::MissingValue(arg.to_owned()))?;
+                    Self::validate_param_value(&arg, Some(suffix_arg.as_str()), &start_params)?;
                     parsed_args
                         .filters
                         .suffixes
                         .get_or_insert_with(HashSet::new)
                         .insert(suffix_arg.to_string());
-
-                    // skip the next argument since it is a valid suffix
-                    args.next();
                 }
                 "--variable" => {
-                    let arg_clone = arg.clone();
                     let variable_arg = args
-                        .peek()
-                        .ok_or_else(|| ParseArgsError::MissingValue(arg))?;
-                    // check if the next argument is a valid variable
-                    if start_params.contains(variable_arg.as_str()) {
-                        return Err(ParseArgsError::MissingValue(arg_clone));
-                    }
+                        .next()
+                        .ok_or_else(|| ParseArgsError::MissingValue(arg.to_owned()))?;
+                    Self::validate_param_value(&arg, Some(variable_arg.as_str()), &start_params)?;
                     parsed_args
                         .filters
                         .variables
                         .get_or_insert_with(HashSet::new)
                         .insert(variable_arg.to_string());
-
-                    args.next(); // skip the next argument since it is a valid prefix
                 }
+
                 _ => {
                     return Err(ParseArgsError::UnknownFlag(arg));
                 }
@@ -288,7 +298,7 @@ impl Args {
         // input is the only required argument
         if parsed_args.input_file.is_none() {
             return Err(ParseArgsError::MissingMandatoryParameter(
-                "'-i|--input'".to_string(),
+                "-i|--input".to_string(),
             ));
         }
 
@@ -296,7 +306,6 @@ impl Args {
     }
 }
 
-/// Help text for the renvsubst.
 pub const HELP_TEXT: &str = "Usage: renvsubst [PARAMETERS] [FLAGS] [FILTERS]
 
 renvsubst will substitute all (bash-like) environment variables in the format of $VAR_NAME, ${VAR_NAME} or ${VAR_NAME:-DEFAULT_VALUE} with their corresponding values from the environment or the default value if provided. If the variable is not valid, it remains as is.
@@ -321,6 +330,7 @@ Flags:
   -v|--version                     Show the version of the program.
 
 Filters:
+
   --prefix [PREFIX]...             Only replace variables with the specified prefix.
                                    Prefixes can be specified multiple times.
   --suffix [SUFFIX]...             Only replace variables with the specified suffix.
