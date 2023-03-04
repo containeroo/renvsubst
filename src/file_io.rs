@@ -31,18 +31,18 @@ use std::io::{BufReader, Read, Write};
 /// reader.read_to_string(&mut buffer).expect("Failed to read input file");
 /// ```
 pub fn open_input_file(input_file: Option<String>) -> Result<Box<dyn Read>, String> {
-  // check if file is None or "-"
-  let file_name = match &input_file {
-      Some(file) if file == "-" => return Ok(Box::new(std::io::stdin())),
-      Some(file) => file,
-      None => return Ok(Box::new(std::io::stdin())),
-  };
+    // check if file is None or "-"
+    let file_name = match &input_file {
+        Some(file) if file == "-" => return Ok(Box::new(std::io::stdin())),
+        Some(file) => file,
+        None => return Ok(Box::new(std::io::stdin())),
+    };
 
-  // open input file
-  match File::open(file_name) {
-      Ok(file) => Ok(Box::new(BufReader::new(file))),
-      Err(e) => Err(format!("Failed to open input file '{}': {}", file_name, e)),
-  }
+    // open input file
+    match File::open(file_name) {
+        Ok(file) => Ok(Box::new(BufReader::new(file))),
+        Err(e) => Err(format!("Failed to open input file '{}': {}", file_name, e)),
+    }
 }
 
 /// Opens an output file and returns a boxed writer. If the output file is not
@@ -84,7 +84,10 @@ pub fn open_output_file(output_file: Option<String>) -> Result<Box<dyn Write>, S
     // create output file
     match File::create(file_name) {
         Ok(file) => Ok(Box::new(file)),
-        Err(e) => Err(format!("Failed to create output file '{}'. {}", file_name, e)),
+        Err(e) => Err(format!(
+            "Failed to create output file '{}'. {}",
+            file_name, e
+        )),
     }
 }
 
@@ -138,5 +141,4 @@ mod tests {
         output_file.close().unwrap();
         assert!(result.is_ok());
     }
-
 }

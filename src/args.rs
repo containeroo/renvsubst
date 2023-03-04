@@ -21,7 +21,9 @@ impl std::fmt::Display for ParseArgsError {
         match self {
             Self::UnknownFlag(flag) => return write!(f, "Unknown flag: {}", flag),
             Self::MissingValue(flag) => return write!(f, "Flag '{}' requires a value!", flag),
-            Self::ConflictingFlags(flags) => return write!(f, "Flags {} cannot be used together!", flags),
+            Self::ConflictingFlags(flags) => {
+                return write!(f, "Flags {} cannot be used together!", flags)
+            }
             Self::MissingMandatoryParameter(param) => {
                 return write!(f, "Missing mandatory parameter: {}", param)
             }

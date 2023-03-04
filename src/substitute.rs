@@ -350,7 +350,7 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
         }
     }
 
-    return Ok(new_line)
+    return Ok(new_line);
 }
 
 /// Reads input from a file or standard input, processes each line by replacing environment variables with their values, and writes the processed output to a file or standard output.
@@ -442,7 +442,6 @@ pub fn perform_substitution(
 mod tests {
     use super::*;
     use std::collections::HashSet;
-
 
     #[test]
     fn test_process_line_regular_var_found() {
