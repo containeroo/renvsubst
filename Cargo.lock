@@ -58,7 +58,7 @@ dependencies = [
 
 [[package]]
 name = "renvsubst"
-version = "0.3.13"
+version = "0.3.14"
 dependencies = [
  "tempfile",
 ]
