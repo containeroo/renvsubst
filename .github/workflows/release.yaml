@@ -4,74 +4,88 @@ on:
     tags:
       - '*'
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    env:
-      MACOSX_DEPLOYMENT_TARGET: 10.9
-      RUSTFLAGS: -Clink-arg=-mmacosx-version-min=10.9
+ build:
+    name: ${{ matrix.job.target }} (${{ matrix.job.os }})
+    runs-on: ${{ matrix.job.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        job:
+          - { target: x86_64-apple-darwin         , os: macos-10.15                   }
+          - { target: x86_64-unknown-linux-gnu    , os: ubuntu-20.04, use-cross: true }
+          - { target: x86_64-unknown-linux-musl   , os: ubuntu-20.04, use-cross: true }
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Log in to GitHub Container registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Rust stable
+      - name: Extract crate information
+        shell: bash
+        run: |
+          echo "PROJECT_NAME=$(sed -n 's/^name = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
+          echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
+      - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - name: Install macOS target
-        run: rustup target add x86_64-apple-darwin
-      - name: Install GNU target
-        run: rustup target add x86_64-unknown-linux-gnu
-      - name: Install musl target
-        run: rustup target add x86_64-unknown-linux-musl
-
-      - name: Build for Linux
-        run: cargo build --release --target=x86_64-unknown-linux-gnu
-      - name: Build for Linux (musl)
-        run: cargo build --release --target=x86_64-unknown-linux-musl
-
-      - name: Build for macOS
-        run: cargo build --release --target=x86_64-apple-darwin
-      - name: Run tests
-        run: cargo test --verbose
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          target: ${{ matrix.job.target }}
+          override: true
+          profile: minimal # minimal component installation (ie, no documentation)
+      - name: Build
+        uses: actions-rs/cargo@v1
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          body: Automated release created by GitHub Actions
-          draft: false
-          prerelease: false
-      - name: Upload Linux Binary (GNU)
-        uses: actions/upload-artifact@v2
+          use-cross: ${{ matrix.job.use-cross }}
+          command: build
+          args: --locked --release --target=${{ matrix.job.target }}
+      - name: Strip debug information from executable
+        id: strip
+        shell: bash
+        run: |
+          # Figure out suffix of binary
+          EXE_suffix=""
+          case ${{ matrix.job.target }} in
+            *-pc-windows-*) EXE_suffix=".exe" ;;
+          esac;
+          # Figure out what strip tool to use if any
+          STRIP="strip"
+          case ${{ matrix.job.target }} in
+            arm-unknown-linux-*) STRIP="arm-linux-gnueabihf-strip" ;;
+            aarch64-unknown-linux-gnu) STRIP="aarch64-linux-gnu-strip" ;;
+            *-pc-windows-msvc) STRIP="" ;;
+          esac;
+          # Setup paths
+          BIN_DIR="${{ env.CICD_INTERMEDIATES_DIR }}/stripped-release-bin/"
+          mkdir -p "${BIN_DIR}"
+          BIN_NAME="${{ env.PROJECT_NAME }}${EXE_suffix}"
+          BIN_PATH="${BIN_DIR}/${BIN_NAME}"
+          # Copy the release build binary to the result location
+          cp "target/${{ matrix.job.target }}/release/${BIN_NAME}" "${BIN_DIR}"
+          # Also strip if possible
+          if [ -n "${STRIP}" ]; then
+            "${STRIP}" "${BIN_PATH}"
+          fi
+          # Let subsequent steps know where to find the (stripped) bin
+          echo ::set-output name=BIN_PATH::${BIN_PATH}
+          echo ::set-output name=BIN_NAME::${BIN_NAME}
+      - name: Create tarball
+        id: package
+        shell: bash
+        run: |
+          PKG_suffix=".tar.gz" ; case ${{ matrix.job.target }} in *-pc-windows-*) PKG_suffix=".zip" ;; esac;
+          PKG_BASENAME=${PROJECT_NAME}-v${PROJECT_VERSION}-${{ matrix.job.target }}
+          PKG_NAME=${PKG_BASENAME}${PKG_suffix}
+          echo ::set-output name=PKG_NAME::${PKG_NAME}
+          ARCHIVE_DIR="${PKG_STAGING}/${PKG_BASENAME}/"
+          mkdir -p "${ARCHIVE_DIR}"
+          # Binary
+          cp "${{ steps.strip.outputs.BIN_PATH }}" "$ARCHIVE_DIR"
+          # base compressed package
+          pushd "${PKG_STAGING}/" >/dev/null
+          case ${{ matrix.job.target }} in
+            *-pc-windows-*) 7z -y a "${PKG_NAME}" "${PKG_BASENAME}"/* | tail -2 ;;
+            *) tar czf "${PKG_NAME}" "${PKG_BASENAME}"/* ;;
+          esac;
+          popd >/dev/null
+          # Let subsequent steps know where to find the compressed package
+          echo ::set-output name=PKG_PATH::"${PKG_STAGING}/${PKG_NAME}"
+      - name: "Artifact upload: tarball"
+        uses: actions/upload-artifact@master
         with:
-          name: renvsubst-linux-gnu
-          path: target/x86_64-unknown-linux-gnu/release/renvsubst
-      - name: Upload Linux Binary (musl)
-        uses: actions/upload-artifact@v2
-        with:
-          name: renvsubst-linux-musl
-          path: target/x86_64-unknown-linux-musl/release/renvsubst
-
-      - name: Upload macOS Binary
-        uses: actions/upload-artifact@v2
-        with:
-          name: renvsubst-macos
-          path: target/x86_64-apple-darwin/release/renvsubst
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          file: Dockerfile
-          push: true
-          tags: |
-            ghcr.io/containeroo/renvsubst:${{ github.ref }}
-            ghcr.io/containeroo/renvsubst:latest
+          name: ${{ steps.package.outputs.PKG_NAME }}
+          path: ${{ steps.package.outputs.PKG_PATH }}
