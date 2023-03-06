@@ -413,7 +413,7 @@ pub fn perform_substitution(
     filters: &Filters,
 ) -> Result<(), String> {
     let reader = BufReader::new(input_file);
-    let mut buffer = vec![]; // Vector to store the processed lines
+    let mut buffer: Vec<String> = vec![]; // Vector to store the processed lines
 
     // replace variables in each line and write the replaced line in a buffer
     // if no error occurs, write the butter to the wanted output_file (or stdout)
