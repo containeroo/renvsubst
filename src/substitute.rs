@@ -1,4 +1,4 @@
-use crate::args::{Filters, Flags};
+use crate::utils::{Filters, Flags};
 use std::env;
 use std::io::{BufRead, BufReader};
 

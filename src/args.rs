@@ -1,3 +1,4 @@
+use crate::utils::{Filters, Flags};
 use std::collections::HashSet;
 
 /// An error that occurs while parsing command-line arguments.
@@ -38,22 +39,6 @@ impl std::fmt::Display for ParseArgsError {
 }
 
 impl std::error::Error for ParseArgsError {}
-
-#[derive(Debug, Default)]
-pub struct Flags {
-    pub fail_on_unset: bool,
-    pub fail_on_empty: bool,
-    pub no_replace_unset: bool,
-    pub no_replace_empty: bool,
-    pub no_escape: bool,
-}
-
-#[derive(Debug, Default)]
-pub struct Filters {
-    pub prefixes: Option<HashSet<String>>,
-    pub suffixes: Option<HashSet<String>>,
-    pub variables: Option<HashSet<String>>,
-}
 
 #[derive(Debug, Default)]
 pub struct Args {
