@@ -7,7 +7,8 @@ RUN apt-get update && apt-get install -y build-essential
 
 # Build dependencies
 COPY ./ .
-RUN cargo build --release
+# workarount for arm builds
+RUN --mount=type=tmpfs,target=/.cargo CARGO_HOME=/.cargo cargo build --release
 
 # Build final image
 FROM scratch
