@@ -1,5 +1,5 @@
 # Base image
-FROM rust:1.55-slim-buster AS builder
+FROM rust:slim-buster AS builder
 
 # Set up build environment
 WORKDIR /renvsubst
