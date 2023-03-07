@@ -1,22 +1,15 @@
-FROM rust:latest AS builder
+# Base image
+FROM rust:1.55-slim-buster AS builder
 
-RUN rustup target add x86_64-unknown-linux-musl
-RUN apt update && apt install -y musl-tools musl-dev
-
+# Set up build environment
 WORKDIR /renvsubst
+RUN apt-get update && apt-get install -y build-essential
 
+# Build dependencies
 COPY ./ .
+RUN cargo build --release
 
-RUN cargo build --target x86_64-unknown-linux-musl --release
-
-####################################################################################################
-## Final image
-####################################################################################################
+# Build final image
 FROM scratch
-
-WORKDIR /renvsubst
-
-# Copy our build
-COPY --from=builder /renvsubst/target/x86_64-unknown-linux-musl/release/renvsubst ./
-
-ENTRYPOINT ["./renvsubst"]
+COPY --from=builder /renvsubst/target/release/renvsubst /renvsubst
+CMD ["/renvsubst"]
