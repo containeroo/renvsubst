@@ -13,4 +13,4 @@ RUN --mount=type=tmpfs,target=/.cargo CARGO_HOME=/.cargo cargo build --release
 # Build final image
 FROM scratch
 COPY --from=builder /renvsubst/target/release/renvsubst /renvsubst
-CMD ["/renvsubst"]
+ENTRYPOINT ["/renvsubst"]
