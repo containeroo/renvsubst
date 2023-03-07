@@ -40,23 +40,23 @@ spec:
         - name: config
           mountPath: /config
   containers:
-  - name: alpine-toolbox
-    image: ghcr.io/containeroo/alpine-toolbox:latest
-    resources: {}
-    volumeMounts:
-      - name: transfer
-        mountPath: /transfer
-    command:
-      - bash
-    args:
-      - -c
-      - |
-        cat /transfer/config.yaml
-        sleep infinity
+    - name: alpine-toolbox
+      image: ghcr.io/containeroo/alpine-toolbox:latest
+      resources: {}
+      volumeMounts:
+        - name: transfer
+          mountPath: /transfer
+      command:
+        - bash
+      args:
+        - -c
+        - |
+          cat /transfer/config.yaml
+          sleep infinity
   volumes:
-  - name: transfer
-    emptyDir:
-      sizeLimit: 5Mi
-  - name: config
-    configMap:
-      name: config
+    - name: transfer
+      emptyDir:
+        sizeLimit: 5Mi
+    - name: config
+      configMap:
+        name: config
