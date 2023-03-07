@@ -262,15 +262,17 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
                 while let Some(c) = iter.next() {
                     // check if possible default value => :
                     if c == ':' {
-                        // if next character is not '-', then the ':' is not part of the default value
-                        if iter.peek() != Some(&'-') {
-                            // if reached here, then the ':' is not part of the default value
-                            default_error = true;
-                            break;
+                        if default_value_found == false {
+                            // if next character is not '-', then the ':' is not part of the default value
+                            if iter.peek() != Some(&'-') {
+                                // if reached here, then the ':' is not part of the default value
+                                default_error = true;
+                                break;
+                            }
+                            default_value_found = true;
+                            iter.next(); // skip the '-'
+                            continue;
                         }
-                        default_value_found = true;
-                        iter.next(); // skip the '-'
-                        continue;
                     }
 
                     if c == '}' {
@@ -584,6 +586,39 @@ mod tests {
         let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT:-default}".to_string();
         let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("default".to_string()));
+    }
+
+    #[test]
+    fn test_process_line_braces_var_default_use_colon_in_default() {
+        // description: braces variable with colon inside default value, use default
+        // test: ${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa:ult}
+        // env: unset
+        // result: defa:ult
+        let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa:ult}".to_string();
+        let result = process_line(&line, &Flags::default(), &Filters::default());
+        assert_eq!(result, Ok("defa:ult".to_string()));
+    }
+
+    #[test]
+    fn test_process_line_braces_var_default_use_dollar_in_default() {
+        // description: braces variable with default value, use default
+        // test: ${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa$ult}
+        // env: unset
+        // result: defa:ult
+        let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa$ult}".to_string();
+        let result = process_line(&line, &Flags::default(), &Filters::default());
+        assert_eq!(result, Ok("defa$ult".to_string()));
+    }
+
+    #[test]
+    fn test_process_line_braces_var_default_use_braces_in_default() {
+        // description: braces variable with default value, use default
+        // test: ${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa$ult}
+        // env: unset
+        // result: defa:ult
+        let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa}ult}".to_string();
+        let result = process_line(&line, &Flags::default(), &Filters::default());
+        assert_eq!(result, Ok("default}".to_string()));
     }
 
     #[test]
@@ -1407,21 +1442,6 @@ mod tests {
         assert_eq!(
             result,
             Ok("$PREFIX_ENV1 and $ENV2_SUFFIX and $VAR should not be replaced.".to_string())
-        );
-    }
-
-    #[test]
-    fn test_process_line_braces_var_invalid_default() {
-        // description: braces variable with invalid default
-        // test: This ${BRACES_VAR_INVALID_DEFAULT:-def:ault} a broken default.
-        // env: BRACES_VAR_INVALID_DEFAULT=var1_var
-        // result: This ${BRACES_VAR_INVALID_DEFAULT:-def:ault} a broken default.
-        env::set_var("BRACES_VAR_INVALID_DEFAULT", "var1_test");
-        let line = "This ${BRACES_VAR_INVALID_DEFAULT:-def:ault} a broken default.".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(
-            result,
-            Ok("This ${BRACES_VAR_INVALID_DEFAULT:-def:ault} a broken default.".to_string())
         );
     }
 
