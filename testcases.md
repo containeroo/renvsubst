@@ -13,6 +13,9 @@
 | test_process_line_braces_var_not_found | braces variable not found | ${BRACES_VAR_NOT_FOUND} | unset | - |
 | test_process_line_braces_var_not_found_fail_on_unset | braces variable not found | ${BRACES_VAR_NOT_FOUND} | unset | - |
 | test_process_line_braces_var_default_use_default | braces variable with default value, use default | ${BRACES_VAR_DEFAULT_USE_DEFAULT:-default} | unset | default |
+| test_process_line_braces_var_default_use_colon_in_default | braces variable with colon inside default value, use default | ${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa:ult} | unset | defa:ult |
+| test_process_line_braces_var_default_use_dollar_in_default | braces variable with default value, use default | ${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa$ult} | unset | defa:ult |
+| test_process_line_braces_var_default_use_braces_in_default | braces variable with default value, use default | ${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa$ult} | unset | defa:ult |
 | test_process_line_braces_var_default_use_var | braces variable with default value, use variable | ${BRACES_VAR_DEFAULT_USE_VAR:-default} | BRACES_VAR_DEFAULT_USE_VAR=value | value |
 | test_process_line_braces_var_default_use_var_dash | braces variable with default value, use variable | ${_BRACES_VAR_DEFAULT_USE_VAR:-default} | _BRACES_VAR_DEFAULT_USE_VAR=value | value |
 | test_process_line_braces_var_default_use_default_dash | braces variable with default value, use default | ${BRACES_VAR_DEFAULT_USE_DEFAULT_DASH:-_default} | BRACES_VAR_DEFAULT_USE_DEFAULT_DASH=value | value |
@@ -60,7 +63,6 @@
 | test_process_line_braces_var_valid_no_prefix_valid_suffix | braces variable with suffix | this var $ENV1 should not be touched. this $TEST_VAR1 has a prefix. This ${VAR1_TEST} has a suffix. | ENV1=env1, VAR1_TEST=var1_var | // result:this $ENV1 has a prefix. This test_var1 has a suffix. This var1_test has a suffix. |
 | test_process_line_regular_var_list_variables | regular variable with a list of variables | Only ENV1 and ENV2 should be replaced. ENV3 should not be replaced. | ENV1=env1, ENV2=env2 | Only env1 and env2 should be replaced. ENV2 should not be replaced. |
 | test_process_line_regular_var_list_variables_prefix_suffix_not_found | all filter set, non matches | $PREFIX_ENV1 and $ENV2_SUFFIX and $VAR should not be replaced. | - | $PREFIX_ENV1 and $ENV2_SUFFIX and $VAR should not be replaced. |
-| test_process_line_braces_var_invalid_default | braces variable with invalid default | This ${BRACES_VAR_INVALID_DEFAULT:-def:ault} a broken default. | BRACES_VAR_INVALID_DEFAULT=var1_var | This ${BRACES_VAR_INVALID_DEFAULT:-def:ault} a broken default. |
 | test_process_line_regular_var_all_filter_match | all filter set, all match | ${PREFIX_VAR_SUFFIX} | - | prefix var suffix |
 | test_matches_filters_no_filters | no filters | - | - | true |
 | test_matches_filters_all_filters | all filters | - | - | true |
@@ -83,7 +85,7 @@
 | test_evaluate_variable_regular_fail_on_unset | regular variable with fail on unset | ${VAR} | - | error |
 | test_evaluate_variable_regular_fail_on_unset_empty_true | regular variable with fail on unset and empty true | ${VAR} | - | error |
 | test_example_process_line | let line = "Hello, ${NAME:-User}! How are you, ${NAME}?"; | let result = process_line(line, &Flags::default(), &Filters::default()); |  | assert!(result.is_ok()); |
-| test_example_match_filters | let filters = Filters { | Some(vec!["prefixed_".to_string()]), | Some(vec!["_suffixed".to_string()]), | Some(vec![ |
+| test_example_match_filters | let filters = Filters { | Some(HashSet::from_iter(vec!["prefixed_".to_string()])), | Some(HashSet::from_iter(vec!["_suffixed".to_string()])), | Some(HashSet::from_iter(vec![ |
 | test_example_get_env_var_value | let var_value = get_env_var_value( | "MY_VAR", | "default_value", | "fallback_value", |
 | test_example_perform_substitution | let input = "The value of MY_VAR is $MY_VAR"; | Vec<u8> = vec![]; |  | let result = perform_substitution( |
 
