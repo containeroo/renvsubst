@@ -2,7 +2,7 @@ name: Build and Release Rust Code
 on:
   push:
     tags:
-      - '*'
+      - "*"
 env:
   CICD_INTERMEDIATES_DIR: "_cicd-intermediates"
 
@@ -11,14 +11,14 @@ jobs:
     name: Ensure 'cargo fmt' has been run
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        default: true
-        profile: minimal
-        components: rustfmt
-    - uses: actions/checkout@v3
-    - run: cargo fmt -- --check
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          default: true
+          profile: minimal
+          components: rustfmt
+      - uses: actions/checkout@v3
+      - run: cargo fmt -- --check
   build:
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
     runs-on: ${{ matrix.job.os }}
@@ -33,6 +33,13 @@ jobs:
           - { target: x86_64-unknown-linux-musl   , os: ubuntu-20.04, use-cross: true }
     steps:
       - uses: actions/checkout@v3
+      - name: Install prerequisites
+        shell: bash
+        run: |
+          case ${{ matrix.job.target }} in
+            arm-unknown-linux-*) sudo apt-get -y update ; sudo apt-get -y install gcc-arm-linux-gnueabihf ;;
+            aarch64-unknown-linux-gnu) sudo apt-get -y update ; sudo apt-get -y install gcc-aarch64-linux-gnu ;;
+          esac
       - name: Extract crate information
         id: extract_crate_information
         shell: bash
