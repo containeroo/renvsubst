@@ -9,9 +9,8 @@ RUN apt-get update && apt-get install -y build-essential
 COPY ./ .
 # workarount for arm builds
 RUN --mount=type=tmpfs,target=/.cargo CARGO_HOME=/.cargo cargo build --release
-RUN ls target/release/
 
 # Build final image
 FROM scratch
-COPY --from=builder /renvsubst/target/release/renvsubst ./renvsubst
+COPY --from=builder /renvsubst/target/release/renvsubst /
 ENTRYPOINT ["./renvsubst"]
