@@ -11,6 +11,6 @@ COPY ./ .
 RUN --mount=type=tmpfs,target=/.cargo CARGO_HOME=/.cargo cargo build --release
 
 # Build final image
-FROM scratch
+FROM debian:11.6-slim
 COPY --from=builder /renvsubst/target/release/renvsubst /
-#ENTRYPOINT ["./renvsubst"]
+ENTRYPOINT ["./renvsubst"]
