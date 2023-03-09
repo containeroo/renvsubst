@@ -137,7 +137,7 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.job.platform }}
           build-args: |
             BIN_PATH=${{ steps.strip.outputs.BIN_PATH }}
           tags: |
