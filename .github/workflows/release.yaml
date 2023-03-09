@@ -25,10 +25,8 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-      - name: Install cross
-        run: cargo install cross
       - name: Build and Test
-        run: cross build --target ${{ matrix.rust-target }} && cargo test
+        run: cross build --target ${{ matrix.rust-target }} --release
       - name: Login to GHCR
         uses: docker/login-action@v1
         with:
@@ -36,14 +34,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish Docker image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v2
         with:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
+          file: Dockerfile
+          build-args: |
+            RUST_BINARY=${{ env.PROJECT_NAME }}
           tags: |
-            ghcr.io/containeroo/renvsubst:latest
-            ghcr.io/containeroo/renvsubst:${{ env.PROJECT_VERSION }}
+            ghcr.io/containeroo/${{ env.PROJECT_NAME }}:latest
+            ghcr.io/containeroo/${{ env.PROJECT_NAME }}:${{ env.PROJECT_VERSION }}
           labels: |
             maintainer=gi8lino <gi8@containeroo.ch>
             version=${{ env.PROJECT_VERSION }}
