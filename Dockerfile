@@ -18,5 +18,6 @@ ENV TARGET $TARGET
 
 # Final stage
 FROM scratch
+ARG TARGET $TARGET
 COPY --from=builder /app/target/${TARGET}/release/renvsubst .
 ENTRYPOINT ["./renvsubst"]
