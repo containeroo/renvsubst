@@ -7,8 +7,8 @@ env:
   CICD_INTERMEDIATES_DIR: "_cicd-intermediates"
 
 jobs:
-  build_x86_64:
-    name: Build x86_64 Image
+  build_container:
+    name: Build container
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -29,15 +29,13 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build Docker Image (amd64)
+      - name: Build Container Image
         uses: docker/build-push-action@v4
         with:
           context: .
           file: Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
-          build-args: |
-             TARGET=x86_64-unknown-linux-musl,aarch64-unknown-linux-musl
           tags: |
             ghcr.io/containeroo/renvsubst:latest
             ghcr.io/containeroo/renvsubst:${{ env.PROJECT_VERSION }}
