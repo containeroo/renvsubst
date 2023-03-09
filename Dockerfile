@@ -5,13 +5,18 @@ WORKDIR /app
 
 COPY . .
 
-ARG TARGET
+ARG TARGETPLATFORM
+RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+        TARGET=x86_64-unknown-linux-musl; \
+    else \
+        TARGET=armv7-unknown-linux-musleabihf; \
+    fi && \
+    rustup target add $TARGET && \
+    cargo install --target $TARGET --path .
 
-RUN rustup target add ${TARGET}
-RUN cargo install --target ${TARGET} --path .
+ENV TARGET $TARGET
 
 # Final stage
 FROM scratch
-ARG TARGET
 COPY --from=builder /app/target/${TARGET}/release/renvsubst .
 ENTRYPOINT ["./renvsubst"]
