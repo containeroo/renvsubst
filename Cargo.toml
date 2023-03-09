@@ -1,6 +1,6 @@
 [package]
 name = "renvsubst"
-version = "0.3.34"
+version = "0.3.35"
 edition = "2021"
 authors = ["gi8lino"]
 categories = ["command-line-utilities"]
@@ -9,6 +9,9 @@ repository = "https://github.com/containeroo/renvsubst"
 
 [dev-dependencies]
 tempfile = "*"
+
+[target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
+version = "0.5.0"
 
 [profile.release]
 opt-level = "z"

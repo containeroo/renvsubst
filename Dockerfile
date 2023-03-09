@@ -1,16 +1,13 @@
-# Base image
-FROM rust:slim-buster AS builder
+# Build stage
+FROM rust:latest AS builder
 
-# Set up build environment
-WORKDIR /renvsubst
-RUN apt-get update && apt-get install -y build-essential
+WORKDIR /app
 
-# Build dependencies
-COPY ./ .
-# workarount for arm builds
-RUN --mount=type=tmpfs,target=/.cargo CARGO_HOME=/.cargo cargo build --release
+COPY . .
 
-# Build final image
-FROM debian:11.6-slim
-COPY --from=builder /renvsubst/target/release/renvsubst /
+RUN cargo build --release --target x86_64-unknown-linux-musl
+
+# Final stage
+FROM scratch
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/renvsubst .
 ENTRYPOINT ["./renvsubst"]

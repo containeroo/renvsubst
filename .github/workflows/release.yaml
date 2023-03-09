@@ -155,38 +155,3 @@ jobs:
           labels: |
             maintainer=gi8lino <gi8@containeroo.ch>
             version=${{ env.PROJECT_VERSION }}
-  build_armv7:
-    name: Build armv7 Image
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v2
-      - name: Extract crate information
-        shell: bash
-        run: |
-          echo "PROJECT_NAME=$(sed -n 's/^name = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
-          echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
-      - name: Setup QEMU
-        uses: docker/setup-qemu-action@v1
-      - name: Login to GHCR
-        uses: docker/login-action@v1
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build Docker Image
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          file: Dockerfile
-          push: true
-          platforms: linux/arm/v7
-          build-args: |
-            --target armv7-unknown-linux-musleabihf
-          tags: |
-            ghcr.io/containeroo/renvsubst:latest
-            ghcr.io/containeroo/renvsubst:${{ env.PROJECT_VERSION }}
-          labels: |
-            maintainer=gi8lino <gi8@containeroo.ch>
-            version=${{ env.PROJECT_VERSION }}
