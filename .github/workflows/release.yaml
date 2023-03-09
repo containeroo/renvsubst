@@ -25,6 +25,8 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
+      - name: Install cross
+        run: cargo install cross
       - name: Build and Test
         run: cross build --target ${{ matrix.rust-target }} --release
       - name: Login to GHCR
