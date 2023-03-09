@@ -36,8 +36,9 @@ jobs:
           file: Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
-          build-args: |
-            TARGET=x86_64-unknown-linux-musl,aarch64-unknown-linux-musl
+          build-args: >
+            TARGET=x86_64-unknown-linux-musl
+            TARGET=aarch64-unknown-linux-musl
           tags: |
             ghcr.io/containeroo/renvsubst:latest
             ghcr.io/containeroo/renvsubst:${{ env.PROJECT_VERSION }}
