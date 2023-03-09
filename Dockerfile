@@ -8,7 +8,7 @@ COPY . .
 ARG TARGET
 
 RUN rustup target add ${TARGET}
-RUN cargo build --release --target ${TARGET}
+RUN cargo install --target ${TARGET} --path .
 
 # Final stage
 FROM scratch
