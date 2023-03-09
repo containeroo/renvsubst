@@ -131,10 +131,14 @@ impl Args {
         I: IntoIterator<Item = T>,
         T: Into<std::ffi::OsString> + Clone,
     {
-        let mut args = args
+        // collect the arguments into a vector of strings
+        let args: Vec<String> = args
             .into_iter()
             .map(|arg| arg.into().into_string())
-            .filter_map(Result::ok);
+            .filter_map(Result::ok)
+            .collect();
+        // create an iterator over the arguments
+        let mut args = args.iter();
 
         let mut parsed_args = Self::new();
 
@@ -178,7 +182,7 @@ impl Args {
                 "-i" | "--input" => {
                     // check if already set
                     if parsed_args.input_file.is_some() {
-                        return Err(ParseArgsError::DuplicateValue(arg));
+                        return Err(ParseArgsError::DuplicateValue(arg.to_string()));
                     }
                     // check if next argument is a start parameter
                     let input_arg = args
@@ -194,7 +198,7 @@ impl Args {
                 "-o" | "--output" => {
                     // check if already set
                     if parsed_args.output_file.is_some() {
-                        return Err(ParseArgsError::DuplicateValue(arg));
+                        return Err(ParseArgsError::DuplicateValue(arg.to_string()));
                     }
                     // check if next argument is a start parameter
                     let output_arg = args
@@ -208,7 +212,7 @@ impl Args {
                 "--fail-on-unset" => {
                     // check if already set
                     if parsed_args.flags.fail_on_unset {
-                        return Err(ParseArgsError::DuplicateValue(arg));
+                        return Err(ParseArgsError::DuplicateValue(arg.to_string()));
                     }
                     // check for conflicting flags
                     if parsed_args.flags.no_replace_unset {
@@ -222,7 +226,7 @@ impl Args {
                 "--fail-on-empty" => {
                     // check if already set
                     if parsed_args.flags.fail_on_empty {
-                        return Err(ParseArgsError::DuplicateValue(arg));
+                        return Err(ParseArgsError::DuplicateValue(arg.to_string()));
                     }
                     // check for conflicting flags
                     if parsed_args.flags.no_replace_empty {
@@ -236,7 +240,7 @@ impl Args {
                 "--fail" => {
                     // check if already set
                     if parsed_args.flags.fail_on_unset {
-                        return Err(ParseArgsError::DuplicateValue(arg));
+                        return Err(ParseArgsError::DuplicateValue(arg.to_string()));
                     }
                     // check for conflicting flags
                     if parsed_args.flags.no_replace_unset {
@@ -257,7 +261,7 @@ impl Args {
                 "--no-replace-unset" => {
                     // check if already set
                     if parsed_args.flags.no_replace_unset {
-                        return Err(ParseArgsError::DuplicateValue(arg));
+                        return Err(ParseArgsError::DuplicateValue(arg.to_string()));
                     }
                     // check for conflicting flags
                     if parsed_args.flags.fail_on_unset {
@@ -271,7 +275,7 @@ impl Args {
                 "--no-replace-empty" => {
                     // check if already set
                     if parsed_args.flags.no_replace_empty {
-                        return Err(ParseArgsError::DuplicateValue(arg));
+                        return Err(ParseArgsError::DuplicateValue(arg.to_string()));
                     }
                     // check for conflicting flags
                     if parsed_args.flags.fail_on_empty {
@@ -285,7 +289,7 @@ impl Args {
                 "--no-replace" => {
                     // check if already set
                     if parsed_args.flags.no_replace_unset {
-                        return Err(ParseArgsError::DuplicateValue(arg));
+                        return Err(ParseArgsError::DuplicateValue(arg.to_string()));
                     }
                     // check for conflicting flags
                     if parsed_args.flags.fail_on_unset {
@@ -306,7 +310,7 @@ impl Args {
                 "--no-escape" => {
                     // check if already set
                     if parsed_args.flags.no_escape {
-                        return Err(ParseArgsError::DuplicateValue(arg));
+                        return Err(ParseArgsError::DuplicateValue(arg.to_string()));
                     }
                     parsed_args.flags.no_escape = true;
                 }
@@ -346,7 +350,7 @@ impl Args {
                 }
 
                 _ => {
-                    return Err(ParseArgsError::UnknownFlag(arg));
+                    return Err(ParseArgsError::UnknownFlag(arg.to_string()));
                 }
             }
         }
