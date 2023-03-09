@@ -9,7 +9,6 @@ env:
 jobs:
   build_x86_64:
     name: Build x86_64 Image
-    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
