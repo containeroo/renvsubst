@@ -11,7 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust-target: [x86_64-unknown-linux-gnu, arm-unknown-linux-musleabihf]
+        rust-target: [x86_64-unknown-linux-gnu, armv7-unknown-linux-gnueabihf]
+        qemu: [false, true]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v2
@@ -27,6 +28,12 @@ jobs:
           toolchain: stable
       - name: Install cross
         run: cargo install cross
+      - name: Set up QEMU
+        if: matrix.qemu == 'true'
+        uses: docker/setup-qemu-action@v1
+      - name: Install QEMU
+        if: matrix.qemu == 'true'
+        run: sudo apt-get install -y qemu-user-static
       - name: Build and Test
         run: cross build --target ${{ matrix.rust-target }} --release
       - name: Login to GHCR
@@ -35,12 +42,16 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish Docker image
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Create and Use Buildx Builder
+        run: docker buildx create --name multiarch --use
+      - name: Build and push Docker image
         uses: docker/build-push-action@v2
         with:
           context: .
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
           file: Dockerfile
           build-args: |
             RUST_BINARY=${{ env.PROJECT_NAME }}
@@ -50,3 +61,6 @@ jobs:
           labels: |
             maintainer=gi8lino <gi8@containeroo.ch>
             version=${{ env.PROJECT_VERSION }}
+        env:
+          DOCKER_BUILDKIT: 1
+          DOCKER_CLI_EXPERIMENTAL: enabled
