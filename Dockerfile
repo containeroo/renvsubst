@@ -5,10 +5,12 @@ WORKDIR /app
 
 COPY . .
 
-RUN rustup target add x86_64-unknown-linux-musl
-RUN cargo build --release --target x86_64-unknown-linux-musl
+ARG TARGET
+
+RUN rustup target add ${$TARGET}
+RUN cargo build --release --target ${$TARGET}
 
 # Final stage
 FROM scratch
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/renvsubst .
+COPY --from=builder /app/target/${$TARGET}/release/renvsubst .
 ENTRYPOINT ["./renvsubst"]
