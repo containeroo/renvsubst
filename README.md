@@ -6,15 +6,8 @@ A valid variable name is a string that starts with a letter or an underscore, fo
 ## Usage
 
 ```sh
-Usage: renvsubst [PARAMETERS] [FLAGS] [FILTERS]
+Usage: renvsubst [FLAGS] [FILTERS] [INPUT]
 ```
-
-## Parameters
-
-| Parameter                          | Description                                                                       |
-| :--------------------------------- | :-------------------------------------------------------------------------------- |
-| `-i` \| `--input` `[INPUT_FILE]`   | Specify the input file. Use `-` to read from `stdin`.                             |
-| `-o` \| `--output` `[OUTPUT_FILE]` | Specify the output file. If not provided, the output will be written to `stdout`. |
 
 ## Flags
 
@@ -34,13 +27,17 @@ Usage: renvsubst [PARAMETERS] [FLAGS] [FILTERS]
 
 Every filter can be specified multiple times!
 
-| Parameter                    | Description                                                                   |
-| ---------------------------- | ----------------------------------------------------------------------------- |
-| `--prefix` [PREFIX]          | Only replace variables with the specified prefix.                             |
-| `--suffix` [SUFFIX]          | Only replace variables with the specified suffix.                             |
-| `--variable` [VARIABLE_NAME] | Specify variable to replace. If not provided, all variables will be replaced. |
+| Parameter                          | Description                                                                   |
+| ---------------------------------- | ----------------------------------------------------------------------------- |
+| `-p`, `--prefix`[=PREFIX]          | Only replace variables with the specified prefix.                             |
+| `-s`, `--suffix`[=SUFFIX]          | Only replace variables with the specified suffix.                             |
+| `-v`, `--variable`[=VARIABLE_NAME] | Specify variable to replace. If not provided, all variables will be replaced. |
 
 The variables will be substituted according to the specified prefix, suffix, or variable name. If none of these options are provided, all variables will be substituted. When one or more options are specified, only variables that match the given prefix, suffix, or variable name will be replaced, while all others will remain unchanged.
+
+## Input
+
+The input can be passed via `stdin`. If no input is provided, the program will wait for input from the user.
 
 ## Escaping
 
@@ -63,23 +60,35 @@ Use the `--no-replace-empty` flag. If there is no environment variable named `wo
 
 ### Preparation
 
-Create a test file:
+Create a test variable:
 
-```sh
-cat << EOF > test.txt
-This is a "\$FILE_NAME" file.
+INPUT="""This is a "\$FILE_NAME" file.
 It has more than "\${AMOUNT}" different variables.
-You can also use "\${UNSET_VARIABLE:-default}" values inside variables like "\$\${UNSET_VARIABLE:-default}".
+You can also use "\${UNSET_VARIABLE:-default}" values inside variables like "\${UNSET_VARIABLE:-default}".
 Here are more variable like "\${PREFIXED_VARIABLE_1}" and "\${VARIABLE_1_SUFFIXED}".
 Here are more "\$PREFIXED_VARIABLE_2" and "\$VARIABLE_2_SUFFIXED" variables!
 Here are other prefixed "\$prefixed_VARIABLE_3" and suffixed "\$VARIABLE_3_suffixed" variables!
+Or you can escape Text with two dollar signs (\$\$) like fi\$\$h => fi\$h.
+"""
+
+Create a test file:
+
+```sh
+cat << EOF > input.txt
+This is a "\$FILE_NAME" file.
+It has more than "\${AMOUNT}" different variables.
+You can also use "\${UNSET_VARIABLE:-default}" values inside variables like "\${UNSET_VARIABLE:-default}".
+Here are more variable like "\${PREFIXED_VARIABLE_1}" and "\${VARIABLE_1_SUFFIXED}".
+Here are more "\$PREFIXED_VARIABLE_2" and "\$VARIABLE_2_SUFFIXED" variables!
+Here are other prefixed "\$prefixed_VARIABLE_3" and suffixed "\$VARIABLE_3_suffixed" variables!
+Or you can escape Text with two dollar signs (\$\$) like fi\$\$h => fi\$h.
 EOF
 ```
 
 Set variables:
 
 ```sh
-export FILE_NAME=test.txt
+export FILE_NAME=input.txt
 export AMOUNT=1
 export PREFIXED_VARIABLE_1="variable with a prefix"
 export PREFIXED_VARIABLE_2="another variable with a prefix"
@@ -93,72 +102,80 @@ export VARIABLE_3_suffixed="small letters suffix"
 
 #### default usage
 
-Replace all variables inside `test.txt` and output the result to `stdout`:
+Replace all variables inside `input.txt` and output the result to `output.txt`:
 
 ```sh
-renvsubst --input test.txt
+renvsubst < input.txt > output.txt
 
-# output:
+# output.txt:
 This is a "test.txt" file.
 It has more than "1" different variables.
-You can also use "default" values inside variables like "$${UNSET_VARIABLE:-default}".
+You can also use "default" values inside variables like "default".
 Here are more variable like "variable with a prefix" and "variable with a suffix".
 Here are more "another variable with a prefix" and "another variable with a suffix" variables!
 Here are other prefixed "small letters prefix" and suffixed "small letters suffix" variables!
+Or you can escape Text with two dollar signs ($$) like fi$h => fi.
 ```
 
 #### filter variables
 
-Replace only variable `AMOUNT` and `UNSET_VARIABLE`:
+Replace only variable `AMOUNT` and `UNSET_VARIABLE` inside `input.txt` and output to `stdout`:
 
 ```sh
-renvsubst -i test.txt --variable AMOUNT --variable UNSET_VARIABLE
+renvsubst -v=AMOUNT --variable UNSET_VARIABLE < input.txt
 
-# output:
+# stdout:
 This is a "$FILE_NAME" file.
 It has more than "1" different variables.
-You can also use "default" values inside variables like "$${UNSET_VARIABLE:-default}".
+You can also use "default" values inside variables like "default".
 Here are more variable like "${PREFIXED_VARIABLE_1}" and "${VARIABLE_1_SUFFIXED}".
 Here are more "$PREFIXED_VARIABLE_2" and "$VARIABLE_2_SUFFIXED" variables!
 Here are other prefixed "$prefixed_VARIABLE_3" and suffixed "$VARIABLE_3_suffixed" variables!
+Or you can escape Text with two dollar signs ($$) like fi$h => fi$h.
 ```
 
 #### filter with prefix
 
-Replace only variables with the prefix `PREFIXED`
+Replace only variables with the prefix `PREFIXED` from the variable `INPUT` and write the output to the file `output.txt`:
 
 ```sh
-renvsubst --input test.txt --prefix PREFIXED
+renvsubst --prefix PREFIXED <<< $INPUT > output.txt
 
-# output:
+# output.txt:
 This is a "$FILE_NAME" file.
 It has more than "${AMOUNT}" different variables.
-You can also use "${UNSET_VARIABLE:-default}" values inside variables like "$${UNSET_VARIABLE:-default}".
+You can also use "${UNSET_VARIABLE:-default}" values inside variables like "${UNSET_VARIABLE:-default}".
 Here are more variable like "variable with a prefix" and "${VARIABLE_1_SUFFIXED}".
 Here are more "another variable with a prefix" and "$VARIABLE_2_SUFFIXED" variables!
 Here are other prefixed "$prefixed_VARIABLE_3" and suffixed "$VARIABLE_3_suffixed" variables!
+Or you can escape Text with two dollar signs ($$) like fi$h => fi$h.
 ```
 
 #### filter with suffix
 
-```sh
-renvsubst -i test.txt --suffix SUFFIXED
+Replace only variables with the suffix `SUFFIXED` inside `input.txt` and write the output to the file `output.txt`:
 
-# output:
+```sh
+renvsubst --suffix=SUFFIXED < input.txt > output.txt
+
+# output.txt:
 This is a "$FILE_NAME" file.
 It has more than "${AMOUNT}" different variables.
-You can also use "${UNSET_VARIABLE:-default}" values inside variables like "$${UNSET_VARIABLE:-default}".
+You can also use "${UNSET_VARIABLE:-default}" values inside variables like "${UNSET_VARIABLE:-default}".
 Here are more variable like "${PREFIXED_VARIABLE_1}" and "variable with a suffix".
 Here are more "$PREFIXED_VARIABLE_2" and "another variable with a suffix" variables!
 Here are other prefixed "$prefixed_VARIABLE_3" and suffixed "$VARIABLE_3_suffixed" variables!
+Or you can escape Text with two dollar signs ($$) like fi$h => fi$h.
 ```
 
 ## multiple filter
 
-```sh
-renvsubst --input test.txt --prefix PREFIXED --prefix prefixed --suffix SUFFIXED
+Replace only variables with the prefixes `PREFIXED` or `prefixed` or suffix `SUFFIXED` from the variable `INPUT` and output to `stdout`:
 
-# output:
+```sh
+renvsubst --prefix PREFIXED --prefix=prefixed --suffix=SUFFIXED <<< $INPUT
+
+# stdout:
 This is a "$FILE_NAME" file.
 It has more than "${AMOUNT}" different variables.
 You can also use "${UNSET_VARIABLE:-default}" values inside variables like "$${UNSET_VARIABLE:-default}".

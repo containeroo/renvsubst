@@ -200,7 +200,7 @@ fn matches_filters(filters: &Filters, var_name: &str) -> Option<bool> {
 /// assert_eq!(result.unwrap(), "Hello, User! How are you, ?");
 /// ```
 fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, String> {
-    let mut new_line = String::with_capacity(line.len());
+    let mut new_line: String = String::with_capacity(line.len());
     let mut iter = line.chars().peekable();
 
     while let Some(c) = iter.next() {
@@ -355,18 +355,23 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
     return Ok(new_line);
 }
 
-/// Reads input from a file or standard input, processes each line by replacing environment variables with their values, and writes the processed output to a file or standard output.
+/// Perform variable substitution on the input file and write the result to the output file.
+///
+/// The function reads from the provided `input_file` and writes the processed output to the provided `output_file`.
+/// The `flags` parameter controls how the substitution is performed (e.g. whether to fail on unset variables),
+/// and the `filters` parameter specifies which variables to substitute (e.g. only those with a certain prefix).
 ///
 /// # Arguments
 ///
-/// * `input_file`: A box that contains a `std::io::Read` trait object that represents the input stream.
-/// * `output_file`: A box that contains a `std::io::Write` trait object that represents the output stream.
-/// * `flags`: A reference to a `Flags` struct that contains various configuration options.
-/// * `filters`: A reference to a `Filters` struct that contains the filter criteria for which variables to replace.
+/// * `input_file` - A boxed `std::io::Read` trait object that represents the input file to be read.
+/// * `output_file` - A boxed `std::io::Write` trait object that represents the output file to be written.
+/// * `flags` - A reference to a `Flags` struct that specifies how the variable substitution should be performed.
+/// * `filters` - A reference to a `Filters` struct that specifies which variables should be substituted.
 ///
 /// # Returns
 ///
-/// Returns a `Result` that contains `()` if the operation was successful, or an error message as a `String` if an error occurred.
+/// The function returns a `Result` with an empty tuple `()` if the substitution is successful.
+/// If an error occurs during the variable substitution or file writing, a `String` with a descriptive error message is returned.
 ///
 /// # Environment Variables
 ///
@@ -394,27 +399,25 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
 /// # Examples
 ///
 /// ```
-/// use my_crate::{perform_substitution, Flags, Filters};
+/// use std::io::Cursor;
+/// use renvsubst::{perform_substitution, Flags, Filters};
 ///
-/// let input = "The value of MY_VAR is $MY_VAR";
-/// let mut output: Vec<u8> = vec![];
+/// let input = Cursor::new("Hello $WORLD!");
+/// let mut output = Cursor::new(Vec::new());
+/// let flags = Flags::default();
+/// let filters = Filters::default();
 ///
-/// let result = perform_substitution(
-///   Box::new(input.as_bytes()),
-///   Box::new(output),
-///   &Flags::default(),
-///   &Filters::default(),
-/// );
+/// perform_substitution(Box::new(input), Box::new(&mut output), &flags, &filters).unwrap();
 ///
-/// assert!(result.is_ok());
+/// assert_eq!(String::from_utf8(output.into_inner()).unwrap(), "Hello !\n");
 /// ```
-pub fn perform_substitution(
-    input_file: Box<dyn std::io::Read>,
-    mut output_file: Box<dyn std::io::Write>,
+pub fn perform_substitution<R: std::io::Read, W: std::io::Write>(
+    input_file: R,
+    mut output_file: W,
     flags: &Flags,
     filters: &Filters,
 ) -> Result<(), String> {
-    let reader = BufReader::new(input_file);
+    let reader: BufReader<R> = BufReader::new(input_file);
     let mut buffer: Vec<String> = vec![]; // Vector to store the processed lines
 
     // replace variables in each line and write the replaced line in a buffer
@@ -1878,16 +1881,15 @@ mod tests {
 
     #[test]
     fn test_example_perform_substitution() {
-        let input = "The value of MY_VAR is $MY_VAR";
-        let output: Vec<u8> = vec![];
+        use std::io::Cursor;
 
-        let result = perform_substitution(
-            Box::new(input.as_bytes()),
-            Box::new(output),
-            &Flags::default(),
-            &Filters::default(),
-        );
+        let input = Cursor::new("Hello $WORLD!");
+        let mut output = Cursor::new(Vec::new());
+        let flags = Flags::default();
+        let filters = Filters::default();
 
-        assert!(result.is_ok());
+        perform_substitution(Box::new(input), Box::new(&mut output), &flags, &filters).unwrap();
+
+        assert_eq!(String::from_utf8(output.into_inner()).unwrap(), "Hello !\n");
     }
 }

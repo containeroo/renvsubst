@@ -10,9 +10,6 @@ pub enum ParseArgsError {
     /// A value is missing for a given flag.
     MissingValue(String),
 
-    /// A mandatory parameter is missing.
-    MissingMandatoryParameter(String),
-
     /// Two or more conflicting flags were specified.
     ConflictingFlags(String),
 
@@ -28,9 +25,6 @@ impl std::fmt::Display for ParseArgsError {
             Self::ConflictingFlags(flags) => {
                 return write!(f, "Flags {} cannot be used together!", flags)
             }
-            Self::MissingMandatoryParameter(param) => {
-                return write!(f, "Missing mandatory parameter: {}", param)
-            }
             Self::DuplicateValue(flag) => {
                 return write!(f, "Flag '{}' cannot be specified more than once!", flag)
             }
@@ -44,8 +38,6 @@ impl std::error::Error for ParseArgsError {}
 pub struct Args {
     pub version: bool,
     pub help: bool,
-    pub input_file: Option<String>,
-    pub output_file: Option<String>,
     pub flags: Flags,
     pub filters: Filters,
 }
@@ -55,8 +47,6 @@ impl Args {
         Args {
             version: false,
             help: false,
-            input_file: None,
-            output_file: None,
             flags: Flags::default(),
             filters: Filters::default(),
         }
@@ -98,34 +88,46 @@ impl Args {
         }
         return Ok(value.to_string());
     }
-    /// Parses the given arguments and returns an `Args` struct.
+    /// Parses command line arguments and returns an `Args` struct with the parsed values.
     ///
     /// # Arguments
     ///
-    /// * `args` - An iterator over the arguments to parse. Each argument should be a string slice (`&str`).
-    ///   Note that if you pass `env::args()`, you should skip the first argument, which is the name of the
-    ///   program.
+    /// `args` - An iterator over the command line arguments.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use renvsubst::cli::Args;
+    ///
+    /// let args = vec!["--prefix", "VAR_", "--suffix", "_SUFFIX"];
+    /// let parsed_args = Args::parse(args.iter()).unwrap();
+    /// assert_eq!(Args::parsed_args.filters.prefixes.unwrap().len(), 1);
+    /// assert_eq!(Args::parsed_args.filters.suffixes.unwrap().len(), 1);
+    /// ```
+    ///
+    /// # Flags
+    ///
+    /// - `--fail-on-unset` - Fail if an environment variable is not set.
+    /// - `--fail-on-empty` - Fail if an environment variable is empty.
+    /// - `--fail` - Alias for `--fail-on-unset` and `--fail-on-empty`. Fails if an environment variable is either not set or empty.
+    /// - `--no-replace-unset` - Do not replace variables that are not set in the environment.
+    /// - `--no-replace-empty` - Do not replace variables that are set but empty in the environment.
+    /// - `--no-replace` - Alias for `--no-replace-unset` and `--no-replace-empty`. Does not replace variables that are either not set or empty in the environment.
+    /// - `--no-escape` - Disable escaping of variables with two dollar signs (`$$`).
+    /// - `-h`, `--help` - Show the help text.
+    /// - `-v`, `--version` - Show the version of the program.
+    ///
+    /// # Filters
+    ///
+    /// - `-p`, `--prefix [PREFIX]...` - Only replace variables with the specified prefix. Prefixes can be specified multiple times.
+    /// - `-s`, `--suffix [SUFFIX]...` - Only replace variables with the specified suffix. Suffixes can be specified multiple times.
+    /// - `-v`, `--variable [VARIABLE]...` - Specify the variables to replace. If not provided, all variables will be replaced. Variables can be specified multiple times.
+    ///
+    /// The variables will be substituted according to the specified prefix, suffix, or variable name. If none of these options are provided, all variables will be substituted. When one or more options are specified, only variables that match the given prefix, suffix, or variable name will be replaced, while all others will remain unchanged.
     ///
     /// # Errors
     ///
-    /// Returns a `ParseArgsError` if there is an error parsing the arguments.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use args::Args;
-    ///
-    /// let custom_args = ["-i", "input.txt", "-o", "output.txt"];
-    /// let parsed_custom_args = Args::parse(custom_args).unwrap();
-    /// assert_eq!(parsed_args.input_file, Some("input.txt".to_owned()));
-    /// assert_eq!(parsed_args.output_file, Some("output.txt".to_owned()));
-    ///
-    /// let parsed_os_args = Args::parse(env::args().skip(1)).unwrap();
-    /// // you have to set the input and output files in the environment
-    /// assert_eq!(parsed_args.input_file, Some("input.txt".to_owned()));
-    /// assert_eq!(parsed_args.output_file, Some("output.txt".to_owned()));
-    ///
-    /// ```
+    /// This function returns a `ParseArgsError` if an error occurs during parsing.
     pub fn parse<I, T>(args: I) -> Result<Args, ParseArgsError>
     where
         I: IntoIterator<Item = T>,
@@ -144,16 +146,12 @@ impl Args {
 
         // a set of all start parameters
         // this is used to check if the next argument is a start parameter
-        // eg. if the current argument is "--input" and the next argument is "--fail-on-unset",
-        // then "--fail-on-unset" is a start parameter and "--input" has missing a value
+        // eg. if the current argument is "--prefix" and the next argument is "--fail-on-unset",
+        // then "--fail-on-unset" is a start parameter and "--prefix" has missing a value
         let start_params: HashSet<&'static str> = [
             "-h",
             "--help",
-            "-v",
             "--version",
-            "-i",
-            "--input",
-            "-o",
             "--output",
             "--fail-on-unset",
             "--fail-on-empty",
@@ -161,8 +159,11 @@ impl Args {
             "--no-replace-unset",
             "--no-replace-empty",
             "--no-escape",
+            "-p",
             "--prefix",
+            "-s",
             "--suffix",
+            "-v",
             "--variable",
         ]
         .iter()
@@ -170,45 +171,21 @@ impl Args {
         .collect();
 
         while let Some(arg) = args.next() {
-            match arg.as_str() {
+            // Split the argument by the first occurrence of '='
+            let (flag_name, value) = match arg.find('=') {
+                Some(index) => (&arg[0..index], Some(&arg[(index + 1)..arg.len()])),
+                None => (arg.as_str(), None),
+            };
+            match flag_name {
                 "-h" | "--help" => {
                     parsed_args.help = true;
                     return Ok(parsed_args);
                 }
-                "-v" | "--version" => {
+                "--version" => {
                     parsed_args.version = true;
                     return Ok(parsed_args);
                 }
-                "-i" | "--input" => {
-                    // check if already set
-                    if parsed_args.input_file.is_some() {
-                        return Err(ParseArgsError::DuplicateValue(arg.to_string()));
-                    }
-                    // check if next argument is a start parameter
-                    let input_arg = args
-                        .next()
-                        .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))?;
-
-                    parsed_args.input_file = Some(Self::validate_param_value(
-                        &arg,
-                        Some(&input_arg),
-                        &start_params,
-                    )?);
-                }
-                "-o" | "--output" => {
-                    // check if already set
-                    if parsed_args.output_file.is_some() {
-                        return Err(ParseArgsError::DuplicateValue(arg.to_string()));
-                    }
-                    // check if next argument is a start parameter
-                    let output_arg = args
-                        .next()
-                        .ok_or_else(|| ParseArgsError::MissingValue(arg.to_owned()))?;
-                    let parsed_output =
-                        Self::validate_param_value(&arg, Some(&output_arg), &start_params)?;
-                    parsed_args.output_file = Some(parsed_output);
-                }
-                // flags
+                // FLAGS
                 "--fail-on-unset" => {
                     // check if already set
                     if parsed_args.flags.fail_on_unset {
@@ -314,67 +291,74 @@ impl Args {
                     }
                     parsed_args.flags.no_escape = true;
                 }
-                // Filters
-                "--prefix" => {
-                    let prefix_arg = args
-                        .next()
-                        .ok_or_else(|| ParseArgsError::MissingValue(arg.to_owned()))?;
-                    Self::validate_param_value(&arg, Some(prefix_arg.as_str()), &start_params)?;
+                // FILTERS
+                "-p" | "--prefix" => {
+                    let prefix_arg: String;
+                    if let Some(value) = value {
+                        prefix_arg = value.to_string();
+                    } else {
+                        prefix_arg = args
+                            .next()
+                            .ok_or_else(|| ParseArgsError::MissingValue(arg.to_owned()))?
+                            .to_string();
+                        Self::validate_param_value(&arg, Some(&prefix_arg), &start_params)?;
+                    }
                     parsed_args
                         .filters
                         .prefixes
                         .get_or_insert_with(HashSet::new)
-                        .insert(prefix_arg.to_string());
+                        .insert(prefix_arg);
                 }
-                "--suffix" => {
-                    let suffix_arg = args
-                        .next()
-                        .ok_or_else(|| ParseArgsError::MissingValue(arg.to_owned()))?;
-                    Self::validate_param_value(&arg, Some(suffix_arg.as_str()), &start_params)?;
+
+                "-s" | "--suffix" => {
+                    let suffix_arg: String;
+                    if let Some(value) = value {
+                        suffix_arg = value.to_string();
+                    } else {
+                        suffix_arg = args
+                            .next()
+                            .ok_or_else(|| ParseArgsError::MissingValue(arg.to_owned()))?
+                            .to_string();
+                        Self::validate_param_value(&arg, Some(&suffix_arg), &start_params)?;
+                    }
                     parsed_args
                         .filters
                         .suffixes
                         .get_or_insert_with(HashSet::new)
-                        .insert(suffix_arg.to_string());
+                        .insert(suffix_arg);
                 }
-                "--variable" => {
-                    let variable_arg = args
-                        .next()
-                        .ok_or_else(|| ParseArgsError::MissingValue(arg.to_owned()))?;
-                    Self::validate_param_value(&arg, Some(variable_arg.as_str()), &start_params)?;
+                "-v" | "--variable" => {
+                    let variable_arg: String;
+                    if let Some(value) = value {
+                        variable_arg = value.to_string();
+                    } else {
+                        variable_arg = args
+                            .next()
+                            .ok_or_else(|| ParseArgsError::MissingValue(arg.to_owned()))?
+                            .to_string();
+                        Self::validate_param_value(&arg, Some(&variable_arg), &start_params)?;
+                    }
                     parsed_args
                         .filters
                         .variables
                         .get_or_insert_with(HashSet::new)
-                        .insert(variable_arg.to_string());
+                        .insert(variable_arg);
                 }
-
+                // UNKNOWN
                 _ => {
                     return Err(ParseArgsError::UnknownFlag(arg.to_string()));
                 }
             }
         }
 
-        // input is the only required argument
-        if parsed_args.input_file.is_none() {
-            return Err(ParseArgsError::MissingMandatoryParameter(
-                "-i|--input".to_string(),
-            ));
-        }
-
         return Ok(parsed_args);
     }
 }
 
-pub const HELP_TEXT: &str = "Usage: renvsubst [PARAMETERS] [FLAGS] [FILTERS]
+pub const HELP_TEXT: &str = "Usage: renvsubst [FLAGS] [FILTERS] [INPUT]
 
 renvsubst will substitute all (bash-like) environment variables in the format of $VAR_NAME, ${VAR_NAME} or ${VAR_NAME:-DEFAULT_VALUE} with their corresponding values from the environment or the default value if provided. If the variable is not valid, it remains as is.
 A valid variable name starts with a letter or underscore, followed by any combination of letters, numbers, or underscores.
-
-Parameters:
-  -i|--input [INPUT_FILE]          Specify the input file. Use - to read from stdin.
-                                   The input will be read line by line.
-  -o|--output [OUTPUT_FILE]        Specify the output file. If not provided, the output will be written to stdout.
 
 Flags:
   --fail-on-unset                  Fail if an environment variable is not set.
@@ -386,19 +370,22 @@ Flags:
   --no-replace                     Alias for --no-replace-unset and --no-replace-empty.
                                    Does not replace variables that are either not set or empty in the environment.
   --no-escape                      Disable escaping of variables with two dollar signs ($$).
-  -h|--help                        Show this help text.
-  -v|--version                     Show the version of the program.
+  -h, --help                       Show this help text.
+     --version                     Show the version of the program.
 
 Filters:
 
-  --prefix [PREFIX]...             Only replace variables with the specified prefix.
+  -p, --prefix[=PREFIX]...         Only replace variables with the specified prefix.
                                    Prefixes can be specified multiple times.
-  --suffix [SUFFIX]...             Only replace variables with the specified suffix.
+  -s, --suffix[=SUFFIX]...         Only replace variables with the specified suffix.
                                    Suffixes can be specified multiple times.
-  --variable [VARIABLE]...         Specify the variables to replace. If not provided, all variables will be replaced.
+  -v, --variable[=VARIABLE]...     Specify the variables to replace. If not provided, all variables will be replaced.
                                    Variables can be specified multiple times.
 
 The variables will be substituted according to the specified prefix, suffix, or variable name. If none of these options are provided, all variables will be substituted. When one or more options are specified, only variables that match the given prefix, suffix, or variable name will be replaced, while all others will remain unchanged.
+
+Input:
+The input can be passed via stdin. If no input is provided, the program will wait for input from the user.
 
 Escaping:
 To retain a variable's original value and prevent it from being substituted by an environment variable, add a second dollar sign ($). The second dollar sign will be removed during substitution. Only valid variables must be escaped.
@@ -411,20 +398,9 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        let args = vec![
-            "-i",
-            "input.txt",
-            "--no-replace-empty",
-            "--prefix",
-            "prefix-",
-            "-o",
-            "output.txt",
-        ];
-
+        let args = vec!["--no-replace-empty", "--prefix", "prefix-"];
         let parsed_args = Args::parse(args).unwrap();
 
-        assert_eq!(parsed_args.input_file, Some("input.txt".to_owned()));
-        assert_eq!(parsed_args.output_file, Some("output.txt".to_owned()));
         assert_eq!(parsed_args.flags.no_replace_empty, true);
         assert_eq!(
             parsed_args.filters.prefixes.unwrap().contains("prefix-"),
@@ -433,51 +409,13 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_no_input_file_value_long() {
-        let args = vec!["-o", "output_file.txt", "--fail-on-unset", "--input"];
-        let result = Args::parse(args);
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            ParseArgsError::MissingValue("--input".to_string())
-        );
-    }
-
-    #[test]
-    fn test_parse_no_input_file_value_short() {
-        let args = vec!["-o", "output_file.txt", "--fail-on-unset", "-i"];
-        let result = Args::parse(args);
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            ParseArgsError::MissingValue("-i".to_string())
-        );
-    }
-
-    #[test]
-    fn test_parse_no_input_file_argument() {
-        let args = vec!["-o", "output_file.txt", "--fail-on-unset"];
-        let result = Args::parse(args);
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            ParseArgsError::MissingMandatoryParameter("-i|--input".to_string())
-        );
-    }
-
-    #[test]
     fn test_parse_unknown_flag() {
-        let args = vec![
-            "--invalid-flag",
-            "-i",
-            "input_file.txt",
-            "-o",
-            "output_file.txt",
-        ];
-        let result = Args::parse(args);
-        assert!(result.is_err());
+        let args = vec!["--invalid-flag"];
+        let parsed_args = Args::parse(args);
+
+        assert!(parsed_args.is_err());
         assert_eq!(
-            result.unwrap_err(),
+            parsed_args.unwrap_err(),
             ParseArgsError::UnknownFlag("--invalid-flag".to_string())
         );
     }
@@ -485,31 +423,19 @@ mod tests {
     #[test]
     fn test_parse_help_flag() {
         let args = vec!["-h"];
-        let result = Args::parse(args).unwrap();
-        assert_eq!(result.help, true);
-    }
+        let parsed_args = Args::parse(args).unwrap();
 
-    #[test]
-    fn test_parse_version_flag() {
-        let args = vec!["-v"];
-        let result = Args::parse(args).unwrap();
-        assert_eq!(result.version, true);
+        assert_eq!(parsed_args.help, true);
     }
 
     #[test]
     fn test_parse_conflicting_flags() {
-        let args = vec![
-            "--fail-on-unset",
-            "--no-replace-unset",
-            "-i",
-            "input_file.txt",
-            "-o",
-            "output_file.txt",
-        ];
-        let result = Args::parse(args);
-        assert!(result.is_err());
+        let args = vec!["--fail-on-unset", "--no-replace-unset"];
+        let parsed_args = Args::parse(args);
+
+        assert!(parsed_args.is_err());
         assert_eq!(
-            result.unwrap_err(),
+            parsed_args.unwrap_err(),
             ParseArgsError::ConflictingFlags(
                 "'--no-replace-unset' and '--fail-on-unset'".to_string()
             )
@@ -518,18 +444,12 @@ mod tests {
 
     #[test]
     fn test_parse_conflicting_flags2() {
-        let args = vec![
-            "--no-replace-unset",
-            "--fail-on-unset",
-            "-i",
-            "input_file.txt",
-            "-o",
-            "output_file.txt",
-        ];
-        let result = Args::parse(args);
-        assert!(result.is_err());
+        let args = vec!["--no-replace-unset", "--fail-on-unset"];
+        let parsed_args = Args::parse(args);
+
+        assert!(parsed_args.is_err());
         assert_eq!(
-            result.unwrap_err(),
+            parsed_args.unwrap_err(),
             ParseArgsError::ConflictingFlags(
                 "'--fail-on-unset' and '--no-replace-unset'".to_string()
             )
@@ -538,83 +458,36 @@ mod tests {
 
     #[test]
     fn test_parse_missing_value_prefix() {
-        let args = vec!["--prefix", "-i", "input_file.txt", "-o", "output_file.txt"];
-        let result = Args::parse(args);
-        assert!(result.is_err());
+        let args = vec!["--prefix"];
+        let parsed_args = Args::parse(args);
+
+        assert!(parsed_args.is_err());
         assert_eq!(
-            result.unwrap_err(),
+            parsed_args.unwrap_err(),
             ParseArgsError::MissingValue("--prefix".to_string())
         );
     }
 
     #[test]
     fn test_parse_missing_value_suffix() {
-        let args = vec!["--suffix", "-i", "input_file.txt", "-o", "output_file.txt"];
-        let result = Args::parse(args);
-        assert!(result.is_err());
+        let args = vec!["--suffix"];
+        let parsed_args = Args::parse(args);
+
+        assert!(parsed_args.is_err());
         assert_eq!(
-            result.unwrap_err(),
+            parsed_args.unwrap_err(),
             ParseArgsError::MissingValue("--suffix".to_string())
         );
     }
 
     #[test]
-    fn test_parse_missing_value_output_long() {
-        let args = vec!["--output", "-i", "input_file.txt"];
-        let result = Args::parse(args);
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            ParseArgsError::MissingValue("--output".to_string())
-        );
-    }
-
-    #[test]
-    fn test_parse_missing_value_output_short_begin() {
-        let args = vec!["-o", "-i", "input_file.txt"];
-        let result = Args::parse(args);
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            ParseArgsError::MissingValue("-o".to_string())
-        );
-    }
-
-    #[test]
-    fn test_parse_missing_value_output_short_middle() {
-        let args = vec!["-i", "input_file.txt", "-o"];
-        let result = Args::parse(args);
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            ParseArgsError::MissingValue("-o".to_string())
-        );
-    }
-
-    #[test]
-    fn test_parse_missing_value_output_short_end() {
-        let args = vec!["-i", "input_file.txt", "-o"];
-        let result = Args::parse(args);
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            ParseArgsError::MissingValue("-o".to_string())
-        );
-    }
-
-    #[test]
     fn test_parse_missing_value_variable() {
-        let args = vec![
-            "--variable",
-            "-i",
-            "input_file.txt",
-            "-o",
-            "output_file.txt",
-        ];
-        let result = Args::parse(args);
-        assert!(result.is_err());
+        let args = vec!["--variable"];
+        let parsed_args = Args::parse(args);
+
+        assert!(parsed_args.is_err());
         assert_eq!(
-            result.unwrap_err(),
+            parsed_args.unwrap_err(),
             ParseArgsError::MissingValue("--variable".to_string())
         );
     }
@@ -622,56 +495,69 @@ mod tests {
     #[test]
     fn test_filters_new() {
         let filters = Filters::default();
+
         assert!(filters.prefixes.is_none());
         assert!(filters.suffixes.is_none());
         assert!(filters.variables.is_none());
     }
 
     #[test]
-    fn test_filters_with_prefixes() {
-        let mut filters = Filters::default();
-        filters
-            .prefixes
-            .get_or_insert_with(HashSet::new)
-            .insert("prefix1".to_string());
-        filters
-            .prefixes
-            .get_or_insert_with(HashSet::new)
-            .insert("prefix2".to_string());
-        assert!(filters.suffixes.is_none());
-        assert!(filters.variables.is_none());
-        assert_eq!(filters.prefixes.unwrap().len(), 2);
+    fn test_filters_prefix_space() {
+        let args = vec!["--prefix", "prefix-"];
+        let parsed_args = Args::parse(args).unwrap();
+
+        assert_eq!(
+            parsed_args.filters.prefixes.unwrap().contains("prefix-"),
+            true
+        );
     }
 
     #[test]
-    fn test_filters_with_suffixes() {
-        let mut filters = Filters::default();
-        filters
-            .suffixes
-            .get_or_insert_with(HashSet::new)
-            .insert("suffix1".to_string());
-        filters
-            .suffixes
-            .get_or_insert_with(HashSet::new)
-            .insert("suffix2".to_string());
-        assert!(filters.prefixes.is_none());
-        assert!(filters.variables.is_none());
-        assert_eq!(filters.suffixes.unwrap().len(), 2);
+    fn test_filters_prefix_equal() {
+        let args = vec!["--prefix=prefix-"];
+        let parsed_args = Args::parse(args).unwrap();
+
+        assert_eq!(
+            parsed_args.filters.prefixes.unwrap().contains("prefix-"),
+            true
+        );
     }
 
     #[test]
-    fn test_filters_with_variables() {
-        let mut filters = Filters::default();
-        filters
-            .variables
-            .get_or_insert_with(HashSet::new)
-            .insert("variable1".to_string());
-        filters
-            .variables
-            .get_or_insert_with(HashSet::new)
-            .insert("variable2".to_string());
-        assert!(filters.prefixes.is_none());
-        assert!(filters.suffixes.is_none());
-        assert_eq!(filters.variables.unwrap().len(), 2);
+    fn test_filters_suffix_space() {
+        let args = vec!["--suffix", "-suffix"];
+        let parsed_args = Args::parse(args).unwrap();
+
+        assert_eq!(
+            parsed_args.filters.suffixes.unwrap().contains("-suffix"),
+            true
+        );
+    }
+
+    #[test]
+    fn test_filters_suffix_equal() {
+        let args = vec!["--suffix=-suffix"];
+        let parsed_args = Args::parse(args).unwrap();
+
+        assert_eq!(
+            parsed_args.filters.suffixes.unwrap().contains("-suffix"),
+            true
+        );
+    }
+
+    #[test]
+    fn test_filters_variable_space() {
+        let args = vec!["--variable", "VAR"];
+        let parsed_args = Args::parse(args).unwrap();
+
+        assert_eq!(parsed_args.filters.variables.unwrap().contains("VAR"), true);
+    }
+
+    #[test]
+    fn test_filters_variable_equal() {
+        let args = vec!["--variable=VAR"];
+        let parsed_args = Args::parse(args).unwrap();
+
+        assert_eq!(parsed_args.filters.variables.unwrap().contains("VAR"), true);
     }
 }
