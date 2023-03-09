@@ -1,14 +1,15 @@
-# Build stage
-FROM rust:latest AS builder
+# Use a base image that supports multiple architectures
+FROM --platform=${BUILDPLATFORM} rust:latest AS builder
 
+# Set up the build environment
 WORKDIR /app
-
 COPY . .
 
-RUN rustup target add x86_64-unknown-linux-musl arm-unknown-linux-musleabihf
-RUN cargo install --path . --target-dir ./build
+# Install cross and build the application for the current target
+RUN cargo install cross
+RUN cross build --target=${TARGETPLATFORM}
 
-# Final stage
+# Create the final image
 FROM scratch
-COPY --from=builder /app/build/release/renvsubst .
+COPY --from=builder /app/target/${TARGETPLATFORM}/release/renvsubst .
 ENTRYPOINT ["./renvsubst"]
