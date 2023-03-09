@@ -7,9 +7,9 @@ COPY . .
 
 ARG TARGETPLATFORM
 RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-        TARGET=x86_64-unknown-linux-musl; \
+        export TARGET=x86_64-unknown-linux-musl; \
     else \
-        TARGET=armv7-unknown-linux-musleabihf; \
+        export TARGET=armv7-unknown-linux-musleabihf; \
     fi && \
     rustup target add $TARGET && \
     cargo install --target $TARGET --path .
