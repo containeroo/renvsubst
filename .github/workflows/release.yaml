@@ -76,7 +76,7 @@ jobs:
             *-pc-windows-msvc) STRIP="" ;;
           esac;
           # Setup paths
-          BIN_DIR="${{ env.CICD_INTERMEDIATES_DIR }}/stripped-release-bin/"
+          BIN_DIR="${{ env.CICD_INTERMEDIATES_DIR }}/stripped-release-bin"
           mkdir -p "${BIN_DIR}"
           BIN_NAME="${{ env.PROJECT_NAME }}${EXE_suffix}"
           BIN_PATH="${BIN_DIR}/${BIN_NAME}"
