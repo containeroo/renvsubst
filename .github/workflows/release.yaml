@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust-target: [x86_64-unknown-linux-gnu, armv7-unknown-linux-gnueabihf]
+        rust-target: [x86_64-unknown-linux-musl, armv7-unknown-linux-musleabihf]
         qemu: [false, true]
     steps:
       - name: Checkout Code
@@ -55,9 +55,10 @@ jobs:
           file: Dockerfile
           build-args: |
             RUST_BINARY=${{ env.PROJECT_NAME }}
+            TARGETPLATFORM=$TARGETPLATFORM
           tags: |
-            ghcr.io/containeroo/${{ env.PROJECT_NAME }}:latest
-            ghcr.io/containeroo/${{ env.PROJECT_NAME }}:${{ env.PROJECT_VERSION }}
+            ghcr.io/containeroo/${{ env.PROJECT_NAME }}:latest-multiarch
+            ghcr.io/containeroo/${{ env.PROJECT_NAME }}:${{ env.PROJECT_VERSION }}-multiarch
           labels: |
             maintainer=gi8lino <gi8@containeroo.ch>
             version=${{ env.PROJECT_VERSION }}
