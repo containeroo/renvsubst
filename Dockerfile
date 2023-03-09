@@ -12,5 +12,6 @@ RUN cargo build --release --target ${TARGET}
 
 # Final stage
 FROM scratch
+ARG TARGET
 COPY --from=builder /app/target/${TARGET}/release/renvsubst .
 ENTRYPOINT ["./renvsubst"]
