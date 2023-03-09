@@ -1,8 +1,7 @@
 FROM busybox:latest as builder
 ARG BIN_PATH
-ARG TEST_BIN
 
-RUN echo "bin path: ${TEST_BIN}" && ls -lah ${BIN_PATH}
+RUN echo "bin path: ${BIN_PATH}" && ls -lah ${BIN_PATH}
 RUN mkdir ./tmp2
 COPY ${BIN_PATH} ./tmp2/
 RUN ls -lah ./tmp2/

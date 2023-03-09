@@ -139,8 +139,7 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           build-args: |
-            BIN_PATH: ${{ steps.strip.outputs.BIN_PATH }}
-            TEST_BIN: "test-bin"
+            BIN_PATH=${{ steps.strip.outputs.BIN_PATH }}
           tags: |
             ghcr.io/containeroo/renvsubst:latest
             ghcr.io/containeroo/renvsubst:${{ env.PROJECT_VERSION }}
