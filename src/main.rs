@@ -8,11 +8,6 @@ use crate::substitute::perform_substitution;
 use crate::utils::print_error;
 use std::env;
 
-// Use Jemalloc only for musl-64 bits platforms
-#[cfg(all(target_env = "musl", target_pointer_width = "64"))]
-#[global_allocator]
-static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
-
 fn main() {
     // parse command line arguments
     let args = Args::parse(env::args().skip(1)).unwrap_or_else(|e| {
