@@ -131,13 +131,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build Docker Image
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v4
         if: matrix.job.platform != null
         with:
           context: .
           file: Dockerfile
           push: true
-          platforms: ${{ matrix.job.platform }}
+          platforms: linux/amd64,linux/arm64
           build-args: |
             BIN_PATH=${{ steps.strip.outputs.BIN_PATH }}
           tags: |
