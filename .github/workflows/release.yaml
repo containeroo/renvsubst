@@ -1,9 +1,8 @@
 name: Build and Release Rust Code
 on:
   push:
-    branches:
-      - master
-
+    tags:
+      - "*"
 env:
   CICD_INTERMEDIATES_DIR: "_cicd-intermediates"
 
@@ -24,4 +23,4 @@ jobs:
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: cargo release --push --push-branch
+        run: cargo release --push
