@@ -3,21 +3,79 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install cross
+        run: cargo install cross
+
       - name: Install cargo-release
         run: cargo install cargo-release
-      - name: Release
-        run: cargo release --no-publish --push --execute --no-confirm --no-tag
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and release for Linux
+        run: cargo release --target x86_64-unknown-linux-gnu --no-publish --config release.toml
+
+      - name: Build and release for macOS
+        run: cargo release --target x86_64-apple-darwin --no-publish --config release.toml
+
+      - name: Build and push Docker images
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/containeroo/renvsubst:latest
+            ghcr.io/containeroo/renvsubst:${{ github.sha }}
+          platforms: linux/amd64,linux/arm64
+
+      - name: Create GitHub release
+        id: create_release
+        uses: actions/create-release@v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            Release for version ${{ github.ref }}.
+          draft: false
+          prerelease: false
+
+      - name: Upload binaries to GitHub release
+        id: upload-release-assets
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./target/x86_64-unknown-linux-gnu/release/renvsubst
+          asset_name: renvsubst-x86_64-unknown-linux-gnu
+          asset_content_type: application/octet-stream
+
+      - name: Upload binaries to GitHub release
+        id: upload-release-assets-darwin
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./target/x86_64-apple-darwin/release/renvsubst
+          asset_name: renvsubst-x86_64-apple-darwin
+          asset_content_type: application/octet-stream
