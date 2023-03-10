@@ -19,6 +19,9 @@ jobs:
           toolchain: stable
           override: true
 
+      - name: Install macOS target
+        run: rustup target add x86_64-apple-darwin
+        
       - name: Install cross
         run: cargo install cross
 
