@@ -29,9 +29,9 @@ jobs:
         run: cargo install cargo-release --locked
 
       - name: Build and package
-        env:
-          CARGO_INCREMENTAL: "0"
-          RUSTFLAGS: "-C target-feature=-crt-static"
+        #env:
+        #  CARGO_INCREMENTAL: "0"
+        #  RUSTFLAGS: "-C target-feature=-crt-static"
         run: |
           cross build --target x86_64-unknown-linux-musl --target x86_64-apple-darwin --target aarch64-unknown-linux-musl --release
           cross build --target x86_64-unknown-linux-musl --target x86_64-apple-darwin --target aarch64-unknown-linux-musl --release --features "static"
