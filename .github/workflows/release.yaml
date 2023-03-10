@@ -3,34 +3,21 @@ name: Release
 on:
   push:
     tags:
-      - "*"
-
+      - "v*"
 
 jobs:
-  build-and-release:
+  release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
-          profile: minimal
           toolchain: stable
+          override: true
       - name: Install cargo-release
-        run: cargo install cargo-release --version 0.24.5
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v1
-      - name: Build and Publish Docker Image
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cargo release --no-publish --no-tag --no-confirm
-      - name: Create GitHub Release
-        uses: actions/create-release@v1
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          body: Release ${{ github.ref }}
+        run: cargo install cargo-release
+      - name: Release
+        run: cargo release --no-publish --push --execute --no-confirm --no-tag
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
