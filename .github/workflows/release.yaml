@@ -1,8 +1,9 @@
 name: Build and Release Rust Code
 on:
   push:
-    tags:
-      - "*"
+    branches:
+      - master
+
 env:
   CICD_INTERMEDIATES_DIR: "_cicd-intermediates"
 
