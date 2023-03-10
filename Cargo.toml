@@ -1,6 +1,6 @@
 [package]
 name = "renvsubst"
-version = "0.3.90"
+version = "0.3.91"
 edition = "2021"
 authors = ["gi8lino"]
 categories = ["command-line-utilities"]
@@ -34,14 +34,3 @@ docker-tag = "{version},latest"
 docker-registry = "ghcr.io"
 docker-platforms = "linux/amd64,linux/arm64"
 
-# Additional build configuration
-[package.metadata.build-cmd]
-arm = "cargo build --release --target=armv7-unknown-linux-gnueabihf"
-amd64 = "cargo build --release --target=x86_64-unknown-linux-gnu"
-
-# GitHub release configuration
-[package.metadata.release]
-assets = [
-    "target/armv7-unknown-linux-gnueabihf/release/renvsubst",
-    "target/x86_64-unknown-linux-gnu/release/renvsubst",
-]
