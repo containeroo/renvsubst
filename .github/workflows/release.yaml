@@ -18,7 +18,7 @@ jobs:
           profile: minimal
           toolchain: stable
       - name: Install cargo-release
-        run: cargo install cargo-release --version 0.14.0
+        run: cargo install cargo-release --version 0.24.5
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v1
       - name: Build and Publish Docker Image
