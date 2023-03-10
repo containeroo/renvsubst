@@ -1118,7 +1118,7 @@ dependencies = [
 
 [[package]]
 name = "renvsubst"
-version = "0.3.115"
+version = "0.3.116"
 dependencies = [
  "cargo-release",
  "cross",
