@@ -23,24 +23,38 @@ incremental = false
 overflow-checks = true
 strip = true
 
-[build-dependencies]
-# This is required to use the docker plugin
-cargo-release = "0.24.5"
+[Build-dependencies]
 cross = "0.2.1"
+cargo-release = "0.24.5"
 
-# Configuration for the docker plugin
+
 [release]
-plugins = ["cargo-release-docker"]
-docker-image = "ghcr.io/containeroo/renvsubst"
-docker-tag = "{version},latest"
-docker-registry = "ghcr.io"
-docker-platforms = "linux/amd64,linux/arm64"
+# Perform checks before creating a release
+check = true
 
-[target.x86_64-unknown-linux-musl]
-linker = "x86_64-linux-musl-gcc"
+# Create a git tag and push it to the remote
+tag = true
 
-[target.aarch64-unknown-linux-musl]
-linker = "aarch64-linux-musl-gcc"
+# Publish the package to crates.io
+# (remove this line if your project is not a library)
+publish = false
 
-[target.x86_64-apple-darwin]
-# specify any necessary options for building for darwin with musl
+# Build for the specified platforms
+targets = ["x86_64-unknown-linux-gnu", "x86_64-apple-darwin"]
+
+
+# Build and upload Docker images
+# (remove this section if you don't want to use Docker)
+[[binaries]]
+name = "renvsubst-amd64"
+targets = ["x86_64-unknown-linux-gnu"]
+# Add any additional flags or environment variables here
+[[binaries]]
+name = "renvsubst-darwin"
+targets = ["x86_64-apple-darwin"]
+# Add any additional flags or environment variables here
+
+[[docker]]
+image = "containeroo/renvsubst"
+targets = ["amd64", "arm64"]
+# Add any additional Dockerfile instructions or environment variables here
