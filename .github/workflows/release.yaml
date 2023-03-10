@@ -21,4 +21,26 @@ jobs:
       - name: Install cargo-release
         run: cargo install cargo-release --version 0.24.5
       - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: cargo release --push
+        # Use the cargo-release-docker plugin to build and push Docker images
+        # for multiple platforms
+        with:
+          args: --skip-publish --skip-push --push-docker
+          plugins: cargo-release-docker
+          # Docker image configuration
+          docker-image: ghcr.io/containeroo/renvsubst
+          docker-username: ${{ github.actor }}
+          docker-platforms: linux/amd64,linux/arm64
+          docker-tags: |
+            {version}
+            latest
+          # GitHub release configuration
+          github-release: true
+          github-assets: target/renvsubst*
+          github-release-assets: target/renvsubst*
+          github-release-tag-name: v${{ env.CARGO_PKG_VERSION }}
+          github-release-title: Release ${{ env.CARGO_PKG_VERSION }}
+          github-release-message: |
+            This is a new release of renvsubst.
