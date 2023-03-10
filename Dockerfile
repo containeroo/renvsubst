@@ -1,27 +1,22 @@
 # Build stage
 FROM rust:latest AS builder
 
+ARG TARGETARCH
 WORKDIR /app
 COPY . .
 
-# Build the application for x86_64
-RUN rustup target add x86_64-unknown-linux-musl && \
-    cargo build --target x86_64-unknown-linux-musl --release
+RUN case $TARGETARCH in \
+      "amd64") export PLATFORM="x86_64-unknown-linux-gnu"; export COMPILER=""; ;; \
+      "arm64") export PLATFORM="aarch64-unknown-linux-gnu"; export COMPILER="gcc-aarch64-linux-gnu"; ;; \
+      "arm") export PLATFORM="armv7-unknown-linux-gnueabihf"; export COMPILER="gcc-arm-linux-gnueabihf"; ;; \
+      *) echo "Unsupported platform: $TARGETARCH"; exit 1; ;; \
+    esac
 
-# Build the application for armv7
-RUN rustup target add armv7-unknown-linux-musleabihf && \
-    cargo build --target armv7-unknown-linux-musleabihf --release
+RUN apt-get update && apt-get install -y unzip $compiler
+RUN rustup target add $platform
+RUN cargo install --target $platform --target-dir build
 
-# Final stage for x86_64
+
 FROM scratch
-
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/renvsubst /renvsubst
-
-ENTRYPOINT ["/app"]
-
-# Final stage for armv7
-FROM scratch
-
-COPY --from=builder /usr/src/app/target/armv7-unknown-linux-musleabihf/release/renvsubst /renvsubst
-
+COPY --from=builder /app/build/release/renvsubst /renvsubst
 ENTRYPOINT ["/renvsubst"]
