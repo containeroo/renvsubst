@@ -23,4 +23,4 @@ jobs:
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: cargo release --push
+        run: cargo release --push --push-branch --push-tag
