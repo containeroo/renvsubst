@@ -12,9 +12,9 @@ RUN case $TARGETARCH in \
       *) echo "Unsupported platform: $TARGETARCH"; exit 1; ;; \
     esac
 
-RUN apt-get update && apt-get install -y unzip $compiler
-RUN rustup target add $platform
-RUN cargo install --target $platform --target-dir build
+RUN apt-get update && apt-get install -y unzip $COMPILER
+RUN rustup target add $PLATFORM
+RUN cargo install --target $PLATFORM --target-dir build
 
 
 FROM scratch
