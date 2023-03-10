@@ -891,7 +891,7 @@ dependencies = [
 
 [[package]]
 name = "renvsubst"
-version = "0.3.97"
+version = "0.3.98"
 dependencies = [
  "cargo-release",
  "tempfile",
