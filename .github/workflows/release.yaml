@@ -9,33 +9,23 @@ env:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust-target: [x86_64-unknown-linux-musl, armv7-unknown-linux-musleabihf]
-        qemu: [false, true]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v2
       - name: Extract crate information
         shell: bash
         run: |
-          echo "PROJECT_NAME=$(sed -n 's/^name = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
-          echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
+          echo "PROJECT_NAME=$(sed -n 's/^name = \"\(.*\)\"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
+          echo "PROJECT_VERSION=$(sed -n 's/^version = \"\(.*\)\"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
       - name: Set up Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
-      - name: Install cross
-        run: cargo install cross
       - name: Set up QEMU
-        if: matrix.qemu == 'true'
         uses: docker/setup-qemu-action@v1
       - name: Install QEMU
-        if: matrix.qemu == 'true'
         run: sudo apt-get install -y qemu-user-static
-      - name: Build and Test
-        run: cross build --target ${{ matrix.rust-target }} --release
       - name: Login to GHCR
         uses: docker/login-action@v1
         with:
@@ -44,24 +34,21 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v1
-      - name: Create and Use Buildx Builder
-        run: docker buildx create --name multiarch --use
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
         with:
           context: .
           push: true
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          platforms: linux/amd64,linux/arm/v7
           file: Dockerfile
-          build-args: |
-            RUST_BINARY=${{ env.PROJECT_NAME }}
-            TARGETPLATFORM=$TARGETPLATFORM
           tags: |
-            ghcr.io/containeroo/${{ env.PROJECT_NAME }}:latest-multiarch
-            ghcr.io/containeroo/${{ env.PROJECT_NAME }}:${{ env.PROJECT_VERSION }}-multiarch
+            ghcr.io/containeroo/${{ env.PROJECT_NAME }}:latest
+            ghcr.io/containeroo/${{ env.PROJECT_NAME }}:${{ env.PROJECT_VERSION }}
           labels: |
             maintainer=gi8lino <gi8@containeroo.ch>
             version=${{ env.PROJECT_VERSION }}
+          build-args: |
+            RUST_BINARY=app
         env:
           DOCKER_BUILDKIT: 1
           DOCKER_CLI_EXPERIMENTAL: enabled

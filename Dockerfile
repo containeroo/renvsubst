@@ -1,23 +1,27 @@
 # Build stage
-FROM --platform=$BUILDPLATFORM rust:latest AS builder
+FROM rust:latest AS builder
 
-# Install the musl target
-RUN rustup target add $TARGETPLATFORM
-
-# Install the musl toolchain
-RUN apt-get update && \
-    apt-get install -y musl-tools
-
-WORKDIR /usr/src/app
+WORKDIR /app
 COPY . .
 
-# Build the application for multiple architectures using cross and musl
-RUN CROSS_TARGET=$TARGETPLATFORM \
-    CROSS_RUSTFLAGS="--target=$TARGETPLATFORM -C linker=musl-gcc" \
-    cross build --release
+# Build the application for x86_64
+RUN rustup target add x86_64-unknown-linux-musl && \
+    cargo build --target x86_64-unknown-linux-musl --release
 
-# Final stage
+# Build the application for armv7
+RUN rustup target add armv7-unknown-linux-musleabihf && \
+    cargo build --target armv7-unknown-linux-musleabihf --release
+
+# Final stage for x86_64
 FROM scratch
-ARG RUST_BINARY
-COPY --from=builder /usr/src/app/target/$TARGETPLATFORM/release/$RUST_BINARY .
-ENTRYPOINT [ "./$RUST_BINARY" ]
+
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/renvsubst /renvsubst
+
+ENTRYPOINT ["/app"]
+
+# Final stage for armv7
+FROM scratch
+
+COPY --from=builder /usr/src/app/target/armv7-unknown-linux-musleabihf/release/renvsubst /renvsubst
+
+ENTRYPOINT ["/renvsubst"]
