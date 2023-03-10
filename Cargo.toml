@@ -21,3 +21,15 @@ panic-abort-tests = true
 incremental = false
 overflow-checks = true
 strip = true
+
+[build-dependencies]
+# This is required to use the docker plugin
+cargo-release = "0.24.5"
+
+# Configuration for the docker plugin
+[release]
+plugins = ["cargo-release-docker"]
+docker-image = "ghcr.io/containeroo/renvsubst"
+docker-tag = "{version},latest"
+docker-registry = "ghcr.io"
+docker-platforms = "linux/amd64,linux/arm64"
