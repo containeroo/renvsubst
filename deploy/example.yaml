@@ -27,10 +27,7 @@ spec:
     - name: renvsubst
       image: ghcr.io/containeroo/renvsubst:latest
       args:
-        - -i
-        - /config/config.yaml
-        - -o
-        - /transfer/config.yaml
+        - < /config/config.yaml > /transfer/config.yaml
       envFrom:
         - secretRef:
             name: config-secrets
