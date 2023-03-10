@@ -19,6 +19,6 @@ jobs:
       - name: Install buildx
         uses: docker/setup-buildx-action@v2
       - name: Install cargo-release
-        run: cargo install cargo-release --version 0.3.79
+        run: cargo install cargo-release --version 0.3.80
       - name: Release
         run: cargo release --push
