@@ -1,6 +1,6 @@
 [package]
 name = "renvsubst"
-version = "0.3.123"
+version = "0.3.126"
 edition = "2021"
 authors = ["gi8lino"]
 categories = ["command-line-utilities"]
@@ -42,6 +42,12 @@ publish = false
 # Build for the specified platforms
 targets = ["x86_64-unknown-linux-gnu", "x86_64-apple-darwin"]
 
+# Configuration for the docker plugins
+plugins = ["cargo-release-docker"]
+docker-image = "ghcr.io/containeroo/renvsubst"
+docker-tag = "{version},latest"
+docker-registry = "ghcr.io"
+docker-platforms = "linux/amd64,linux/arm64"
 
 # Build and upload Docker images
 # (remove this section if you don't want to use Docker)

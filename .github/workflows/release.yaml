@@ -2,80 +2,81 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - master
 
 jobs:
   release:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
+      - name: Set up Rust
+        uses: actions/setup-rust@v1
+        with:
+          rust-version: stable
 
       - name: Install cross
         run: cargo install cross
 
       - name: Install cargo-release
-        run: cargo install cargo-release
+        run: cargo install cargo-release --locked
 
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v1
+      - name: Build and package
+        env:
+          CARGO_INCREMENTAL: "0"
+          RUSTFLAGS: "-C target-feature=-crt-static"
+        run: |
+          cross build --target x86_64-unknown-linux-musl --target x86_64-apple-darwin --target aarch64-unknown-linux-musl --release
+          cross build --target x86_64-unknown-linux-musl --target x86_64-apple-darwin --target aarch64-unknown-linux-musl --release --features "static"
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v1
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and release for Linux
-        run: cargo release --target x86_64-unknown-linux-gnu --no-publish --config release.toml
-
-      - name: Build and release for macOS
-        run: cargo release --target x86_64-apple-darwin --no-publish --config release.toml
+      - name: Release
+        env:
+          CRATE_NAME: renvsubst
+        run: |
+          cargo release --no-publish --no-push
 
       - name: Build and push Docker images
         uses: docker/build-push-action@v2
         with:
           context: .
+          file: ./Dockerfile
           push: true
           tags: |
+            ghcr.io/containeroo/renvsubst:{version}
             ghcr.io/containeroo/renvsubst:latest
-            ghcr.io/containeroo/renvsubst:${{ github.sha }}
           platforms: linux/amd64,linux/arm64
 
       - name: Create GitHub release
-        id: create_release
-        uses: actions/create-release@v1.0.0
+        uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          tag_name: ${{ env.RELEASE_VERSION }}
+          release_name: ${{ env.RELEASE_VERSION }}
           body: |
-            Release for version ${{ github.ref }}.
+            See the [release notes](https://github.com/containeroo/renvsubst/releases/tag/${{ env.RELEASE_VERSION }}) for details.
           draft: false
           prerelease: false
 
-      - name: Upload binaries to GitHub release
-        id: upload-release-assets
-        uses: actions/upload-release-asset@v1.0.1
+      - name: Upload release assets
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./target/x86_64-unknown-linux-gnu/release/renvsubst
-          asset_name: renvsubst-x86_64-unknown-linux-gnu
-          asset_content_type: application/octet-stream
-
-      - name: Upload binaries to GitHub release
-        id: upload-release-assets-darwin
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./target/x86_64-apple-darwin/release/renvsubst
-          asset_name: renvsubst-x86_64-apple-darwin
+          upload_url: ${{ env.RELEASE_UPLOAD_URL }}
+          asset_path: |
+            ./target/x86_64-unknown-linux-musl/release/renvsubst
+            ./target/x86_64-apple-darwin/release/renvsubst
+            ./target/aarch64-unknown-linux-musl/release/renvsubst
+            ./target/x86_64-unknown-linux-musl/release/renvsubst-amd64
+            ./target/x86_64-apple-darwin/release/renvsubst-darwin
+          asset_name: |
+            renvsubst-x86_64-unknown-linux-musl
+            renvsubst-x86_64-apple-darwin
+            renvsubst-aarch64-unknown-linux-musl
+            renvsubst-amd64
+            renvsubst-darwin
           asset_content_type: application/octet-stream
