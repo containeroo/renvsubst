@@ -20,13 +20,13 @@ pub enum ParseArgsError {
 impl std::fmt::Display for ParseArgsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::UnknownFlag(flag) => return write!(f, "Unknown flag: {}", flag),
-            Self::MissingValue(flag) => return write!(f, "Flag '{}' requires a value!", flag),
+            Self::UnknownFlag(flag) => return write!(f, "Unknown flag: {flag}"),
+            Self::MissingValue(flag) => return write!(f, "Flag '{flag}' requires a value!"),
             Self::ConflictingFlags(flags) => {
-                return write!(f, "Flags {} cannot be used together!", flags)
+                return write!(f, "Flags {flags} cannot be used together!")
             }
             Self::DuplicateValue(flag) => {
-                return write!(f, "Flag '{}' cannot be specified more than once!", flag)
+                return write!(f, "Flag '{flag}' cannot be specified more than once!")
             }
         }
     }
@@ -167,7 +167,7 @@ impl Args {
             "--variable",
         ]
         .iter()
-        .cloned()
+        .copied()
         .collect();
 
         while let Some(arg) = args.next() {
@@ -194,8 +194,7 @@ impl Args {
                     // check for conflicting flags
                     if parsed_args.flags.no_replace_unset {
                         return Err(ParseArgsError::ConflictingFlags(format!(
-                            "'{}' and '--no-replace-unset'",
-                            arg
+                            "'{arg}' and '--no-replace-unset'"
                         )));
                     }
                     parsed_args.flags.fail_on_unset = true;
@@ -208,8 +207,7 @@ impl Args {
                     // check for conflicting flags
                     if parsed_args.flags.no_replace_empty {
                         return Err(ParseArgsError::ConflictingFlags(format!(
-                            "'{}' and '--no-replace-empty'",
-                            arg
+                            "'{arg}' and '--no-replace-empty'"
                         )));
                     }
                     parsed_args.flags.fail_on_empty = true;
@@ -222,14 +220,12 @@ impl Args {
                     // check for conflicting flags
                     if parsed_args.flags.no_replace_unset {
                         return Err(ParseArgsError::ConflictingFlags(format!(
-                            "'{}' and '--no-replace-unset'",
-                            arg
+                            "'{arg}' and '--no-replace-unset'"
                         )));
                     }
                     if parsed_args.flags.no_replace_empty {
                         return Err(ParseArgsError::ConflictingFlags(format!(
-                            "'{}' and '--no-replace-empty'",
-                            arg
+                            "'{arg}' and '--no-replace-empty'"
                         )));
                     }
                     parsed_args.flags.fail_on_unset = true;
@@ -243,8 +239,7 @@ impl Args {
                     // check for conflicting flags
                     if parsed_args.flags.fail_on_unset {
                         return Err(ParseArgsError::ConflictingFlags(format!(
-                            "'{}' and '--fail-on-unset'",
-                            arg
+                            "'{arg}' and '--fail-on-unset'"
                         )));
                     }
                     parsed_args.flags.no_replace_unset = true;
@@ -257,8 +252,7 @@ impl Args {
                     // check for conflicting flags
                     if parsed_args.flags.fail_on_empty {
                         return Err(ParseArgsError::ConflictingFlags(format!(
-                            "'{}' and '--fail-on-empty'",
-                            arg
+                            "'{arg}' and '--fail-on-empty'"
                         )));
                     }
                     parsed_args.flags.no_replace_empty = true;
@@ -271,14 +265,12 @@ impl Args {
                     // check for conflicting flags
                     if parsed_args.flags.fail_on_unset {
                         return Err(ParseArgsError::ConflictingFlags(format!(
-                            "'{}' and '--fail-on-unset'",
-                            arg
+                            "'{arg}' and '--fail-on-unset'"
                         )));
                     }
                     if parsed_args.flags.fail_on_empty {
                         return Err(ParseArgsError::ConflictingFlags(format!(
-                            "'{}' and '--fail-on-empty'",
-                            arg
+                            "'{arg}' and '--fail-on-empty'"
                         )));
                     }
                     parsed_args.flags.no_replace_unset = true;
@@ -299,9 +291,9 @@ impl Args {
                     } else {
                         prefix_arg = args
                             .next()
-                            .ok_or_else(|| ParseArgsError::MissingValue(arg.to_owned()))?
+                            .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))?
                             .to_string();
-                        Self::validate_param_value(&arg, Some(&prefix_arg), &start_params)?;
+                        Self::validate_param_value(arg, Some(&prefix_arg), &start_params)?;
                     }
                     parsed_args
                         .filters
@@ -317,9 +309,9 @@ impl Args {
                     } else {
                         suffix_arg = args
                             .next()
-                            .ok_or_else(|| ParseArgsError::MissingValue(arg.to_owned()))?
+                            .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))?
                             .to_string();
-                        Self::validate_param_value(&arg, Some(&suffix_arg), &start_params)?;
+                        Self::validate_param_value(arg, Some(&suffix_arg), &start_params)?;
                     }
                     parsed_args
                         .filters
@@ -334,9 +326,9 @@ impl Args {
                     } else {
                         variable_arg = args
                             .next()
-                            .ok_or_else(|| ParseArgsError::MissingValue(arg.to_owned()))?
+                            .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))?
                             .to_string();
-                        Self::validate_param_value(&arg, Some(&variable_arg), &start_params)?;
+                        Self::validate_param_value(arg, Some(&variable_arg), &start_params)?;
                     }
                     parsed_args
                         .filters

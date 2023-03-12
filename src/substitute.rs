@@ -55,7 +55,7 @@ fn get_env_var_value(
         // If the variable value is empty, and the default value is empty,
         // and the `fail_on_empty` flag is set, return an error.
         Ok(value) if value.is_empty() && default_value.is_empty() && flags.fail_on_empty => {
-            return Err(format!("environment variable '{}' is empty", var_name))
+            return Err(format!("environment variable '{var_name}' is empty"))
         }
 
         // If the variable value is empty, and the default value is not empty,
@@ -80,7 +80,7 @@ fn get_env_var_value(
         // If the environment variable is not set, and the `fail_on_unset` flag is set,
         // return an error.
         Err(_) if flags.fail_on_unset => {
-            return Err(format!("environment variable '{}' is not set", var_name))
+            return Err(format!("environment variable '{var_name}' is not set"))
         }
 
         // If the environment variable is not set, and the `no_replace_unset` flag is set,
@@ -225,8 +225,7 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
             // if the next character is not a valid variable character, then push the second $
             if !iter
                 .peek()
-                .map(|c| c.is_ascii_alphabetic() || c == &'_')
-                .unwrap_or(false)
+                .map_or(false, |c| c.is_ascii_alphabetic() || c == &'_')
             {
                 new_line.push(c);
             }
@@ -251,7 +250,7 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
                 // it is not a valid variable, eg. ${1VAR} or ${1VAR:-DEFAULT}
                 if let Some(next) = iter.peek().filter(|next| next.is_ascii_digit()) {
                     // append ${ and the number ($ and { are skipped)
-                    new_line.push_str(&format!("${{{}", next));
+                    new_line.push_str(&format!("${{{next}"));
                     iter.next(); // skip the number
                     continue;
                 }
@@ -261,18 +260,16 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
 
                 while let Some(c) = iter.next() {
                     // check if possible default value => :
-                    if c == ':' {
-                        if default_value_found == false {
-                            // if next character is not '-', then the ':' is not part of the default value
-                            if iter.peek() != Some(&'-') {
-                                // if reached here, then the ':' is not part of the default value
-                                default_error = true;
-                                break;
-                            }
-                            default_value_found = true;
-                            iter.next(); // skip the '-'
-                            continue;
+                    if c == ':' && !default_value_found {
+                        // if next character is not '-', then the ':' is not part of the default value
+                        if iter.peek() != Some(&'-') {
+                            // if reached here, then the ':' is not part of the default value
+                            default_error = true;
+                            break;
                         }
+                        default_value_found = true;
+                        iter.next(); // skip the '-'
+                        continue;
                     }
 
                     if c == '}' {
@@ -292,11 +289,11 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
                     // this only occurs if the ':' is not part of the default value
 
                     // append everything that was iterated over
-                    new_line.push_str(&format!("${{{}", var_name));
+                    new_line.push_str(&format!("${{{var_name}"));
 
                     // append found default value
                     if default_value_found {
-                        new_line.push_str(&format!(":-{}", default_value));
+                        new_line.push_str(&format!(":-{default_value}"));
                     }
 
                     // append the "broken" :
@@ -306,17 +303,17 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
 
                 if !brace_ended {
                     // append everything that was iterated over
-                    new_line.push_str(&format!("${{{}", var_name));
+                    new_line.push_str(&format!("${{{var_name}"));
                     if default_value_found {
-                        new_line.push_str(&format!(":-{}", default_value));
+                        new_line.push_str(&format!(":-{default_value}"));
                     }
                     continue;
                 }
 
-                original_variable.push_str(&format!("${{{}", var_name));
+                original_variable.push_str(&format!("${{{var_name}"));
 
                 if default_value_found {
-                    original_variable.push_str(&format!(":-{}", default_value));
+                    original_variable.push_str(&format!(":-{default_value}"));
                 }
                 original_variable.push('}');
             }
@@ -332,7 +329,7 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
                     var_name.push(*c);
                     iter.next(); // consume character
                 }
-                original_variable = format!("${}", var_name);
+                original_variable = format!("${var_name}");
             }
             // Everything else
             _ => {
@@ -428,15 +425,15 @@ pub fn perform_substitution<R: std::io::Read, W: std::io::Write>(
         let replaced: Result<String, String> = process_line(&line, flags, filters);
         match replaced {
             Ok(output) => buffer.push(output),
-            Err(e) => return Err(format!("Failed to replace variables: {}", e)),
+            Err(e) => return Err(format!("Failed to replace variables: {e}")),
         }
     }
     // Write the processed lines to the output buffer
     for line in buffer {
-        match writeln!(output_file, "{}", line) {
+        match writeln!(output_file, "{line}") {
             Ok(_) => (),
             Err(e) => {
-                return Err(format!("Failed to write to output file: {}", e));
+                return Err(format!("Failed to write to output file: {e}"));
             }
         }
     }
@@ -1682,7 +1679,7 @@ mod tests {
         let var_name = "REGULAR_VAR";
         let original_var = "${REGULAR_VAR}";
         let default_value = "";
-        let result = get_env_var_value(&var_name, original_var, default_value, &Flags::default());
+        let result = get_env_var_value(var_name, original_var, default_value, &Flags::default());
         assert_eq!(result, Ok("var".to_string()));
     }
 
@@ -1696,7 +1693,7 @@ mod tests {
         let var_name = "REGULAR_VAR_WITH_DEFAULT";
         let original_var = "${REGULAR_VAR_WITH_DEFAULT:-default}";
         let default_value = "default";
-        let result = get_env_var_value(&var_name, original_var, default_value, &Flags::default());
+        let result = get_env_var_value(var_name, original_var, default_value, &Flags::default());
         assert_eq!(result, Ok("var".to_string()));
     }
 
@@ -1711,7 +1708,7 @@ mod tests {
         let original_var = "${REGULAR_VAR_NO_REPLACE_EMTPY_TRUE}";
         let default_value = "";
         let result = get_env_var_value(
-            &var_name,
+            var_name,
             original_var,
             default_value,
             &Flags {
@@ -1735,7 +1732,7 @@ mod tests {
         let original_var = "${REGULAR_VAR_NO_REPLACE_UNSET}";
         let default_value = "";
         let result = get_env_var_value(
-            &var_name,
+            var_name,
             original_var,
             default_value,
             &Flags {
@@ -1756,7 +1753,7 @@ mod tests {
         let original_var = "${REGULAR_VAR_NO_REPLACE_UNSET_EMPTY_TRUE}";
         let default_value = "";
         let result = get_env_var_value(
-            &var_name,
+            var_name,
             original_var,
             default_value,
             &Flags {
@@ -1782,7 +1779,7 @@ mod tests {
         let original_var = "${REGULAR_FAIL_ON_EMPTY}";
         let default_value = "";
         let result = get_env_var_value(
-            &var_name,
+            var_name,
             original_var,
             default_value,
             &Flags {
@@ -1803,7 +1800,7 @@ mod tests {
         let original_var = "${REGULAR_FAIL_ON_UNSET}";
         let default_value = "";
         let result = get_env_var_value(
-            &var_name,
+            var_name,
             original_var,
             default_value,
             &Flags {
@@ -1824,7 +1821,7 @@ mod tests {
         let original_var = "${REGULAR_FAIL_ON_UNSET_EMTPY_TRUE}";
         let default_value = "";
         let result = get_env_var_value(
-            &var_name,
+            var_name,
             original_var,
             default_value,
             &Flags {
