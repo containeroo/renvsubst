@@ -35,12 +35,10 @@ jobs:
           # cross build --target x86_64-unknown-linux-musl --target x86_64-apple-darwin --target aarch64-unknown-linux-musl --release
           # cross build --target x86_64-unknown-linux-musl --target x86_64-apple-darwin --target aarch64-unknown-linux-musl --release --features "static"
         run: |
-          cross build --target x86_64-unknown-linux-musl --release --features "static"
-
+          cross build --target x86_64-unknown-linux-musl --target x86_64-apple-darwin --target aarch64-unknown-linux-musl --release
       - name: Release
         run: |
           cargo release --no-publish --no-push
-
       - name: Build and push Docker images
         uses: docker/build-push-action@v2
         with:
