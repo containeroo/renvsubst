@@ -1,4 +1,0 @@
-[[docker]]
-image = "containeroo/renvsubst"
-targets = ["amd64", "arm64"]
-# Add any additional Dockerfile instructions or environment variables here
