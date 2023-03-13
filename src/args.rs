@@ -1,7 +1,7 @@
+use crate::errors::ParseArgsError;
 use crate::filters::Filters;
 use crate::flags::{Flag, Flags};
 use std::collections::HashSet;
-use crate::errors::ParseArgsError;
 
 #[derive(Debug, Default)]
 pub struct Args {

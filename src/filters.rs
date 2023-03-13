@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-
 /// A struct that contains optional filters for matching strings.
 ///
 /// The `prefixes` field is a set of string prefixes. When matching a string, the `starts_with` method is used to check if the string starts with any of the prefixes in the set. If multiple identical prefixes are added to the set, only one copy of each prefix will be stored.
