@@ -29,8 +29,6 @@ When the same flag is provided multiple times, renvsubst will throw an error.
 | `--no-replace-empty` | Does not replace variables that are empty.                      |
 | `--no-replace`       | Alias for`--no-replace-unset` and `--no-replace-empty`.         |
 | `--no-escape`        | Disable escaping of variables.                                  |
-| `-h` \| `--help`     | Show help text.                                                 |
-| `-v` \| `--version`  | Show the version of the program.                                |
 
 ## Filters
 
