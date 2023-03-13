@@ -1,5 +1,0 @@
-[target.x86_64-unknown-linux-gnu]
-# Add any additional configuration options here
-
-[target.x86_64-apple-darwin]
-# Add any additional configuration options here
