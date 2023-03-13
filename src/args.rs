@@ -422,10 +422,7 @@ mod tests {
         let args = vec!["--prefix", "prefix-"];
         let parsed_args = Args::parse(args).unwrap();
 
-        assert_eq!(
-            parsed_args.filters.prefixes.unwrap().contains("prefix-"),
-            true
-        );
+        assert!(parsed_args.filters.prefixes.unwrap().contains("prefix-"),);
     }
 
     #[test]
@@ -433,10 +430,7 @@ mod tests {
         let args = vec!["--prefix=prefix-"];
         let parsed_args = Args::parse(args).unwrap();
 
-        assert_eq!(
-            parsed_args.filters.prefixes.unwrap().contains("prefix-"),
-            true
-        );
+        assert!(parsed_args.filters.prefixes.unwrap().contains("prefix-"),);
     }
 
     #[test]
@@ -444,10 +438,7 @@ mod tests {
         let args = vec!["--prefix=prefix-", "--prefix=prefix-"];
         let parsed_args = Args::parse(args).unwrap();
 
-        assert_eq!(
-            parsed_args.filters.prefixes.unwrap().contains("prefix-"),
-            true
-        );
+        assert!(parsed_args.filters.prefixes.unwrap().contains("prefix-"),);
     }
 
     #[test]
@@ -455,10 +446,7 @@ mod tests {
         let args = vec!["--suffix", "-suffix"];
         let parsed_args = Args::parse(args).unwrap();
 
-        assert_eq!(
-            parsed_args.filters.suffixes.unwrap().contains("-suffix"),
-            true
-        );
+        assert!(parsed_args.filters.suffixes.unwrap().contains("-suffix"),);
     }
 
     #[test]
@@ -466,10 +454,7 @@ mod tests {
         let args = vec!["--suffix=-suffix"];
         let parsed_args = Args::parse(args).unwrap();
 
-        assert_eq!(
-            parsed_args.filters.suffixes.unwrap().contains("-suffix"),
-            true
-        );
+        assert!(parsed_args.filters.suffixes.unwrap().contains("-suffix"),);
     }
 
     #[test]
@@ -477,7 +462,7 @@ mod tests {
         let args = vec!["--variable", "VAR"];
         let parsed_args = Args::parse(args).unwrap();
 
-        assert_eq!(parsed_args.filters.variables.unwrap().contains("VAR"), true);
+        assert!(parsed_args.filters.variables.unwrap().contains("VAR"));
     }
 
     #[test]
@@ -485,6 +470,6 @@ mod tests {
         let args = vec!["--variable=VAR"];
         let parsed_args = Args::parse(args).unwrap();
 
-        assert_eq!(parsed_args.filters.variables.unwrap().contains("VAR"), true);
+        assert!(parsed_args.filters.variables.unwrap().contains("VAR"));
     }
 }

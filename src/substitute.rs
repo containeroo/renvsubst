@@ -1381,7 +1381,6 @@ mod tests {
                 variables: Some(HashSet::from_iter(vec!["PREFIX_VAR_SUFFIX".to_string()])),
                 prefixes: Some(HashSet::from_iter(vec!["PREFIX".to_string()])),
                 suffixes: Some(HashSet::from_iter(vec!["SUFFIX".to_string()])),
-                ..Filters::default()
             },
         );
         assert_eq!(result, Ok("prefix var suffix".to_string()));
@@ -1582,7 +1581,6 @@ mod tests {
                     variables: Some(HashSet::from_iter(vec!["VAR".to_string()])),
                     prefixes: Some(HashSet::from_iter(vec!["PREFIX".to_string()])),
                     suffixes: Some(HashSet::from_iter(vec!["SUFFIX".to_string()])),
-                    ..Filters::default()
                 },
                 "VAR2"
             ),
