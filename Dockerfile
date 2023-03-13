@@ -1,5 +1,5 @@
 # Builder stage (uses a multi-platform base image)
-FROM --platform=$TARGETPLATFORM rust:1.57-slim-bullseye AS builder
+FROM --platform=$TARGETPLATFORM rust:1.68.0-slim-buster AS builder
 RUN apt-get update && apt-get install -y build-essential
 WORKDIR /app
 COPY . .
