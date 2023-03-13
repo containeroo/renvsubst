@@ -152,11 +152,9 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          target: ${{ matrix.job.target }}
+          target: ${{ matrix.target }}
           override: true
           profile: minimal # minimal component installation (ie, no documentation)
-      - name: Install ${{ matrix.target }}
-        run: rustup target add ${{ matrix.target }}
       - name: Build
         uses: actions-rs/cargo@v1
         with:
