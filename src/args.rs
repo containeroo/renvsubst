@@ -309,13 +309,10 @@ mod tests {
         let args = vec!["--no-replace-empty", "--prefix", "prefix-"];
         let parsed_args = Args::parse(args).unwrap();
 
-        assert_eq!(
-            parsed_args
-                .flags
-                .get_flag(Flag::NoReplaceEmpty)
-                .unwrap_or(false),
-            true
-        );
+        assert!(parsed_args
+            .flags
+            .get_flag(Flag::NoReplaceEmpty)
+            .unwrap_or(false),);
         assert!(parsed_args.filters.prefixes.unwrap().contains("prefix-"),);
     }
 
