@@ -1,83 +1,59 @@
-name: Release
+name: Build and Release
 
 on:
   push:
-    branches:
-      - master
+    tags:
+      - '*'
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-
-      - name: Set up Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-
-      - name: Install macOS target
-        run: rustup target add x86_64-apple-darwin
-        
       - name: Install cross
         run: cargo install cross
-
-      - name: Install cargo-release
-        run: cargo install cargo-release --locked
-
-      - name: Build and package
-        #env:
-        #  CARGO_INCREMENTAL: "0"
-        #  RUSTFLAGS: "-C target-feature=-crt-static"
-          # cross build --target x86_64-unknown-linux-musl --target x86_64-apple-darwin --target aarch64-unknown-linux-musl --release
-          # cross build --target x86_64-unknown-linux-musl --target x86_64-apple-darwin --target aarch64-unknown-linux-musl --release --features "static"
-        run: |
-          cross build --target x86_64-unknown-linux-musl --target x86_64-apple-darwin --target aarch64-unknown-linux-musl --release
-      - name: Release
-        run: |
-          cargo release --no-publish --no-push
-      - name: Build and push Docker images
-        uses: docker/build-push-action@v2
+      - name: Test
+        run: cargo test -- --test-threads=1
+      - name: Build binaries
+        run: cross build --target x86_64-unknown-linux-musl --target armv7-unknown-linux-musleabihf --target x86_64-apple-darwin --release
+      - name: Determine last release tag
+        id: last_release
+        run: echo ::set-output name=tag::$(git describe --tags --abbrev=0)
+      - name: Generate release notes
+        id: release_notes
+        uses: skywinder/github-changelog-generator@v1.14.4
         with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: |
-            ghcr.io/containeroo/renvsubst:{version}
-            ghcr.io/containeroo/renvsubst:latest
-          platforms: linux/amd64,linux/arm64
-
-      - name: Create GitHub release
+          user: ${{ github.repository_owner }}
+          project: ${{ github.repository }}
+          tag: ${{ steps.last_release.outputs.tag }}
+          exclude-labels: 'duplicate,question,invalid,wontfix'
+      - name: Create release
+        id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ env.RELEASE_VERSION }}
-          release_name: ${{ env.RELEASE_VERSION }}
-          body: |
-            See the [release notes](https://github.com/containeroo/renvsubst/releases/tag/${{ env.RELEASE_VERSION }}) for details.
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: ${{ steps.release_notes.outputs.changelog }}
           draft: false
           prerelease: false
-
-      - name: Upload release assets
+      - name: Upload binaries
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ env.RELEASE_UPLOAD_URL }}
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: |
-            ./target/x86_64-unknown-linux-musl/release/renvsubst
-            ./target/x86_64-apple-darwin/release/renvsubst
-            ./target/aarch64-unknown-linux-musl/release/renvsubst
-            ./target/x86_64-unknown-linux-musl/release/renvsubst-amd64
-            ./target/x86_64-apple-darwin/release/renvsubst-darwin
+            target/x86_64-unknown-linux-musl/release/renvsubst
+            target/armv7-unknown-linux-musleabihf/release/renvsubst
+            target/x86_64-apple-darwin/release/renvsubst
           asset_name: |
-            renvsubst-x86_64-unknown-linux-musl
-            renvsubst-x86_64-apple-darwin
-            renvsubst-aarch64-unknown-linux-musl
-            renvsubst-amd64
-            renvsubst-darwin
-          asset_content_type: application/octet-stream
+            renvsubst-linux-amd64
+            renvsubst-linux-arm
+            renvsubst-darwin-amd64
+          asset_content_type: |
+            application/octet-stream
+            application/octet-stream
+            application/octet-stream
