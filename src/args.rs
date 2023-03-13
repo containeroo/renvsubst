@@ -316,10 +316,7 @@ mod tests {
                 .unwrap_or(false),
             true
         );
-        assert!(
-            parsed_args.filters.prefixes.unwrap().contains("prefix-"),
-            
-        );
+        assert!(parsed_args.filters.prefixes.unwrap().contains("prefix-"),);
     }
 
     #[test]
