@@ -222,7 +222,7 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
 
         let next_char = iter.peek();
 
-        if !flags.get_flag(Flag::NoEscape).unwrap_or(true) && next_char == Some(&'$') {
+        if !flags.get_flag(Flag::NoEscape).unwrap_or(false) && next_char == Some(&'$') {
             // if inside here, then we have a double $
             iter.next(); // skip the second $
             new_line.push(c);
