@@ -17,13 +17,13 @@ pub enum ParseArgsError {
 impl std::fmt::Display for ParseArgsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::UnknownFlag(flag) => return write!(f, "Unknown flag: {flag}"),
-            Self::MissingValue(flag) => return write!(f, "Flag '{flag}' requires a value!"),
+            Self::UnknownFlag(flag) => return write!(f, "Unknown flag: {}", flag),
+            Self::MissingValue(flag) => return write!(f, "Flag '{}' requires a value!", flag),
             Self::ConflictingFlags(flag1, flag2) => {
-                return write!(f, "Flags {flag1} and {flag2} cannot be used together!")
+                return write!(f, "Flags {} and {} cannot be used together!", flag1, flag2)
             }
             Self::DuplicateValue(flag) => {
-                return write!(f, "Flag '{flag}' cannot be specified more than once!")
+                return write!(f, "Flag '{}' cannot be specified more than once!", flag)
             }
         }
     }

@@ -24,7 +24,7 @@ fn main() {
 
     // print help and exit if requested
     if parsed_args.help {
-        println!("{HELP_TEXT}");
+        println!("{}", HELP_TEXT);
         std::process::exit(0);
     }
 

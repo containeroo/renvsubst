@@ -60,7 +60,7 @@ fn get_env_var_value(
                 && default_value.is_empty()
                 && flags.get_flag(Flag::FailOnEmpty).unwrap_or(false) =>
         {
-            return Err(format!("environment variable '{var_name}' is empty"))
+            return Err(format!("environment variable '{}' is empty", var_name))
         }
 
         // If the variable value is empty, and the default value is not empty,
@@ -89,7 +89,7 @@ fn get_env_var_value(
         // If the environment variable is not set, and the `fail_on_unset` flag is set,
         // return an error.
         Err(_) if flags.get_flag(Flag::FailOnUnset).unwrap_or(false) => {
-            return Err(format!("environment variable '{var_name}' is not set"))
+            return Err(format!("environment variable '{}' is not set", var_name))
         }
 
         // If the environment variable is not set, and the `no_replace_unset` flag is set,
@@ -261,7 +261,7 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
                 // it is not a valid variable, eg. ${1VAR} or ${1VAR:-DEFAULT}
                 if let Some(next) = iter.peek().filter(|next| next.is_ascii_digit()) {
                     // append ${ and the number ($ and { are skipped)
-                    new_line.push_str(&format!("${{{next}"));
+                    new_line.push_str(&format!("${{{}", next));
                     iter.next(); // skip the number
                     continue;
                 }
@@ -300,11 +300,11 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
                     // this only occurs if the ':' is not part of the default value
 
                     // append everything that was iterated over
-                    new_line.push_str(&format!("${{{var_name}"));
+                    new_line.push_str(&format!("${{{}", var_name));
 
                     // append found default value
                     if default_value_found {
-                        new_line.push_str(&format!(":-{default_value}"));
+                        new_line.push_str(&format!(":-{}", default_value));
                     }
 
                     // append the "broken" :
@@ -314,17 +314,17 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
 
                 if !brace_ended {
                     // append everything that was iterated over
-                    new_line.push_str(&format!("${{{var_name}"));
+                    new_line.push_str(&format!("${{{}", var_name));
                     if default_value_found {
-                        new_line.push_str(&format!(":-{default_value}"));
+                        new_line.push_str(&format!(":-{}", default_value));
                     }
                     continue;
                 }
 
-                original_variable.push_str(&format!("${{{var_name}"));
+                original_variable.push_str(&format!("${{{}", var_name));
 
                 if default_value_found {
-                    original_variable.push_str(&format!(":-{default_value}"));
+                    original_variable.push_str(&format!(":-{}", default_value));
                 }
                 original_variable.push('}');
             }
@@ -340,7 +340,7 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
                     var_name.push(*c);
                     iter.next(); // consume character
                 }
-                original_variable = format!("${var_name}");
+                original_variable = format!("${}", var_name);
             }
             // Everything else
             _ => {
@@ -436,15 +436,15 @@ pub fn perform_substitution<R: std::io::Read, W: std::io::Write>(
         let replaced: Result<String, String> = process_line(&line, flags, filters);
         match replaced {
             Ok(output) => buffer.push(output),
-            Err(e) => return Err(format!("Failed to replace variables: {e}")),
+            Err(e) => return Err(format!("Failed to replace variables: {}", e)),
         }
     }
     // Write the processed lines to the output buffer
     for line in buffer {
-        match writeln!(output_file, "{line}") {
+        match writeln!(output_file, "{}", line) {
             Ok(_) => (),
             Err(e) => {
-                return Err(format!("Failed to write to output file: {e}"));
+                return Err(format!("Failed to write to output file: {}", e));
             }
         }
     }
