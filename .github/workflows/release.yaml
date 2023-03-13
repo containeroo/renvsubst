@@ -150,19 +150,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-          override: true
-          profile: minimal # minimal component installation (ie, no documentation)
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --locked --release --target=${{ matrix.target }} --target-dir ./build
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
       - name: Build Docker Image
