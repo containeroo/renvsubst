@@ -1,9 +1,8 @@
 # Builder stage (uses a multi-platform base image)
-FROM --platform=$TARGETPLATFORM rust:1.68.0-slim-buster AS builder
-RUN apt-get update && apt-get install -y build-essential
+FROM --platform=$TARGETPLATFORM ekidd/rust-musl-builder AS builder
 WORKDIR /app
 COPY . .
-RUN cargo build --release --target-dir build
+RUN cargo build --release --target=$TARGETPLATFORM --target-dir build
 
 # Production stage
 FROM scratch
