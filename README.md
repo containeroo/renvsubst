@@ -6,22 +6,31 @@ A valid variable name is a string that starts with a letter or an underscore, fo
 ## Usage
 
 ```sh
-Usage: renvsubst [FLAGS] [FILTERS] [INPUT]
+Usage: renvsubst [FLAGS] [FILTERS] [INPUT] | -h | --help | --version
 ```
+
+## General
+
+| Parameter        | Description                      |
+| ---------------- | -------------------------------- |
+| `-h` \| `--help` | Show help text.                  |
+| `--version`      | Show the version of the program. |
 
 ## Flags
 
-| Parameter            | Description                                             |
-| -------------------- | ------------------------------------------------------- |
-| `--fail-on-unset`    | Fail if an environment variable is not set.             |
-| `--fail-on-empty`    | Fail if an environment variable is empty.               |
-| `--fail`             | Alias for `--fail-on-unset` and `--fail-on-empty`.      |
-| `--no-replace-unset` | Do not replace variables that are not set.              |
-| `--no-replace-empty` | Do not replace variables that are empty.                |
-| `--no-replace`       | Alias for`--no-replace-unset` and `--no-replace-empty`. |
-| `--no-escape`        | Disable escaping of variables.                          |
-| `-h` \| `--help`     | Show help text.                                         |
-| `-v` \| `--version`  | Show the version of the program.                        |
+When the same flag is provided multiple times, renvsubst will throw an error.
+
+| Parameter            | Description                                                     |
+| -------------------- | --------------------------------------------------------------- |
+| `--fail-on-unset`    | Fails if an environment variable is not set.                    |
+| `--fail-on-empty`    | Fails if an environment variable is empty.                      |
+| `--fail`             | Alias for `--fail-on-unset` and `--fail-on-empty`.              |
+| `--no-replace-unset` | Does not replace variables that are not set in the environment. |
+| `--no-replace-empty` | Does not replace variables that are empty.                      |
+| `--no-replace`       | Alias for`--no-replace-unset` and `--no-replace-empty`.         |
+| `--no-escape`        | Disable escaping of variables.                                  |
+| `-h` \| `--help`     | Show help text.                                                 |
+| `-v` \| `--version`  | Show the version of the program.                                |
 
 ## Filters
 
@@ -34,6 +43,8 @@ Every filter can be specified multiple times!
 | `-v`, `--variable`[=VARIABLE_NAME] | Specify variable to replace. If not provided, all variables will be replaced. |
 
 The variables will be substituted according to the specified prefix, suffix, or variable name. If none of these options are provided, all variables will be substituted. When one or more options are specified, only variables that match the given prefix, suffix, or variable name will be replaced, while all others will remain unchanged.
+
+If multiple identical prefixes, suffixes or variables are provided, only one copy of each will be used.
 
 ## Input
 

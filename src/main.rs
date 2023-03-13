@@ -1,10 +1,13 @@
 mod args;
+mod filters;
+mod flags;
 mod substitute;
 mod utils;
 use crate::args::{Args, HELP_TEXT};
 use crate::substitute::perform_substitution;
 use crate::utils::print_error;
 use std::env;
+mod errors;
 
 fn main() {
     // parse command line arguments

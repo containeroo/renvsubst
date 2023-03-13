@@ -1,38 +1,7 @@
-use crate::utils::{Filters, Flags};
+use crate::filters::Filters;
+use crate::flags::{Flag, Flags};
 use std::collections::HashSet;
-
-/// An error that occurs while parsing command-line arguments.
-#[derive(Debug, PartialEq)]
-pub enum ParseArgsError {
-    /// An unknown flag was specified.
-    UnknownFlag(String),
-
-    /// A value is missing for a given flag.
-    MissingValue(String),
-
-    /// Two or more conflicting flags were specified.
-    ConflictingFlags(String),
-
-    /// Duplicate values were specified for a given flag.
-    DuplicateValue(String),
-}
-
-impl std::fmt::Display for ParseArgsError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::UnknownFlag(flag) => return write!(f, "Unknown flag: {flag}"),
-            Self::MissingValue(flag) => return write!(f, "Flag '{flag}' requires a value!"),
-            Self::ConflictingFlags(flags) => {
-                return write!(f, "Flags {flags} cannot be used together!")
-            }
-            Self::DuplicateValue(flag) => {
-                return write!(f, "Flag '{flag}' cannot be specified more than once!")
-            }
-        }
-    }
-}
-
-impl std::error::Error for ParseArgsError {}
+use crate::errors::ParseArgsError;
 
 #[derive(Debug, Default)]
 pub struct Args {
@@ -83,6 +52,7 @@ impl Args {
     ) -> Result<String, ParseArgsError> {
         let value = arg_value.ok_or_else(|| ParseArgsError::MissingValue(arg.to_owned()))?;
 
+        // check if the value is in the allowed set of values
         if start_params.contains(value) {
             return Err(ParseArgsError::MissingValue(arg.to_owned()));
         }
@@ -187,114 +157,49 @@ impl Args {
                 }
                 // FLAGS
                 "--fail-on-unset" => {
-                    // check if already set
-                    if parsed_args.flags.fail_on_unset {
-                        return Err(ParseArgsError::DuplicateValue(arg.to_string()));
-                    }
-                    // check for conflicting flags
-                    if parsed_args.flags.no_replace_unset {
-                        return Err(ParseArgsError::ConflictingFlags(format!(
-                            "'{arg}' and '--no-replace-unset'"
-                        )));
-                    }
-                    parsed_args.flags.fail_on_unset = true;
+                    parsed_args.flags.set_flag(Flag::FailOnUnset, true)?;
                 }
                 "--fail-on-empty" => {
-                    // check if already set
-                    if parsed_args.flags.fail_on_empty {
-                        return Err(ParseArgsError::DuplicateValue(arg.to_string()));
-                    }
-                    // check for conflicting flags
-                    if parsed_args.flags.no_replace_empty {
-                        return Err(ParseArgsError::ConflictingFlags(format!(
-                            "'{arg}' and '--no-replace-empty'"
-                        )));
-                    }
-                    parsed_args.flags.fail_on_empty = true;
+                    parsed_args.flags.set_flag(Flag::FailOnEmpty, true)?;
                 }
                 "--fail" => {
-                    // check if already set
-                    if parsed_args.flags.fail_on_unset {
-                        return Err(ParseArgsError::DuplicateValue(arg.to_string()));
-                    }
-                    // check for conflicting flags
-                    if parsed_args.flags.no_replace_unset {
-                        return Err(ParseArgsError::ConflictingFlags(format!(
-                            "'{arg}' and '--no-replace-unset'"
-                        )));
-                    }
-                    if parsed_args.flags.no_replace_empty {
-                        return Err(ParseArgsError::ConflictingFlags(format!(
-                            "'{arg}' and '--no-replace-empty'"
-                        )));
-                    }
-                    parsed_args.flags.fail_on_unset = true;
-                    parsed_args.flags.fail_on_empty = true;
+                    // TODO: check if already set with --fail
+
+                    parsed_args.flags.set_flag(Flag::FailOnUnset, true)?;
+                    parsed_args.flags.set_flag(Flag::FailOnEmpty, true)?;
                 }
                 "--no-replace-unset" => {
-                    // check if already set
-                    if parsed_args.flags.no_replace_unset {
-                        return Err(ParseArgsError::DuplicateValue(arg.to_string()));
-                    }
-                    // check for conflicting flags
-                    if parsed_args.flags.fail_on_unset {
-                        return Err(ParseArgsError::ConflictingFlags(format!(
-                            "'{arg}' and '--fail-on-unset'"
-                        )));
-                    }
-                    parsed_args.flags.no_replace_unset = true;
+                    parsed_args.flags.set_flag(Flag::NoReplaceUnset, true)?;
                 }
                 "--no-replace-empty" => {
-                    // check if already set
-                    if parsed_args.flags.no_replace_empty {
-                        return Err(ParseArgsError::DuplicateValue(arg.to_string()));
-                    }
-                    // check for conflicting flags
-                    if parsed_args.flags.fail_on_empty {
-                        return Err(ParseArgsError::ConflictingFlags(format!(
-                            "'{arg}' and '--fail-on-empty'"
-                        )));
-                    }
-                    parsed_args.flags.no_replace_empty = true;
+                    parsed_args.flags.set_flag(Flag::NoReplaceEmpty, true)?;
                 }
                 "--no-replace" => {
-                    // check if already set
-                    if parsed_args.flags.no_replace_unset {
-                        return Err(ParseArgsError::DuplicateValue(arg.to_string()));
-                    }
-                    // check for conflicting flags
-                    if parsed_args.flags.fail_on_unset {
-                        return Err(ParseArgsError::ConflictingFlags(format!(
-                            "'{arg}' and '--fail-on-unset'"
-                        )));
-                    }
-                    if parsed_args.flags.fail_on_empty {
-                        return Err(ParseArgsError::ConflictingFlags(format!(
-                            "'{arg}' and '--fail-on-empty'"
-                        )));
-                    }
-                    parsed_args.flags.no_replace_unset = true;
-                    parsed_args.flags.no_replace_empty = true;
+                    // TODO: check if already set with --no-replace
+
+                    parsed_args.flags.set_flag(Flag::NoReplaceUnset, true)?;
+                    parsed_args.flags.set_flag(Flag::NoReplaceEmpty, true)?;
                 }
                 "--no-escape" => {
-                    // check if already set
-                    if parsed_args.flags.no_escape {
-                        return Err(ParseArgsError::DuplicateValue(arg.to_string()));
-                    }
-                    parsed_args.flags.no_escape = true;
+                    parsed_args.flags.set_flag(Flag::NoEscape, true)?;
                 }
                 // FILTERS
                 "-p" | "--prefix" => {
+                    // no check for already added prefixes needed, because the HashSet will ignore duplicates
                     let prefix_arg: String;
+                    // check if the value is provided with the flag (eg. "--prefix=PREFIX")
                     if let Some(value) = value {
                         prefix_arg = value.to_string();
                     } else {
+                        // if not, get the next argument as the value
                         prefix_arg = args
                             .next()
                             .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))?
                             .to_string();
                         Self::validate_param_value(arg, Some(&prefix_arg), &start_params)?;
                     }
+
+                    // add to prefixes
                     parsed_args
                         .filters
                         .prefixes
@@ -303,16 +208,20 @@ impl Args {
                 }
 
                 "-s" | "--suffix" => {
+                    // no check for already added suffixes needed, because the HashSet will ignore duplicates
                     let suffix_arg: String;
+                    // check if the value is provided with the flag (eg. "--suffix=SUFFIX")
                     if let Some(value) = value {
                         suffix_arg = value.to_string();
                     } else {
+                        // if not, get the next argument as the value
                         suffix_arg = args
                             .next()
                             .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))?
                             .to_string();
                         Self::validate_param_value(arg, Some(&suffix_arg), &start_params)?;
                     }
+                    // add to suffixes
                     parsed_args
                         .filters
                         .suffixes
@@ -320,16 +229,20 @@ impl Args {
                         .insert(suffix_arg);
                 }
                 "-v" | "--variable" => {
+                    // no check for already added variables needed, because the HashSet will ignore duplicates
                     let variable_arg: String;
+                    // check if the value is provided with the flag (eg. "--variable=VAR")
                     if let Some(value) = value {
                         variable_arg = value.to_string();
                     } else {
+                        // if not, get the next argument as the value
                         variable_arg = args
                             .next()
                             .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))?
                             .to_string();
                         Self::validate_param_value(arg, Some(&variable_arg), &start_params)?;
                     }
+                    // add to variables
                     parsed_args
                         .filters
                         .variables
@@ -347,23 +260,25 @@ impl Args {
     }
 }
 
-pub const HELP_TEXT: &str = "Usage: renvsubst [FLAGS] [FILTERS] [INPUT]
+pub const HELP_TEXT: &str = "Usage: renvsubst [FLAGS] [FILTERS] [INPUT] | -h | --help | --version
 
 renvsubst will substitute all (bash-like) environment variables in the format of $VAR_NAME, ${VAR_NAME} or ${VAR_NAME:-DEFAULT_VALUE} with their corresponding values from the environment or the default value if provided. If the variable is not valid, it remains as is.
 A valid variable name starts with a letter or underscore, followed by any combination of letters, numbers, or underscores.
 
-Flags:
-  --fail-on-unset                  Fail if an environment variable is not set.
-  --fail-on-empty                  Fail if an environment variable is empty.
-  --fail                           Alias for --fail-on-unset and --fail-on-empty.
-                                   Fails if an environment variable is either not set or empty.
-  --no-replace-unset               Do not replace variables that are not set in the environment.
-  --no-replace-empty               Do not replace variables that are set but empty in the environment.
-  --no-replace                     Alias for --no-replace-unset and --no-replace-empty.
-                                   Does not replace variables that are either not set or empty in the environment.
-  --no-escape                      Disable escaping of variables with two dollar signs ($$).
+General:
   -h, --help                       Show this help text.
-     --version                     Show the version of the program.
+      --version                    Show the version of the program.
+
+Flags:
+  --fail-on-unset                  Fails if an environment variable is not set.
+  --fail-on-empty                  Fails if an environment variable is empty.
+  --fail                           Alias for --fail-on-unset and --fail-on-empty.
+  --no-replace-unset               Does not replace variables that are not set in the environment.
+  --no-replace-empty               Does not replace variables that are set but empty in the environment.
+  --no-replace                     Alias for --no-replace-unset and --no-replace-empty.
+  --no-escape                      Disables escaping of variables with two dollar signs ($$).
+
+When the same flag is provided multiple times, renvsubst will throw an error.
 
 Filters:
 
@@ -375,6 +290,7 @@ Filters:
                                    Variables can be specified multiple times.
 
 The variables will be substituted according to the specified prefix, suffix, or variable name. If none of these options are provided, all variables will be substituted. When one or more options are specified, only variables that match the given prefix, suffix, or variable name will be replaced, while all others will remain unchanged.
+If multiple identical prefixes, suffixes or variables are provided, only one copy of each will be used.
 
 Input:
 The input can be passed via stdin. If no input is provided, the program will wait for input from the user.
@@ -393,7 +309,13 @@ mod tests {
         let args = vec!["--no-replace-empty", "--prefix", "prefix-"];
         let parsed_args = Args::parse(args).unwrap();
 
-        assert_eq!(parsed_args.flags.no_replace_empty, true);
+        assert_eq!(
+            parsed_args
+                .flags
+                .get_flag(Flag::NoReplaceEmpty)
+                .unwrap_or(false),
+            true
+        );
         assert_eq!(
             parsed_args.filters.prefixes.unwrap().contains("prefix-"),
             true
@@ -429,7 +351,8 @@ mod tests {
         assert_eq!(
             parsed_args.unwrap_err(),
             ParseArgsError::ConflictingFlags(
-                "'--no-replace-unset' and '--fail-on-unset'".to_string()
+                "--no-replace-unset".to_string(),
+                "--fail-on-unset".to_string(),
             )
         );
     }
@@ -443,7 +366,8 @@ mod tests {
         assert_eq!(
             parsed_args.unwrap_err(),
             ParseArgsError::ConflictingFlags(
-                "'--fail-on-unset' and '--no-replace-unset'".to_string()
+                "--fail-on-unset".to_string(),
+                "--no-replace-unset".to_string()
             )
         );
     }
@@ -507,6 +431,17 @@ mod tests {
     #[test]
     fn test_filters_prefix_equal() {
         let args = vec!["--prefix=prefix-"];
+        let parsed_args = Args::parse(args).unwrap();
+
+        assert_eq!(
+            parsed_args.filters.prefixes.unwrap().contains("prefix-"),
+            true
+        );
+    }
+
+    #[test]
+    fn test_filters_multiple_same_prefix_equal() {
+        let args = vec!["--prefix=prefix-", "--prefix=prefix-"];
         let parsed_args = Args::parse(args).unwrap();
 
         assert_eq!(

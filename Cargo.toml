@@ -18,11 +18,6 @@ rpath = false
 lto = true
 panic = "abort"
 codegen-units = 1
-panic-abort-tests = true
 incremental = false
 overflow-checks = true
 strip = true
-
-[Build-dependencies]
-cross = "0.2.1"
-cargo-release = "0.24.5"
