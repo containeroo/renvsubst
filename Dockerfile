@@ -1,4 +1,5 @@
 FROM scratch
 ARG TARGET
-COPY ./renvsubst-v${TARGET}/renvsubst /renvsubst
+ARG VERSION
+COPY ./renvsubst-v${VERSION}-${TARGET}/renvsubst /renvsubst
 ENTRYPOINT ["/renvsubst"]
