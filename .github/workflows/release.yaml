@@ -30,7 +30,7 @@ jobs:
           #- { target: arm-unknown-linux-gnueabihf , os: ubuntu-20.04, use-cross: true }
           - { target: arm-unknown-linux-musleabihf, os: ubuntu-20.04, use-cross: true }
           - { target: armv7-unknown-linux-musleabihf, os: ubuntu-20.04, use-cross: true }
-          #- { target: x86_64-apple-darwin         , os: macos-10.15                   }
+          - { target: x86_64-apple-darwin         , os: macos-10.15                   }
           #- { target: x86_64-unknown-linux-gnu    , os: ubuntu-20.04, use-cross: true }
           - { target: x86_64-unknown-linux-musl   , os: ubuntu-20.04, use-cross: true }
     steps:
@@ -65,33 +65,32 @@ jobs:
         id: strip
         shell: bash
         run: |
-          ## Figure out suffix of binary
-          #EXE_suffix=""
-          #case ${{ matrix.job.target }} in
-          #  *-pc-windows-*) EXE_suffix=".exe" ;;
-          #esac;
+          # Figure out suffix of binary
+          EXE_suffix=""
+          case ${{ matrix.job.target }} in
+            *-pc-windows-*) EXE_suffix=".exe" ;;
+          esac;
           # Figure out what strip tool to use if any
           #STRIP="strip"
           #case ${{ matrix.job.target }} in
-          #  arm-unknown-linux-gnu*) STRIP="arm-linux-gnueabihf-strip" ;;
+          #  arm-unknown-linux-*) STRIP="arm-linux-gnueabihf-strip" ;;
           #  aarch64-unknown-linux-gnu) STRIP="aarch64-linux-gnu-strip" ;;
-          #  armv7-unknown-linux-musl*) STRIP="armv7-unknown-linux-musleabihf-strip" ;;
           #  *-pc-windows-msvc) STRIP="" ;;
           #esac;
-          ### Setup paths
-          #BIN_DIR="${{ env.CICD_INTERMEDIATES_DIR }}/stripped-release-bin"
-          #mkdir -p "${BIN_DIR}"
-          #BIN_NAME="${{ env.PROJECT_NAME }}${EXE_suffix}"
-          #BIN_PATH="${BIN_DIR}/${BIN_NAME}"
-          ## Copy the release build binary to the result location
-          #cp "target/${{ matrix.job.target }}/release/${BIN_NAME}" "${BIN_DIR}"
-          ## Also strip if possible
+          # Setup paths
+          BIN_DIR="${{ env.CICD_INTERMEDIATES_DIR }}/stripped-release-bin"
+          mkdir -p "${BIN_DIR}"
+          BIN_NAME="${{ env.PROJECT_NAME }}${EXE_suffix}"
+          BIN_PATH="${BIN_DIR}/${BIN_NAME}"
+          # Copy the release build binary to the result location
+          cp "target/${{ matrix.job.target }}/release/${BIN_NAME}" "${BIN_DIR}"
+          # Also strip if possible
           #if [ -n "${STRIP}" ]; then
           #  "${STRIP}" "${BIN_PATH}"
           #fi
-          ## Let subsequent steps know where to find the (stripped) bin
-          #echo BIN_PATH=${BIN_PATH} >> $GITHUB_OUTPUT
-          #echo BIN_NAME=${BIN_NAME} >> $GITHUB_OUTPUT
+          # Let subsequent steps know where to find the (stripped) bin
+          echo BIN_PATH=${BIN_PATH} >> $GITHUB_OUTPUT
+          echo BIN_NAME=${BIN_NAME} >> $GITHUB_OUTPUT
       - name: Create tarball
         id: package
         shell: bash
@@ -100,12 +99,17 @@ jobs:
             PKG_BASENAME=${PROJECT_NAME}-v${PROJECT_VERSION}-${{ matrix.job.target }}
             PKG_NAME=${PKG_BASENAME}${PKG_suffix}
             echo PKG_NAME=${PKG_NAME} >> $GITHUB_OUTPUT
-            PKG_STAGING="./build/${{ matrix.job.target }}/release"
+            PKG_STAGING="${{ env.CICD_INTERMEDIATES_DIR }}/package"
+            ARCHIVE_DIR="${PKG_STAGING}/${PKG_BASENAME}/"
+            mkdir -p "${ARCHIVE_DIR}"
+            #mkdir -p "${ARCHIVE_DIR}/autocomplete"
+            # Binary
+            cp "${{ steps.strip.outputs.BIN_PATH }}" "$ARCHIVE_DIR"
             # base compressed package
             pushd "${PKG_STAGING}/" >/dev/null
             case ${{ matrix.job.target }} in
               *-pc-windows-*) 7z -y a "${PKG_NAME}" "${PKG_BASENAME}"/* | tail -2 ;;
-              *) tar czf "${PKG_NAME}" ${PKG_BASENAME} ;;
+              *) tar czf "${PKG_NAME}" "${PKG_BASENAME}"/* ;;
             esac;
             popd >/dev/null
             # Let subsequent steps know where to find the compressed package
