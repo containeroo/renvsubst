@@ -100,11 +100,11 @@ jobs:
             PKG_NAME=${PKG_BASENAME}${PKG_suffix}
             echo PKG_NAME=${PKG_NAME} >> $GITHUB_OUTPUT
             PKG_STAGING="${{ env.CICD_INTERMEDIATES_DIR }}/package"
-            ARCHIVE_DIR="${PKG_STAGING}/${PKG_BASENAME}/"
-            mkdir -p "${ARCHIVE_DIR}"
+            #ARCHIVE_DIR="${PKG_STAGING}/${PKG_BASENAME}/"
+            #mkdir -p "${ARCHIVE_DIR}"
             #mkdir -p "${ARCHIVE_DIR}/autocomplete"
             # Binary
-            cp "${{ steps.strip.outputs.BIN_PATH }}" "$ARCHIVE_DIR"
+            #cp "${{ steps.strip.outputs.BIN_PATH }}" "$ARCHIVE_DIR"
             # base compressed package
             pushd "${PKG_STAGING}/" >/dev/null
             case ${{ matrix.job.target }} in
