@@ -147,10 +147,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build with rust-musl-builder
-        uses: ekidd/rust-musl-builder@v1
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
-          args: cargo build --release --target=${{ matrix.target }}
+          toolchain: stable
+          target: ${{ matrix.job.target }}
+          override: true
+          profile: minimal # minimal component installation (ie, no documentation)
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: ${{ matrix.job.use-cross }}
+          command: build
+          args: --locked --release --target=${{ matrix.job.target }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
