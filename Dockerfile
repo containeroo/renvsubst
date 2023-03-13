@@ -9,8 +9,8 @@ RUN TARGET=""; \
       linux/arm64) TARGET="aarch64-unknown-linux-musl" ;; \
       *-pc-windows-msvc) TARGET="" ;; \
     esac && \
-    echo "target: $TARGET" && \
-    rustup target add $TARGET && \
+    echo "target: $TARGET"
+RUN rustup target add $TARGET && \
     cargo build --release --target=$TARGETPLATFORM --target-dir build
 
 # Production stage
