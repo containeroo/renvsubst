@@ -154,12 +154,14 @@ jobs:
           target: ${{ matrix.job.target }}
           override: true
           profile: minimal # minimal component installation (ie, no documentation)
+      - name: Install ${{ matrix.target }}
+        run: rustup target add ${{ matrix.target }}
       - name: Build
         uses: actions-rs/cargo@v1
         with:
-          use-cross: ${{ matrix.job.use-cross }}
+          use-cross: true
           command: build
-          args: --locked --release --target=${{ matrix.target }}
+          args: --locked --release --target=${{ matrix.target }} --output-dir build
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2

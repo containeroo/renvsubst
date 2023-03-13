@@ -1,4 +1,4 @@
 FROM scratch
 ARG TARGET
-COPY --from=builder /app/target/release/${TARGET}/renvsubst /
+COPY build/target/${TARGET}/release/renvsubst /
 ENTRYPOINT ["/renvsubst"]
