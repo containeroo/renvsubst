@@ -11,12 +11,64 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - name: Extract crate information
+        id: extract_crate_information
+        shell: bash
+        run: |
+          echo "PROJECT_NAME=$(sed -n 's/^name = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
+          echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
       - name: Install cross
         run: cargo install cross
+      - name: Add x86_64-unknown-linux-musl
+        run: rustup target add x86_64-unknown-linux-musl
+      - name: Add armv7-unknown-linux-musleabihf
+        run: rustup target add armv7-unknown-linux-musleabihf
+      - name: add x86_64-apple-darwin
+        run: rustup taget add x86_64-apple-darwin
       - name: Test
         run: cargo test -- --test-threads=1
       - name: Build binaries
         run: cross build --target x86_64-unknown-linux-musl --target armv7-unknown-linux-musleabihf --target x86_64-apple-darwin --release
+      - name: Login to GHCR
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build docker image (amd64)
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: Dockerfile
+          platform: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/containeroo/renvsubst:amd64-${{ env.PROJECT_VERSION }}
+            ghcr.io/containeroo/renvsubst:amd64-latest
+          build-args: |
+            BINARY=target/x86_64-unknown-linux-musl/releaserenvsubst
+            BASE_IMAGE=scratch
+      - name: Build docker image (arm)
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: Dockerfile
+          platform: linux/arm/v7
+          push: true
+          tags: |
+            ghcr.io/containeroo/renvsubst:arm-${{ env.PROJECT_VERSION }}
+            ghcr.io/containeroo/renvsubst:arm-latest
+          build-args: |
+            BINARY=target/armv7-unknown-linux-musleabihf/releaserenvsubst
+            BASE_IMAGE=arm32v7/scratch
+      - name: Push docker manifest
+        uses: docker/manifest-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          image: ghcr.io/containeroo/renvsubst:latest
+          include: 'amd64,arm'
+          exclude: 'arm64'
       - name: Determine last release tag
         id: last_release
         run: echo ::set-output name=tag::$(git describe --tags --abbrev=0)
@@ -50,9 +102,9 @@ jobs:
             target/armv7-unknown-linux-musleabihf/release/renvsubst
             target/x86_64-apple-darwin/release/renvsubst
           asset_name: |
-            renvsubst-linux-amd64
-            renvsubst-linux-arm
-            renvsubst-darwin-amd64
+            renvsubst-${{ env.PROJECT_VERSION }}-linux-amd64
+            renvsubst-${{ env.PROJECT_VERSION }}-linux-arm
+            renvsubst-${{ env.PROJECT_VERSION }}-darwin-amd64
           asset_content_type: |
             application/octet-stream
             application/octet-stream
