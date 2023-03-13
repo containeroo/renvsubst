@@ -105,7 +105,7 @@ jobs:
             pushd "${PKG_STAGING}/" >/dev/null
             case ${{ matrix.job.target }} in
               *-pc-windows-*) 7z -y a "${PKG_NAME}" "${PKG_BASENAME}"/* | tail -2 ;;
-              *) tar czf "${PKG_NAME}" renvsubst ;;
+              *) tar czf "${PKG_NAME}" ${PKG_BASENAME}/renvsubst ;;
             esac;
             popd >/dev/null
             # Let subsequent steps know where to find the compressed package
@@ -142,7 +142,7 @@ jobs:
         with:
           name: renvsubst-v${{ env.PROJECT_VERSION }}-${{ matrix.target }}.tar.gz
       - name: Untar
-        run: tar -xvf renvsubst-v${{ env.PROJECT_VERSION }}-${{ matrix.target }} renvsubst-v${{ env.PROJECT_VERSION }}-${{ matrix.target }}.tar.gz
+        run: tar -xvf renvsubst-v${{ env.PROJECT_VERSION }}-${{ matrix.target }}.tar.gz
       - name: Login to GHCR
         uses: docker/login-action@v1
         with:
