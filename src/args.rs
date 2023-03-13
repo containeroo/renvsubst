@@ -316,9 +316,9 @@ mod tests {
                 .unwrap_or(false),
             true
         );
-        assert_eq!(
+        assert!(
             parsed_args.filters.prefixes.unwrap().contains("prefix-"),
-            true
+            
         );
     }
 
@@ -339,7 +339,7 @@ mod tests {
         let args = vec!["-h"];
         let parsed_args = Args::parse(args).unwrap();
 
-        assert_eq!(parsed_args.help, true);
+        assert!(parsed_args.help);
     }
 
     #[test]
