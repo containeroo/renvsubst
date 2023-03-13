@@ -83,7 +83,7 @@ jobs:
           BIN_NAME="${{ env.PROJECT_NAME }}${EXE_suffix}"
           BIN_PATH="${BIN_DIR}/${BIN_NAME}"
           # Copy the release build binary to the result location
-          cp "target/${{ matrix.job.target }}/release/${BIN_NAME}" "${BIN_DIR}"
+          cp "build/${{ matrix.job.target }}/release/${BIN_NAME}" "${BIN_DIR}"
           # Also strip if possible
           #if [ -n "${STRIP}" ]; then
           #  "${STRIP}" "${BIN_PATH}"
