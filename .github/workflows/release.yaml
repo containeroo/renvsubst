@@ -169,4 +169,4 @@ jobs:
             version=${{ env.PROJECT_VERSION }}
           build-args: |
             TARGET=${{ matrix.target }}
-            VERSION=${{ env.PROJECT_NAME }}
+            VERSION=${{ env.PROJECT_VERSION }}
