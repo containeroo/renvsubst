@@ -1,4 +1,5 @@
 FROM alpine:latest
+ARG TARGET
 
 RUN ls -lh ./build/target/${TARGET}/release
 
