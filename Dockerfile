@@ -11,6 +11,7 @@ RUN case "$(uname -m)" in \
       armv7l) TARGET=armv7-unknown-linux-musleabihf ;; \
       *) echo "Unsupported architecture: $(uname -m)" && exit 1 ;; \
     esac && \
+    echo "target: $TARGET" && \
     rustup target add $TARGET && \
     cargo build --target $TARGET --release --target-dir build
 
