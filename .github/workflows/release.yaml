@@ -40,12 +40,13 @@ jobs:
           cargo install cross
 
           # Build for ARM64 and AMD64
-          cross build --target=x86_64-unknown-linux-gnu --release
-          cross build --target=aarch64-unknown-linux-gnu --release
+          cross build --target=x86_64-unknown-linux-musl --release
+          cross build --target=aarch64-unknown-linux-musl --release
 
           # Build Docker container
           docker buildx build \
             --platform $DOCKER_PLATFORMS \
             --tag ghcr.io/containeroo/renvsubst:latest \
             --tag ghcr.io/containeroo/renvsubst:${{ env.PROJECT_VERSION }} \
+            --file Dockerfile \
             --push .
