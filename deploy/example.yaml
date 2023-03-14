@@ -1,0 +1,59 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config
+data:
+  config.yaml: |
+    user: SomeUser
+    password: ${MY_APP_PASSWORD}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: config-secrets
+type: Opaque
+stringData:
+  MY_APP_PASSWORD: <Password>
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: renvsubst-example
+  labels:
+    app: renvsubst
+spec:
+  initContainers:
+    - name: renvsubst
+      image: ghcr.io/containeroo/renvsubst:latest
+      args:
+        - < /config/config.yaml > /transfer/config.yaml
+      envFrom:
+        - secretRef:
+            name: config-secrets
+      volumeMounts:
+        - name: transfer
+          mountPath: /transfer
+        - name: config
+          mountPath: /config
+  containers:
+    - name: alpine-toolbox
+      image: ghcr.io/containeroo/alpine-toolbox:latest
+      resources: {}
+      volumeMounts:
+        - name: transfer
+          mountPath: /transfer
+      command:
+        - bash
+      args:
+        - -c
+        - |
+          cat /transfer/config.yaml
+          sleep infinity
+  volumes:
+    - name: transfer
+      emptyDir:
+        sizeLimit: 5Mi
+    - name: config
+      configMap:
+        name: config

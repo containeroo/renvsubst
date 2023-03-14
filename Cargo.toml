@@ -1,0 +1,23 @@
+[package]
+name = "renvsubst"
+version = "0.4.0"
+edition = "2021"
+authors = ["gi8lino"]
+categories = ["command-line-utilities"]
+description = "Envsubst with some extra features written in Rust"
+repository = "https://github.com/containeroo/renvsubst"
+license = "MIT"
+
+[dev-dependencies]
+tempfile = "*"
+
+[profile.release]
+opt-level = "z"
+debug = false
+rpath = false
+lto = true
+panic = "abort"
+codegen-units = 1
+incremental = false
+overflow-checks = true
+strip = true

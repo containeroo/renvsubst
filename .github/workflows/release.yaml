@@ -1,0 +1,144 @@
+name: Build and Release Rust Code
+on:
+  push:
+    tags:
+      - "*"
+env:
+  CICD_INTERMEDIATES_DIR: "_cicd-intermediates"
+
+jobs:
+  ensure_cargo_fmt:
+    name: Ensure 'cargo fmt' has been run
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          default: true
+          profile: minimal
+          components: rustfmt, clippy
+      - uses: actions/checkout@v3
+      - run: cargo fmt -- --check
+      - run: cargo clippy -- -W clippy::pedantic -A clippy::needless_return -A clippy::too-many-lines
+  build:
+    name: ${{ matrix.job.target }} (${{ matrix.job.os }})
+    runs-on: ${{ matrix.job.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        job:
+          #- { target: arm-unknown-linux-gnueabihf   , os: ubuntu-20.04, use-cross: true }
+          - { target: arm-unknown-linux-musleabihf  , os: ubuntu-20.04, use-cross: true }
+          #- { target: armv7-unknown-linux-gnueabihf , os: ubuntu-20.04, use-cross: true }
+          #- { target: armv7-unknown-linux-musleabihf, os: ubuntu-20.04, use-cross: true }
+         #- { target: x86_64-apple-darwin           , os: macos-10.15                   }
+         #- { target: x86_64-unknown-linux-gnu      , os: ubuntu-20.04, use-cross: true }
+         #- { target: x86_64-unknown-linux-musl     , os: ubuntu-20.04, use-cross: true }
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install prerequisites
+        shell: bash
+        run: |
+          case ${{ matrix.job.target }} in
+            arm-unknown-linux-*) sudo apt-get -y update ; sudo apt-get -y install gcc-arm-linux-gnueabihf ;;
+            aarch64-unknown-linux-gnu) sudo apt-get -y update ; sudo apt-get -y install gcc-aarch64-linux-gnu ;;
+          esac
+      - name: Extract crate information
+        id: extract_crate_information
+        shell: bash
+        run: |
+          echo "PROJECT_NAME=$(sed -n 's/^name = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
+          echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.job.target }}
+          override: true
+          profile: minimal # minimal component installation (ie, no documentation)
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: ${{ matrix.job.use-cross }}
+          command: build
+          args: --locked --release --target=${{ matrix.job.target }} --target-dir build
+      - name: Create tarball
+        id: package
+        shell: bash
+        run: |
+            PKG_suffix=".tar.gz" ; case ${{ matrix.job.target }} in *-pc-windows-*) PKG_suffix=".zip" ;; esac;
+            PKG_BASENAME=${PROJECT_NAME}-v${PROJECT_VERSION}-${{ matrix.job.target }}
+            PKG_NAME=${PKG_BASENAME}${PKG_suffix}
+            echo PKG_NAME=${PKG_NAME} >> $GITHUB_OUTPUT
+            PKG_STAGING="./build/${{ matrix.job.target }}/release"
+            # base compressed package
+            pushd "${PKG_STAGING}/" >/dev/null
+            mkdir ${PKG_BASENAME}
+            cp renvsubst ${PKG_BASENAME}
+            case ${{ matrix.job.target }} in
+              *-pc-windows-*) 7z -y a "${PKG_NAME}" "${PKG_BASENAME}"/* | tail -2 ;;
+              *) tar czf "${PKG_NAME}" "${PKG_BASENAME}"/*  ;;
+            esac;
+            popd >/dev/null
+            # Let subsequent steps know where to find the compressed package
+            echo PKG_PATH="${PKG_STAGING}/${PKG_NAME}" >> $GITHUB_OUTPUT
+      - name: "Artifact upload: tarball"
+        uses: actions/upload-artifact@master
+        with:
+          name: ${{ steps.package.outputs.PKG_NAME }}
+          path: ${{ steps.package.outputs.PKG_PATH }}
+      - name: Publish archives and packages
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ${{ steps.package.outputs.PKG_PATH }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  container:
+    name: build container
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+        matrix:
+          #target: [x86_64-unknown-linux-musl, armv7-unknown-linux-musleabihf]
+          target: [arm-unknown-linux-musleabihf]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Extract crate information
+        id: extract_crate_information
+        shell: bash
+        run: |
+          echo "PROJECT_NAME=$(sed -n 's/^name = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
+          echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
+      - name: Download binary artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: renvsubst-v${{ env.PROJECT_VERSION }}-${{ matrix.target }}.tar.gz
+      - name: Untar
+        run: tar -xvf renvsubst-v${{ env.PROJECT_VERSION }}-${{ matrix.target }}.tar.gz
+      - name: Login to GHCR
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Build Docker Image
+        uses: docker/build-push-action@v4.0.0
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          tags: |
+            ghcr.io/containeroo/renvsubst:latest
+            ghcr.io/containeroo/renvsubst:${{ env.PROJECT_VERSION }}
+          labels: |
+            maintainer=gi8lino <gi8@containeroo.ch>
+            version=${{ env.PROJECT_VERSION }}
+          build-args: |
+            TARGET=${{ matrix.target }}
+            VERSION=${{ env.PROJECT_VERSION }}
