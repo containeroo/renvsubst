@@ -1,8 +1,8 @@
 [package]
 name = "renvsubst"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2021"
-authors = ["gi8lino"]
+authors = ["gi8@containeroo.ch"]
 categories = ["command-line-utilities"]
 description = "Envsubst with some extra features written in Rust"
 repository = "https://github.com/containeroo/renvsubst"
