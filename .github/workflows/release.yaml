@@ -100,8 +100,9 @@ jobs:
     needs: build
     strategy:
         matrix:
-          target: [x86_64-unknown-linux-musl, arm-unknown-linux-musleabihf]
-          platforms: [linux/amd64,linux/arm64]
+          target: 
+            - { target: arm-unknown-linux-musleabihf  , platform: linux/amd64 }
+            - { target: x86_64-unknown-linux-musl  , platform: linux/arm64 }
     steps:
       - uses: actions/checkout@v3
       - name: Extract crate information
