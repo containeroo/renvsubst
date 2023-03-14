@@ -100,7 +100,7 @@ jobs:
     needs: build
     strategy:
         matrix:
-          target: 
+          job: 
             - { target: arm-unknown-linux-musleabihf  , platform: linux/amd64 }
             - { target: x86_64-unknown-linux-musl  , platform: linux/arm64 }
     steps:
@@ -114,9 +114,9 @@ jobs:
       - name: Download binary artifact
         uses: actions/download-artifact@v3
         with:
-          name: renvsubst-v${{ env.PROJECT_VERSION }}-${{ matrix.target }}.tar.gz
+          name: renvsubst-v${{ env.PROJECT_VERSION }}-${{ matrix.job.target }}.tar.gz
       - name: Untar
-        run: tar -xvf renvsubst-v${{ env.PROJECT_VERSION }}-${{ matrix.target }}.tar.gz
+        run: tar -xvf renvsubst-v${{ env.PROJECT_VERSION }}-${{ matrix.job.target }}.tar.gz
       - name: Login to GHCR
         uses: docker/login-action@v2
         with:
@@ -135,7 +135,7 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          platforms: ${{ matrix.platforms }}
+          platforms: ${{ matrix.job.platforms }}
           tags: |
             ghcr.io/containeroo/renvsubst:latest
             ghcr.io/containeroo/renvsubst:${{ env.PROJECT_VERSION }}
@@ -143,5 +143,5 @@ jobs:
             maintainer=gi8lino <gi8@containeroo.ch>
             version=${{ env.PROJECT_VERSION }}
           build-args: |
-            TARGET=${{ matrix.target }}
+            TARGET=${{ matrix.job.target }}
             VERSION=${{ env.PROJECT_VERSION }}
