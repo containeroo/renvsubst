@@ -163,10 +163,7 @@ impl Args {
                     parsed_args.flags.set_flag(Flag::FailOnEmpty, true)?;
                 }
                 "--fail" => {
-                    // TODO: check if already set with --fail
-
-                    parsed_args.flags.set_flag(Flag::FailOnUnset, true)?;
-                    parsed_args.flags.set_flag(Flag::FailOnEmpty, true)?;
+                    parsed_args.flags.set_flag(Flag::Fail, true)?;
                 }
                 "--no-replace-unset" => {
                     parsed_args.flags.set_flag(Flag::NoReplaceUnset, true)?;
@@ -175,10 +172,7 @@ impl Args {
                     parsed_args.flags.set_flag(Flag::NoReplaceEmpty, true)?;
                 }
                 "--no-replace" => {
-                    // TODO: check if already set with --no-replace
-
-                    parsed_args.flags.set_flag(Flag::NoReplaceUnset, true)?;
-                    parsed_args.flags.set_flag(Flag::NoReplaceEmpty, true)?;
+                    parsed_args.flags.set_flag(Flag::NoReplace, true)?;
                 }
                 "--no-escape" => {
                     parsed_args.flags.set_flag(Flag::NoEscape, true)?;
@@ -465,5 +459,55 @@ mod tests {
         let parsed_args = Args::parse(args).unwrap();
 
         assert!(parsed_args.filters.variables.unwrap().contains("VAR"));
+    }
+    #[test]
+    fn test_flags_fail_fail_on_empty() {
+        let args = vec!["--fail", "--fail-on-empty"];
+        let parsed_args = Args::parse(args);
+
+        assert!(parsed_args.is_err());
+        assert_eq!(
+            parsed_args.unwrap_err(),
+            ParseArgsError::ConflictingFlags("--fail-on-empty".to_string(), "--fail".to_string())
+        );
+    }
+    #[test]
+    fn test_flags_fail_fail_on_unset() {
+        let args = vec!["--fail", "--fail-on-unset"];
+        let parsed_args = Args::parse(args);
+
+        assert!(parsed_args.is_err());
+        assert_eq!(
+            parsed_args.unwrap_err(),
+            ParseArgsError::ConflictingFlags("--fail-on-unset".to_string(), "--fail".to_string())
+        );
+    }
+    #[test]
+    fn test_flags_no_replace_no_replace_unset() {
+        let args = vec!["--no-replace", "--no-replace-unset"];
+        let parsed_args = Args::parse(args);
+
+        assert!(parsed_args.is_err());
+        assert_eq!(
+            parsed_args.unwrap_err(),
+            ParseArgsError::ConflictingFlags(
+                "--no-replace-unset".to_string(),
+                "--no-replace".to_string()
+            )
+        );
+    }
+    #[test]
+    fn test_flags_no_replace_no_replace_empty() {
+        let args = vec!["--no-replace", "--no-replace-empty"];
+        let parsed_args = Args::parse(args);
+
+        assert!(parsed_args.is_err());
+        assert_eq!(
+            parsed_args.unwrap_err(),
+            ParseArgsError::ConflictingFlags(
+                "--no-replace-empty".to_string(),
+                "--no-replace".to_string()
+            )
+        );
     }
 }

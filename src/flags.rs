@@ -21,8 +21,10 @@ use crate::errors::ParseArgsError;
 pub struct Flags {
     fail_on_unset: Option<bool>,
     fail_on_empty: Option<bool>,
+    fail: Option<bool>,
     no_replace_unset: Option<bool>,
     no_replace_empty: Option<bool>,
+    no_replace: Option<bool>,
     no_escape: Option<bool>,
 }
 
@@ -49,8 +51,10 @@ pub struct Flags {
 pub enum Flag {
     FailOnUnset,
     FailOnEmpty,
+    Fail,
     NoReplaceUnset,
     NoReplaceEmpty,
+    NoReplace,
     NoEscape,
 }
 
@@ -68,9 +72,10 @@ impl Flags {
     pub fn set_flag(&mut self, flag: Flag, value: bool) -> Result<(), ParseArgsError> {
         match flag {
             Flag::FailOnUnset => {
-                if self.fail_on_unset.is_some() {
-                    return Err(ParseArgsError::DuplicateValue(
+                if self.fail == Some(true) {
+                    return Err(ParseArgsError::ConflictingFlags(
                         "--fail-on-unset".to_string(),
+                        "--fail".to_string(),
                     ));
                 }
                 if self.no_replace_unset == Some(true) {
@@ -79,13 +84,20 @@ impl Flags {
                         "--no-replace-unset".to_string(),
                     ));
                 }
+                if self.fail_on_unset.is_some() {
+                    return Err(ParseArgsError::DuplicateValue(
+                        "--fail-on-unset".to_string(),
+                    ));
+                }
+
                 self.fail_on_unset = Some(value);
                 return Ok(());
             }
             Flag::FailOnEmpty => {
-                if self.fail_on_empty.is_some() {
-                    return Err(ParseArgsError::DuplicateValue(
+                if self.fail == Some(true) {
+                    return Err(ParseArgsError::ConflictingFlags(
                         "--fail-on-empty".to_string(),
+                        "--fail".to_string(),
                     ));
                 }
                 if self.no_replace_empty == Some(true) {
@@ -94,13 +106,38 @@ impl Flags {
                         "--no-replace-empty".to_string(),
                     ));
                 }
+                if self.fail_on_empty.is_some() {
+                    return Err(ParseArgsError::DuplicateValue(
+                        "--fail-on-empty".to_string(),
+                    ));
+                }
                 self.fail_on_empty = Some(value);
                 return Ok(());
             }
+            Flag::Fail => {
+                if self.fail_on_unset == Some(true) {
+                    return Err(ParseArgsError::ConflictingFlags(
+                        "--fail".to_string(),
+                        "--fail-on-unset".to_string(),
+                    ));
+                }
+                if self.fail_on_empty == Some(true) {
+                    return Err(ParseArgsError::ConflictingFlags(
+                        "--fail".to_string(),
+                        "--fail-on-empty".to_string(),
+                    ));
+                }
+                self.fail = Some(value);
+                self.fail_on_unset = Some(value);
+                self.fail_on_empty = Some(value);
+
+                return Ok(());
+            }
             Flag::NoReplaceUnset => {
-                if self.no_replace_unset.is_some() {
-                    return Err(ParseArgsError::DuplicateValue(
+                if self.no_replace == Some(true) {
+                    return Err(ParseArgsError::ConflictingFlags(
                         "--no-replace-unset".to_string(),
+                        "--no-replace".to_string(),
                     ));
                 }
                 if self.fail_on_unset == Some(true) {
@@ -109,13 +146,20 @@ impl Flags {
                         "--fail-on-unset".to_string(),
                     ));
                 }
+                if self.no_replace_unset.is_some() {
+                    return Err(ParseArgsError::DuplicateValue(
+                        "--no-replace-unset".to_string(),
+                    ));
+                }
                 self.no_replace_unset = Some(value);
+
                 return Ok(());
             }
             Flag::NoReplaceEmpty => {
-                if self.no_replace_empty.is_some() {
-                    return Err(ParseArgsError::DuplicateValue(
+                if self.no_replace == Some(true) {
+                    return Err(ParseArgsError::ConflictingFlags(
                         "--no-replace-empty".to_string(),
+                        "--no-replace".to_string(),
                     ));
                 }
                 if self.fail_on_empty == Some(true) {
@@ -124,7 +168,32 @@ impl Flags {
                         "--fail-on-empty".to_string(),
                     ));
                 }
+                if self.no_replace_empty.is_some() {
+                    return Err(ParseArgsError::DuplicateValue(
+                        "--no-replace-empty".to_string(),
+                    ));
+                }
                 self.no_replace_empty = Some(value);
+
+                return Ok(());
+            }
+            Flag::NoReplace => {
+                if self.no_replace_unset == Some(true) {
+                    return Err(ParseArgsError::ConflictingFlags(
+                        "--no-replace".to_string(),
+                        "--no_replace-unset".to_string(),
+                    ));
+                }
+                if self.no_replace_empty == Some(true) {
+                    return Err(ParseArgsError::ConflictingFlags(
+                        "--no-replace".to_string(),
+                        "--no-replace-empty".to_string(),
+                    ));
+                }
+                self.no_replace = Some(value);
+                self.fail_on_unset = Some(value);
+                self.fail_on_empty = Some(value);
+
                 return Ok(());
             }
             Flag::NoEscape => {
@@ -150,8 +219,10 @@ impl Flags {
         match flag {
             Flag::FailOnUnset => return self.fail_on_unset,
             Flag::FailOnEmpty => return self.fail_on_empty,
+            Flag::Fail => return self.fail,
             Flag::NoReplaceUnset => return self.no_replace_unset,
             Flag::NoReplaceEmpty => return self.no_replace_empty,
+            Flag::NoReplace => return self.no_replace,
             Flag::NoEscape => return self.no_escape,
         }
     }
