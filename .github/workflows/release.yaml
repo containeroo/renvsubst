@@ -3,8 +3,6 @@ on:
   push:
     tags:
       - "*"
-env:
-  CICD_INTERMEDIATES_DIR: "_cicd-intermediates"
 
 jobs:
   ensure_cargo_fmt:
