@@ -58,6 +58,7 @@ impl Args {
         }
         return Ok(value.to_string());
     }
+
     /// Parses command line arguments and returns an `Args` struct with the parsed values.
     ///
     /// # Arguments
@@ -323,6 +324,17 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_unknown_flag2() {
+        let args = vec!["--unknown-flag"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_err());
+        assert_eq!(
+            parsed_args.unwrap_err(),
+            ParseArgsError::UnknownFlag("--unknown-flag".to_owned())
+        );
+    }
+
+    #[test]
     fn test_parse_help_flag() {
         let args = vec!["-h"];
         let parsed_args = Args::parse(args).unwrap();
@@ -460,6 +472,7 @@ mod tests {
 
         assert!(parsed_args.filters.variables.unwrap().contains("VAR"));
     }
+
     #[test]
     fn test_flags_fail_fail_on_empty() {
         let args = vec!["--fail", "--fail-on-empty"];
@@ -471,6 +484,7 @@ mod tests {
             ParseArgsError::ConflictingFlags("--fail-on-empty".to_string(), "--fail".to_string())
         );
     }
+
     #[test]
     fn test_flags_fail_fail_on_unset() {
         let args = vec!["--fail", "--fail-on-unset"];
@@ -482,6 +496,7 @@ mod tests {
             ParseArgsError::ConflictingFlags("--fail-on-unset".to_string(), "--fail".to_string())
         );
     }
+
     #[test]
     fn test_flags_no_replace_no_replace_unset() {
         let args = vec!["--no-replace", "--no-replace-unset"];
@@ -496,6 +511,7 @@ mod tests {
             )
         );
     }
+
     #[test]
     fn test_flags_no_replace_no_replace_empty() {
         let args = vec!["--no-replace", "--no-replace-empty"];
@@ -509,5 +525,164 @@ mod tests {
                 "--no-replace".to_string()
             )
         );
+    }
+
+    #[test]
+    fn test_version() {
+        let args = vec!["--version"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_ok());
+        assert!(parsed_args.unwrap().version);
+    }
+
+    #[test]
+    fn test_no_escape() {
+        let args = vec!["--no-escape"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_ok());
+        assert!(parsed_args.unwrap().flags.get_flag(Flag::NoEscape).unwrap())
+    }
+
+    #[test]
+    fn test_parse_prefix_equal() {
+        let args = vec!["--prefix=prefix-"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_ok());
+        assert!(parsed_args
+            .unwrap()
+            .filters
+            .prefixes
+            .unwrap()
+            .contains("prefix-"));
+    }
+
+    #[test]
+    fn test_parse_prefix_space() {
+        let args = vec!["--prefix", "prefix-"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_ok());
+        assert!(parsed_args
+            .unwrap()
+            .filters
+            .prefixes
+            .unwrap()
+            .contains("prefix-"));
+    }
+
+    #[test]
+    fn test_parse_prefix_multiple() {
+        let args = vec!["--prefix", "prefix-", "--prefix", "prefix-"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_ok());
+        assert!(parsed_args
+            .unwrap()
+            .filters
+            .prefixes
+            .unwrap()
+            .contains("prefix-"));
+    }
+
+    #[test]
+    fn test_parse_suffix_equal() {
+        let args = vec!["--suffix=-suffix"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_ok());
+        assert!(parsed_args
+            .unwrap()
+            .filters
+            .suffixes
+            .unwrap()
+            .contains("-suffix"));
+    }
+
+    #[test]
+    fn test_parse_suffix_space() {
+        let args = vec!["--suffix", "-suffix"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_ok());
+        assert!(parsed_args
+            .unwrap()
+            .filters
+            .suffixes
+            .unwrap()
+            .contains("-suffix"));
+    }
+
+    #[test]
+    fn test_parse_suffix_multiple() {
+        let args = vec!["--suffix", "-suffix", "--suffix", "-suffix"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_ok());
+        assert!(parsed_args
+            .unwrap()
+            .filters
+            .suffixes
+            .unwrap()
+            .contains("-suffix"));
+    }
+
+    #[test]
+    fn test_parse_variable_equal() {
+        let args = vec!["--variable=VAR"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_ok());
+        assert!(parsed_args
+            .unwrap()
+            .filters
+            .variables
+            .unwrap()
+            .contains("VAR"));
+    }
+
+    #[test]
+    fn test_parse_variable_space() {
+        let args = vec!["--variable", "VAR"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_ok());
+        assert!(parsed_args
+            .unwrap()
+            .filters
+            .variables
+            .unwrap()
+            .contains("VAR"));
+    }
+
+    #[test]
+    fn test_parse_variable_multiple() {
+        let args = vec!["--variable", "VAR", "--variable", "VAR"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_ok());
+        assert!(parsed_args
+            .unwrap()
+            .filters
+            .variables
+            .unwrap()
+            .contains("VAR"));
+    }
+
+    #[test]
+    fn test_parse_variable_multiple_different() {
+        let args = vec!["--variable", "VAR", "--variable", "VAR2"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_ok());
+
+        let parsed_args = parsed_args.unwrap(); // Assign the unwrapped value to a variable
+        let variables = &parsed_args.filters.variables.unwrap();
+
+        assert!(variables.contains("VAR"));
+        assert!(variables.contains("VAR2"));
+    }
+
+    #[test]
+    fn test_parse_variable_multiple_different_order() {
+        let args = vec!["--variable", "VAR2", "--variable", "VAR"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_ok());
+
+        let parsed_args = parsed_args.unwrap(); // Assign the unwrapped value to a variable
+        let variables = &parsed_args.filters.variables.unwrap();
+
+        assert!(variables.contains("VAR"));
+        assert!(variables.contains("VAR2"));
     }
 }
