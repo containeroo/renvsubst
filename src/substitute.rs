@@ -201,12 +201,16 @@ fn matches_filters(filters: &Filters, var_name: &str) -> Option<bool> {
 /// ```
 /// let line = "Hello, ${NAME:-User}! How are you, ${NAME}?";
 ///
-/// let result = process_line(line, &Flags::default(), &Filters::default());
+/// let result = replace_variables_in_line(line, &Flags::default(), &Filters::default());
 ///
 /// assert!(result.is_ok());
 /// assert_eq!(result.unwrap(), "Hello, User! How are you, ?");
 /// ```
-fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, String> {
+fn replace_variables_in_line(
+    line: &str,
+    flags: &Flags,
+    filters: &Filters,
+) -> Result<String, String> {
     let mut new_line: String = String::with_capacity(line.len());
     let mut iter = line.chars().peekable();
 
@@ -356,7 +360,7 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
 
 /// Perform variable substitution on the input file and write the result to the output file.
 ///
-/// The function reads from the provided `input_file` and writes the processed output to the provided `output_file`.
+/// The function reads from the provided `input` and writes the processed output to the provided `output`.
 /// The `flags` parameter controls how the substitution is performed (e.g. whether to fail on unset variables),
 /// and the `filters` parameter specifies which variables to substitute (e.g. only those with a certain prefix).
 ///
@@ -399,18 +403,18 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
 ///
 /// ```
 /// use std::io::Cursor;
-/// use renvsubst::{perform_substitution, Flags, Filters};
+/// use renvsubst::{process_input, Flags, Filters};
 ///
 /// let input = Cursor::new("Hello $WORLD!");
 /// let mut output = Cursor::new(Vec::new());
 /// let flags = Flags::default();
 /// let filters = Filters::default();
 ///
-/// perform_substitution(Box::new(input), Box::new(&mut output), &flags, &filters).unwrap();
+/// process_input(Box::new(input), Box::new(&mut output), &flags, &filters).unwrap();
 ///
 /// assert_eq!(String::from_utf8(output.into_inner()).unwrap(), "Hello !\n");
 /// ```
-pub fn perform_substitution<R: std::io::Read, W: std::io::Write>(
+pub fn process_input<R: std::io::Read, W: std::io::Write>(
     input: R,
     mut output: W,
     flags: &Flags,
@@ -423,7 +427,7 @@ pub fn perform_substitution<R: std::io::Read, W: std::io::Write>(
     for line in reader.lines() {
         let line = line.unwrap();
         // Replace variables with their values
-        let replaced: Result<String, String> = process_line(&line, flags, filters);
+        let replaced: Result<String, String> = replace_variables_in_line(&line, flags, filters);
         match replaced {
             Ok(output) => buffer.push_str(&output),
             Err(e) => return Err(format!("Failed to replace variables: {e}")),
@@ -457,53 +461,53 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_regular_var_found() {
+    fn test_replace_variables_in_line_regular_var_found() {
         // description: regular variable found
         // test: $REGULAR_VAR_FOUND
         // env: REGULAR_VAR_FOUND=value
         // result: value
         env::set_var("REGULAR_VAR_FOUND", "value");
         let line = "$REGULAR_VAR_FOUND".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value".to_string()));
     }
 
     #[test]
-    fn test_process_line_one_new_line_at_end() {
+    fn test_replace_variables_in_line_one_new_line_at_end() {
         // description: regular variable found
         // test: $REGULAR_VAR_FOUND
         // env: REGULAR_VAR_FOUND=value
         // result: value
         let line = "this is a line\n".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("this is a line\n".to_string()));
     }
 
     #[test]
-    fn test_process_line_zwo_new_line_at_end() {
+    fn test_replace_variables_in_line_zwo_new_line_at_end() {
         // description: regular variable found
         // test: $REGULAR_VAR_FOUND
         // env: REGULAR_VAR_FOUND=value
         // result: value
         let line = "this is a line\n\n".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("this is a line\n\n".to_string()));
     }
 
     #[test]
-    fn test_process_line_regular_var_starting_dash() {
+    fn test_replace_variables_in_line_regular_var_starting_dash() {
         // description: regular variable with starting dash
         // test: $_REGULAR_VAR_FOUND_WITH_DASH
         // env: _REGULAR_VAR_FOUND_WITH_DASH=value
         // result: value
         env::set_var("_REGULAR_VAR_FOUND_WITH_DASH", "value");
         let line = "$_REGULAR_VAR_FOUND_WITH_DASH".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value".to_string()));
     }
 
     #[test]
-    fn test_process_line_regular_var_not_found_fail_on_unset() {
+    fn test_replace_variables_in_line_regular_var_not_found_fail_on_unset() {
         // description: regular variable not found
         // test: $REGULAR_VAR_NOT_FOUND
         // env: -
@@ -511,7 +515,7 @@ mod tests {
         let line = "$REGULAR_VAR_NOT_FOUND".to_string();
         let mut flags = Flags::default();
         flags.set_flag(Flag::FailOnUnset, true).unwrap();
-        let result = process_line(&line, &flags, &Filters::default());
+        let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
@@ -520,42 +524,42 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_regular_var_not_found() {
+    fn test_replace_variables_in_line_regular_var_not_found() {
         // description: regular variable not found
         // test: $REGULAR_VAR_NOT_FOUND
         // env: -
         // result: -
         let line = "$REGULAR_VAR_NOT_FOUND".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok(String::new()));
     }
 
     #[test]
-    fn test_process_line_braces_var_found() {
+    fn test_replace_variables_in_line_braces_var_found() {
         // description: braces variable found
         // test: ${BRACES_VAR_FOUND}
         // env: BRACES_VAR_FOUND=value
         // result: value
         env::set_var("BRACES_VAR_FOUND", "value");
         let line = "${BRACES_VAR_FOUND}".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value".to_string()));
     }
 
     #[test]
-    fn test_process_line_braces_var_found_starting_dash() {
+    fn test_replace_variables_in_line_braces_var_found_starting_dash() {
         // description: braces variable found with starting dash
         // test: ${_BRACES_VAR_WITH_DASH}
         // env: _BRACES_VAR_WITH_DASH=value
         // result: value
         env::set_var("_BRACES_VAR_WITH_DASH", "value");
         let line = "${_BRACES_VAR_WITH_DASH}".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value".to_string()));
     }
 
     #[test]
-    fn test_process_line_regular_var_found_long_value() {
+    fn test_replace_variables_in_line_regular_var_found_long_value() {
         // description: regular variable found
         // test: $REGULAR_VAR_FOUND
         // env: REGULAR_VAR_FOUND=value
@@ -565,7 +569,7 @@ mod tests {
             "valuevaluevaluevaluevaluevaluevaluevaluevaluevaluevalue",
         );
         let line = "$REGULAR_VAR_LONG_FOUND".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(
             result,
             Ok("valuevaluevaluevaluevaluevaluevaluevaluevaluevaluevalue".to_string())
@@ -573,18 +577,18 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_braces_var_not_found() {
+    fn test_replace_variables_in_line_braces_var_not_found() {
         // description: braces variable not found
         // test: ${BRACES_VAR_NOT_FOUND}
         // env: unset
         // result: -
         let line = "${BRACES_VAR_NOT_FOUND}".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok(String::new()));
     }
 
     #[test]
-    fn test_process_line_braces_var_not_found_fail_on_unset() {
+    fn test_replace_variables_in_line_braces_var_not_found_fail_on_unset() {
         // description: braces variable not found
         // test: ${BRACES_VAR_NOT_FOUND}
         // env: unset
@@ -592,7 +596,7 @@ mod tests {
         let line = "${BRACES_VAR_NOT_FOUND}".to_string();
         let mut flags = Flags::default();
         flags.set_flag(Flag::FailOnUnset, true).unwrap();
-        let result = process_line(&line, &flags, &Filters::default());
+        let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
@@ -601,120 +605,120 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_braces_var_default_use_default() {
+    fn test_replace_variables_in_line_braces_var_default_use_default() {
         // description: braces variable with default value, use default
         // test: ${BRACES_VAR_DEFAULT_USE_DEFAULT:-default}
         // env: unset
         // result: default
         let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT:-default}".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("default".to_string()));
     }
 
     #[test]
-    fn test_process_line_braces_var_broken_default() {
+    fn test_replace_variables_in_line_braces_var_broken_default() {
         let input = "Hello, ${NAME:Worl:-d}!";
         let flags = Flags::default();
         let filters = Filters::default();
 
-        let result = process_line(input, &flags, &filters);
+        let result = replace_variables_in_line(input, &flags, &filters);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Hello, ${NAME:Worl:-d}!");
     }
 
     #[test]
-    fn test_process_line_braces_var_default_use_colon_in_default() {
+    fn test_replace_variables_in_line_braces_var_default_use_colon_in_default() {
         // description: braces variable with colon inside default value, use default
         // test: ${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa:ult}
         // env: unset
         // result: defa:ult
         let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa:ult}".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("defa:ult".to_string()));
     }
 
     #[test]
-    fn test_process_line_braces_var_default_use_dollar_in_default() {
+    fn test_replace_variables_in_line_braces_var_default_use_dollar_in_default() {
         // description: braces variable with default value, use default
         // test: ${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa$ult}
         // env: unset
         // result: defa:ult
         let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa$ult}".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("defa$ult".to_string()));
     }
 
     #[test]
-    fn test_process_line_braces_var_default_use_braces_in_default() {
+    fn test_replace_variables_in_line_braces_var_default_use_braces_in_default() {
         // description: braces variable with default value, use default
         // test: ${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa$ult}
         // env: unset
         // result: defa:ult
         let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa}ult}".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("default}".to_string()));
     }
 
     #[test]
-    fn test_process_line_braces_var_default_use_var() {
+    fn test_replace_variables_in_line_braces_var_default_use_var() {
         // description: braces variable with default value, use variable
         // test: ${BRACES_VAR_DEFAULT_USE_VAR:-default}
         // env: BRACES_VAR_DEFAULT_USE_VAR=value
         // result: value
         env::set_var("BRACES_VAR_DEFAULT_USE_VAR", "value");
         let line = "${BRACES_VAR_DEFAULT_USE_VAR:-default}".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value".to_string()));
     }
 
     #[test]
-    fn test_process_line_braces_var_default_use_var_dash() {
+    fn test_replace_variables_in_line_braces_var_default_use_var_dash() {
         // description: braces variable with default value, use variable
         // test: ${_BRACES_VAR_DEFAULT_USE_VAR:-default}
         // env: _BRACES_VAR_DEFAULT_USE_VAR=value
         // result: value
         env::set_var("_BRACES_VAR_DEFAULT_USE_VAR", "value");
         let line = "${_BRACES_VAR_DEFAULT_USE_VAR:-default}".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value".to_string()));
     }
 
     #[test]
-    fn test_process_line_braces_var_default_use_default_dash() {
+    fn test_replace_variables_in_line_braces_var_default_use_default_dash() {
         // description: braces variable with default value, use default
         // test: ${BRACES_VAR_DEFAULT_USE_DEFAULT_DASH:-_default}
         // env: BRACES_VAR_DEFAULT_USE_DEFAULT_DASH=value
         // result: value
         env::set_var("BRACES_VAR_DEFAULT_USE_DEFAULT_DASH", "value");
         let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT_DASH:-default}".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value".to_string()));
     }
 
     #[test]
-    fn test_process_line_braces_var_default_use_default_empty() {
+    fn test_replace_variables_in_line_braces_var_default_use_default_empty() {
         // description: braces variable with default value, use default
         // test: ${BRACES_VAR_DEFAULT_USE_DEFAULT_EMPTY:-}
         // env: unset
         // result: -
         let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT_EMPTY:-}".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok(String::new()));
     }
 
     #[test]
-    fn test_process_line_escape_text_double_dollar_invalid_var() {
+    fn test_replace_variables_in_line_escape_text_double_dollar_invalid_var() {
         // description: escape text, double dollar, invalid var
         // test: i like cas$$ not so much!
         // env: -
         // result: i like cas$$ not so much!
         let line = "i like cas$$ not so much!".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok(line));
     }
 
     #[test]
-    fn test_process_line_escape_text_double_dollar_invald_var_no_escape_true() {
+    fn test_replace_variables_in_line_escape_text_double_dollar_invald_var_no_escape_true() {
         // description: escape text, double dollar, no escape true
         // test: i like cas$$ not so much!
         // env: -
@@ -722,23 +726,23 @@ mod tests {
         let line = "i like cas$$ not so much!".to_string();
         let mut flags = Flags::default();
         flags.set_flag(Flag::NoEscape, true).unwrap();
-        let result = process_line(&line, &flags, &Filters::default());
+        let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(result, Ok(line));
     }
 
     #[test]
-    fn test_process_line_escape_var_double_dollar_valid_var() {
+    fn test_replace_variables_in_line_escape_var_double_dollar_valid_var() {
         // description: escape variable, double dollar, valid var
         // test: I have a pa$$word
         // env: -
         // result: I have a pa$word
         let line = "I have a pa$$word".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("I have a pa$word".to_string()));
     }
 
     #[test]
-    fn test_process_line_escape_var_double_dollar_no_replace_unset() {
+    fn test_replace_variables_in_line_escape_var_double_dollar_no_replace_unset() {
         // description: escape variable, double dollar, no replace unset
         // test: I have a pa$$word
         // env: -
@@ -746,12 +750,12 @@ mod tests {
         let line = "I have a pa$$word".to_string();
         let mut flags = Flags::default();
         flags.set_flag(Flag::NoReplaceUnset, true).unwrap();
-        let result = process_line(&line, &flags, &Filters::default());
+        let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(result, Ok("I have a pa$word".to_string()));
     }
 
     #[test]
-    fn test_process_line_escape_text_single_dollar_no_escape_true() {
+    fn test_replace_variables_in_line_escape_text_single_dollar_no_escape_true() {
         // description: escape text, single dollar, no escape
         // test: this $ is a dollar sign
         // env: -
@@ -759,12 +763,12 @@ mod tests {
         let line = "this $ is a dollar sign".to_string();
         let mut flags = Flags::default();
         flags.set_flag(Flag::NoEscape, true).unwrap();
-        let result = process_line(&line, &flags, &Filters::default());
+        let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(result, Ok(line));
     }
 
     #[test]
-    fn test_process_line_escape_var_double_dollar_no_escape() {
+    fn test_replace_variables_in_line_escape_var_double_dollar_no_escape() {
         // description: escape variable, double dollar, no escape
         // test: I have a pa$$word
         // env: -
@@ -772,12 +776,12 @@ mod tests {
         let line = "I have a pa$$word".to_string();
         let mut flags = Flags::default();
         flags.set_flag(Flag::NoEscape, true).unwrap();
-        let result = process_line(&line, &flags, &Filters::default());
+        let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(result, Ok("I have a pa$".to_string()));
     }
 
     #[test]
-    fn test_process_line_escape_text_single_dollar_no_escape_false() {
+    fn test_replace_variables_in_line_escape_text_single_dollar_no_escape_false() {
         // description: escape text, single dollar, no escape
         // test: this $ is a dollar sign
         // env: -
@@ -785,31 +789,31 @@ mod tests {
         let line = "this $ is a dollar sign".to_string();
         let mut flags = Flags::default();
         flags.set_flag(Flag::NoEscape, true).unwrap();
-        let result = process_line(&line, &flags, &Filters::default());
+        let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(result, Ok(line));
     }
 
     #[test]
-    fn test_process_line_broken_var_braces_end() {
+    fn test_replace_variables_in_line_broken_var_braces_end() {
         // description: broken variable, braces end
         // test: this variable $BROKEN_VAR_BRACES_END} is broken
         // env: BROKEN_VAR_BRACES_END=value
         // result: this variable value} is broken
         env::set_var("BROKEN_VAR_BRACES_END", "value");
         let line = "this variable $BROKEN_VAR_BRACES_END} is broken".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("this variable value} is broken".to_string()));
     }
 
     #[test]
-    fn test_process_line_broken_var_braces_begin() {
+    fn test_replace_variables_in_line_broken_var_braces_begin() {
         // description: broken variable, braces begin
         // test: this variable ${BROKEN_VAR_BRACES_BEGIN is broken
         // env: BROKEN_VAR_BRACES_BEGIN=value
         // result: this variable ${BROKEN_VAR_BRACES_BEGIN is broken
         env::set_var("BROKEN_VAR_BRACES_BEGIN", "value");
         let line = "this variable ${BROKEN_VAR_BRACES_END is broken".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(
             result,
             Ok("this variable ${BROKEN_VAR_BRACES_END is broken".to_string())
@@ -817,13 +821,13 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_invalid_regular_var_digit_begin() {
+    fn test_replace_variables_in_line_invalid_regular_var_digit_begin() {
         // description: invalid regular variable, digit begin
         // test: this $1INVALID_VAR_DIGIT_BEGIN is not valid
         // env: -
         // result: this $1INVALID_VAR_DIGIT_BEGIN is not valid
         let line = "this $1INVALID_VAR_DIGIT_BEGIN is not valid".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(
             result,
             Ok("this $1INVALID_VAR_DIGIT_BEGIN is not valid".to_string())
@@ -831,13 +835,13 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_invalid_braces_var_digit_begin() {
+    fn test_replace_variables_in_line_invalid_braces_var_digit_begin() {
         // description: invalid braces variable, digit begin
         // test: this ${1INVALID_VAR_DIGIT_BEGIN} is not valid
         // env: -
         // result: this ${1INVALID_VAR_DIGIT_BEGIN} is not valid
         let line = "this ${1INVALID_VAR_DIGIT_BEGIN} is not valid".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(
             result,
             Ok("this ${1INVALID_VAR_DIGIT_BEGIN} is not valid".to_string())
@@ -845,103 +849,103 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_valid_regular_var_digit_middle() {
+    fn test_replace_variables_in_line_valid_regular_var_digit_middle() {
         // description: valid regular variable, digit middle
         // test: this $VALID_REGULAR_VAR_1_DIGIT_MIDDLE is valid
         // env: VALID_REGULAR_VAR_1_DIGIT_MIDDLE=value
         // result: this value is valid
         env::set_var("VALID_REGULAR_VAR_1_DIGIT_MIDDLE", "value");
         let line = "this $VALID_REGULAR_VAR_1_DIGIT_MIDDLE is valid".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("this value is valid".to_string()));
     }
 
     #[test]
-    fn test_process_line_valid_regular_var_digit_end() {
+    fn test_replace_variables_in_line_valid_regular_var_digit_end() {
         // description: valid regular variable, digit end
         // test: this $VALID_REGULAR_VAR_DIGIT_END_1 is valid
         // env: VALID_REGULAR_VAR_DIGIT_END_1=value
         // result: this value is valid
         env::set_var("VALID_REGULAR_VAR_DIGIT_END_1", "value");
         let line = "this $VALID_REGULAR_VAR_DIGIT_END_1 is valid".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("this value is valid".to_string()));
     }
 
     #[test]
-    fn test_process_line_valid_braces_var_digit_middle() {
+    fn test_replace_variables_in_line_valid_braces_var_digit_middle() {
         // description: valid braces variable, digit middle
         // test: this ${VALID_REGULAR_VAR_1_DIGIT_MIDDLE} is valid
         // env: VALID_REGULAR_VAR_1_DIGIT_MIDDLE=value
         // result: this value is valid
         env::set_var("VALID_REGULAR_VAR_1_DIGIT_MIDDLE", "value");
         let line = "this ${VALID_REGULAR_VAR_1_DIGIT_MIDDLE} is valid".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("this value is valid".to_string()));
     }
 
     #[test]
-    fn test_process_line_valid_braces_var_digit_end() {
+    fn test_replace_variables_in_line_valid_braces_var_digit_end() {
         // description: valid braces variable, digit end
         // test: this ${VALID_REGULAR_VAR_DIGIT_END_1} is valid
         // env: VALID_REGULAR_VAR_DIGIT_END_1=value
         // result: this value is valid
         env::set_var("VALID_REGULAR_VAR_DIGIT_END_1", "value");
         let line = "this ${VALID_REGULAR_VAR_DIGIT_END_1} is valid".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("this value is valid".to_string()));
     }
 
     #[test]
-    fn test_process_line_valid_braces_var_end() {
+    fn test_replace_variables_in_line_valid_braces_var_end() {
         // description: valid braces variable, end of line
         // test: braces var at the end ${VALID_BRACES_VAR_END}
         // env: VALID_BRACES_VAR_END=value
         // result: braces var at the end value
         env::set_var("VALID_BRACES_VAR_END", "value");
         let line = "braces var at the end ${VALID_BRACES_VAR_END}".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("braces var at the end value".to_string()));
     }
 
     #[test]
-    fn test_process_line_valid_braces_var_begin() {
+    fn test_replace_variables_in_line_valid_braces_var_begin() {
         // description: valid braces variable, begin of line
         // test: ${VALID_BRACES_VAR_BEGIN} braces var at the begin
         // env: VALID_BRACES_VAR_BEGIN=value
         // result: value braces var at the begin
         env::set_var("VALID_BRACES_VAR_BEGIN", "value");
         let line = "${VALID_BRACES_VAR_BEGIN} braces var at the begin".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value braces var at the begin".to_string()));
     }
 
     #[test]
-    fn test_process_line_valid_regular_var_end() {
+    fn test_replace_variables_in_line_valid_regular_var_end() {
         // description: valid regular variable, at end of line
         // test: regular var at the end $VALID_REGULAR_VAR_END
         // env: VALID_REGULAR_VAR_END=value
         // result: regular var at the end value
         env::set_var("VALID_REGULAR_VAR_END", "value");
         let line = "regular var at the end $VALID_REGULAR_VAR_END".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("regular var at the end value".to_string()));
     }
 
     #[test]
-    fn test_process_line_valid_regular_var_begin() {
+    fn test_replace_variables_in_line_valid_regular_var_begin() {
         // description: valid regular variable, at begin of line
         // test: $VALID_REGULAR_VAR_BEGIN regular var at the begin
         // env: VALID_REGULAR_VAR_BEGIN=value
         // result: value regular var at the begin
         env::set_var("VALID_REGULAR_VAR_BEGIN", "value");
         let line = "$VALID_REGULAR_VAR_BEGIN regular var at the begin".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value regular var at the begin".to_string()));
     }
 
     #[test]
-    fn test_process_line_valid_regular_var_fail_on_unset() {
+    fn test_replace_variables_in_line_valid_regular_var_fail_on_unset() {
         // description: valid regular variable, fail on empty
         // test: $VALID_REGULAR_VAR_FAIL_ON_UNSET
         // env:
@@ -949,12 +953,12 @@ mod tests {
         let line = "$VALID_REGULAR_VAR_FAIL_ON_UNSET".to_string();
         let mut flags = Flags::default();
         flags.set_flag(Flag::FailOnUnset, true).unwrap();
-        let result = process_line(&line, &flags, &Filters::default());
+        let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_process_line_valid_braces_var_fail_on_unset() {
+    fn test_replace_variables_in_line_valid_braces_var_fail_on_unset() {
         // description: valid braces variable, fail on unset
         // test: ${VALID_BRACES_VAR_FAIL_ON_UNSET}
         // env:
@@ -962,12 +966,12 @@ mod tests {
         let line = "${VALID_BRACES_VAR_FAIL_ON_UNSET}".to_string();
         let mut flags = Flags::default();
         flags.set_flag(Flag::FailOnUnset, true).unwrap();
-        let result = process_line(&line, &flags, &Filters::default());
+        let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_process_line_valid_regular_var_fail_on_empty() {
+    fn test_replace_variables_in_line_valid_regular_var_fail_on_empty() {
         // description: valid regular variable, fail on empty
         // test: $VALID_REGULAR_VAR_BEGIN
         // env: VALID_REGULAR_VAR_BEGIN=""
@@ -976,12 +980,12 @@ mod tests {
         let line = "$VALID_REGULAR_VAR_FAIL_ON_EMPTY".to_string();
         let mut flags = Flags::default();
         flags.set_flag(Flag::FailOnEmpty, true).unwrap();
-        let result = process_line(&line, &flags, &Filters::default());
+        let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_process_line_valid_braces_var_fail_on_empty() {
+    fn test_replace_variables_in_line_valid_braces_var_fail_on_empty() {
         // description: valid braces variable, fail on empty
         // test: $VALID_REGULAR_VAR_BEGIN regular var at the begin
         // env: VALID_REGULAR_VAR_BEGIN=""
@@ -990,12 +994,12 @@ mod tests {
         let line = "${VALID_REGULAR_VAR_FAIL_ON_EMPTY}".to_string();
         let mut flags = Flags::default();
         flags.set_flag(Flag::FailOnEmpty, true).unwrap();
-        let result = process_line(&line, &flags, &Filters::default());
+        let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_process_line_valid_regular_var_no_replace_unset() {
+    fn test_replace_variables_in_line_valid_regular_var_no_replace_unset() {
         // description: valid regular variable, no replace on unset
         // test: $VALID_REGULAR_VAR_NO_REPLACE_ON_UNSET
         // env:
@@ -1003,12 +1007,12 @@ mod tests {
         let line = "$VALID_REGULAR_VAR_FAIL_ON_UNSET".to_string();
         let mut flags = Flags::default();
         flags.set_flag(Flag::NoReplaceUnset, true).unwrap();
-        let result = process_line(&line, &flags, &Filters::default());
+        let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(result, Ok("$VALID_REGULAR_VAR_FAIL_ON_UNSET".to_string()));
     }
 
     #[test]
-    fn test_process_line_valid_braces_var_no_replace_unset() {
+    fn test_replace_variables_in_line_valid_braces_var_no_replace_unset() {
         // description: valid braces variable, no replace on unset
         // test: ${VALID_BRACES_VAR_NO_REPLACE_ON_UNSET}
         // env:
@@ -1016,12 +1020,12 @@ mod tests {
         let line = "${VALID_REGULAR_VAR_FAIL_ON_UNSET}".to_string();
         let mut flags = Flags::default();
         flags.set_flag(Flag::NoReplaceUnset, true).unwrap();
-        let result = process_line(&line, &flags, &Filters::default());
+        let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(result, Ok("${VALID_REGULAR_VAR_FAIL_ON_UNSET}".to_string()));
     }
 
     #[test]
-    fn test_process_line_valid_regular_var_no_replace_empty() {
+    fn test_replace_variables_in_line_valid_regular_var_no_replace_empty() {
         // description: valid regular variable, no replace on empty
         // test: $VALID_REGULAR_VAR_NO_REPLACE_ON_EMPTY
         // env: VALID_REGULAR_VAR_NO_REPLACE_ON_EMPTY=""
@@ -1030,7 +1034,7 @@ mod tests {
         let line = "$VALID_REGULAR_VAR_NO_REPLACE_ON_EMPTY".to_string();
         let mut flags = Flags::default();
         flags.set_flag(Flag::NoReplaceEmpty, true).unwrap();
-        let result = process_line(&line, &flags, &Filters::default());
+        let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(
             result,
             Ok("$VALID_REGULAR_VAR_NO_REPLACE_ON_EMPTY".to_string())
@@ -1038,7 +1042,7 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_valid_braces_var_no_replace_empty() {
+    fn test_replace_variables_in_line_valid_braces_var_no_replace_empty() {
         // description: valid braces variable, no replace on empty
         // test: ${VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY}
         // env: VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY=""
@@ -1047,7 +1051,7 @@ mod tests {
         let line = "${VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY}".to_string();
         let mut flags = Flags::default();
         flags.set_flag(Flag::NoReplaceEmpty, true).unwrap();
-        let result = process_line(&line, &flags, &Filters::default());
+        let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(
             result,
             Ok("${VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY}".to_string())
@@ -1055,7 +1059,7 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_invalid_braces_var_default_end() {
+    fn test_replace_variables_in_line_invalid_braces_var_default_end() {
         // description: invalid braces variable, default at the end
         // test: ${IVALID_BRACES_VAR_DEFAULT_END:-
         // env: -
@@ -1063,12 +1067,12 @@ mod tests {
         let line = "${IVALID_BRACES_VAR_DEFAULT_END:-".to_string();
         let mut flags = Flags::default();
         flags.set_flag(Flag::NoReplaceEmpty, true).unwrap();
-        let result = process_line(&line, &flags, &Filters::default());
+        let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(result, Ok("${IVALID_BRACES_VAR_DEFAULT_END:-".to_string()));
     }
 
     #[test]
-    fn test_process_line_invalid_braces_var_broken_default_end() {
+    fn test_replace_variables_in_line_invalid_braces_var_broken_default_end() {
         // description: invalid braces variable, default at the end
         // test: ${VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY:
         // env: -
@@ -1076,7 +1080,7 @@ mod tests {
         let line = "${VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY:".to_string();
         let mut flags = Flags::default();
         flags.set_flag(Flag::NoReplaceEmpty, true).unwrap();
-        let result = process_line(&line, &flags, &Filters::default());
+        let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(
             result,
             Ok("${VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY:".to_string())
@@ -1084,13 +1088,13 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_dollar_end() {
+    fn test_replace_variables_in_line_dollar_end() {
         // description: only one dollar sign at the end of line
         // test: this is a test line with only one dollar sign at the end of line $
         // env: -
         // result: this is a test line with only one dollar sign at the end of line $
         let line = "this is a test line with only one dollar sign at the end of line $".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(
             result,
             Ok("this is a test line with only one dollar sign at the end of line $".to_string())
@@ -1098,13 +1102,13 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_double_dollar_end() {
+    fn test_replace_variables_in_line_double_dollar_end() {
         // description: two dollar sign at the end of line
         // test: this is a test line with two dollar sign at the end of line $$
         // env: -
         // result: this is a test line with two dollar sign at the end of line $$
         let line = "this is a test line with two dollar sign at the end of line $$".to_string();
-        let result = process_line(&line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(
             result,
             Ok("this is a test line with two dollar sign at the end of line $$".to_string())
@@ -1112,7 +1116,7 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_double_dollar_end_escape_true() {
+    fn test_replace_variables_in_line_double_dollar_end_escape_true() {
         // description: double dollar sign at the end of line, no escape true
         // test: this is a test line with two dollar sign at the end of line $$
         // env: -
@@ -1120,7 +1124,7 @@ mod tests {
         let line = "this is a test line with two dollar sign at the end of line $$".to_string();
         let mut flags = Flags::default();
         flags.set_flag(Flag::NoEscape, true).unwrap();
-        let result = process_line(&line, &flags, &Filters::default());
+        let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(
             result,
             Ok("this is a test line with two dollar sign at the end of line $$".to_string())
@@ -1128,7 +1132,7 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_regular_var_prefix() {
+    fn test_replace_variables_in_line_regular_var_prefix() {
         // description: regular variable with prefix
         // test: this $ENV1 has a prefix. This $TEST_VAR1 has a prefix.
         // env: ENV1=env1, TEST_VAR1=test_var1
@@ -1136,7 +1140,7 @@ mod tests {
         env::set_var("ENV1", "env1");
         env::set_var("TEST_VAR1", "test_var1");
         let line = "this $ENV1 has a prefix. This $TEST_VAR1 has a prefix.".to_string();
-        let result = process_line(
+        let result = replace_variables_in_line(
             &line,
             &Flags::default(),
             &Filters {
@@ -1152,7 +1156,7 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_braces_var_prefix() {
+    fn test_replace_variables_in_line_braces_var_prefix() {
         // description: braces variable with prefix
         // test: this $ENV1 has a prefix. This $TEST_VAR1 has a prefix.
         // env: ENV1=env1, TEST_VAR1=test_var1
@@ -1160,7 +1164,7 @@ mod tests {
         env::set_var("ENV1", "env1");
         env::set_var("TEST_VAR1", "test_var1");
         let line = "this $ENV1 has a no prefix. This ${TEST_VAR1} has a valid prefix.".to_string();
-        let result = process_line(
+        let result = replace_variables_in_line(
             &line,
             &Flags::default(),
             &Filters {
@@ -1175,7 +1179,7 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_regular_var_suffix() {
+    fn test_replace_variables_in_line_regular_var_suffix() {
         // description: regular variable with suffix
         // test: this $ENV1 has a prefix. This $VAR1_TEST has a suffix.
         // env: ENV1=env1, VAR1_TEST=var1_var
@@ -1183,7 +1187,7 @@ mod tests {
         env::set_var("ENV1", "env1");
         env::set_var("VAR1_TEST", "var1_test");
         let line = "this $ENV1 has a prefix. This $VAR1_TEST has a suffix.".to_string();
-        let result = process_line(
+        let result = replace_variables_in_line(
             &line,
             &Flags::default(),
             &Filters {
@@ -1198,7 +1202,7 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_regular_var_multiple_suffix() {
+    fn test_replace_variables_in_line_regular_var_multiple_suffix() {
         // description: regular variable with multiple suffix
         // test: this $ENV1 has no suffix. This "$VAR_FIRST" has a suffix. And this "${VAR_SECOND}" has another suffix.
         // env: ENV1=env1, VAR_FIRST=first suffix, VAR_SECOND=second suffix
@@ -1207,7 +1211,7 @@ mod tests {
         env::set_var("VAR_FIRST", "first suffix");
         env::set_var("VAR_SECOND", "second suffix");
         let line = "this this $ENV1 has no suffix. This \"$VAR_FIRST\" has a suffix. And this \"${VAR_SECOND}\" has another suffix.".to_string();
-        let result = process_line(
+        let result = replace_variables_in_line(
             &line,
             &Flags::default(),
             &Filters {
@@ -1225,7 +1229,7 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_regular_var_multiple_prefix() {
+    fn test_replace_variables_in_line_regular_var_multiple_prefix() {
         // description: regular variable with multiple prefix
         // test: this $ENV1 has no prefix. This "$FIRST_VAR" has a prefix. And this "${SECOND_VAR}" has another suffix.
         // env: ENV1=env1, FIRST_VAR=first prefix, SECOND_VAR=second prefix
@@ -1234,7 +1238,7 @@ mod tests {
         env::set_var("FIRST_VAR", "first prefix");
         env::set_var("SECOND_VAR", "second prefix");
         let line = "this this $ENV1 has no prefix. This \"$FIRST_VAR\" has a prefix. And this \"${SECOND_VAR}\" has another prefix.".to_string();
-        let result = process_line(
+        let result = replace_variables_in_line(
             &line,
             &Flags::default(),
             &Filters {
@@ -1252,7 +1256,7 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_braces_var_suffix() {
+    fn test_replace_variables_in_line_braces_var_suffix() {
         // description: braces variable with suffix
         // test: this $ENV1 has a prefix. This $VAR1_TEST has a suffix.
         // env: ENV1=env1, VAR1_TEST=var1_var
@@ -1260,7 +1264,7 @@ mod tests {
         env::set_var("ENV1", "env1");
         env::set_var("VAR1_TEST", "var1_test");
         let line = "this $ENV1 has a prefix. This ${VAR1_TEST} has a suffix.".to_string();
-        let result = process_line(
+        let result = replace_variables_in_line(
             &line,
             &Flags::default(),
             &Filters {
@@ -1275,7 +1279,7 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_braces_var_no_prefix_valid_suffix() {
+    fn test_replace_variables_in_line_braces_var_no_prefix_valid_suffix() {
         // description: braces variable with suffix
         // test: this $ENV1 has a prefix. This $VAR1_TEST has a suffix.
         // env: ENV1=env1, VAR1_TEST=var1_var
@@ -1284,7 +1288,7 @@ mod tests {
         env::set_var("TEST_VAR1", "test_var1");
         env::set_var("VAR1_TEST", "var1_test");
         let line = "this $TEST_VAR1 has a prefix. This ${VAR1_TEST} has a suffix.".to_string();
-        let result = process_line(
+        let result = replace_variables_in_line(
             &line,
             &Flags::default(),
             &Filters {
@@ -1299,7 +1303,7 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_braces_var_valid_prefix_no_suffix() {
+    fn test_replace_variables_in_line_braces_var_valid_prefix_no_suffix() {
         // description: braces variable with suffix
         // test: this $ENV1 has a prefix. This $VAR1_TEST has a suffix.
         // env: ENV1=env1, VAR1_TEST=var1_var
@@ -1308,7 +1312,7 @@ mod tests {
         env::set_var("TEST_VAR1", "test_var1");
         env::set_var("VAR1_TEST", "var1_test");
         let line = "this $TEST_VAR1 has a prefix. This ${VAR1_TEST} has a suffix.".to_string();
-        let result = process_line(
+        let result = replace_variables_in_line(
             &line,
             &Flags::default(),
             &Filters {
@@ -1323,7 +1327,7 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_braces_var_valid_no_prefix_valid_suffix() {
+    fn test_replace_variables_in_line_braces_var_valid_no_prefix_valid_suffix() {
         // description: braces variable with suffix
         // test: this var $ENV1 should not be touched. this $TEST_VAR1 has a prefix. This ${VAR1_TEST} has a suffix.
         // env: ENV1=env1, VAR1_TEST=var1_var
@@ -1332,7 +1336,7 @@ mod tests {
         env::set_var("TEST_VAR1", "test_var1");
         env::set_var("VAR1_TEST", "var1_test");
         let line = "this var $ENV1 should not be touched. this $TEST_VAR1 has a prefix. This ${VAR1_TEST} has a suffix.".to_string();
-        let result = process_line(
+        let result = replace_variables_in_line(
             &line,
             &Flags::default(),
             &Filters {
@@ -1347,7 +1351,7 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_regular_var_list_variables() {
+    fn test_replace_variables_in_line_regular_var_list_variables() {
         // description: regular variable with a list of variables
         // test: Only ENV1 and ENV2 should be replaced. ENV3 should not be replaced.
         // env: ENV1=env1, ENV2=env2
@@ -1357,7 +1361,7 @@ mod tests {
         env::set_var("ENV3", "env4");
         let line =
             "Only $ENV1 and $ENV2 should be replaced. $ENV3 should not be replaced.".to_string();
-        let result = process_line(
+        let result = replace_variables_in_line(
             &line,
             &Flags::default(),
             &Filters {
@@ -1375,13 +1379,13 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_regular_var_list_variables_prefix_suffix_not_found() {
+    fn test_replace_variables_in_line_regular_var_list_variables_prefix_suffix_not_found() {
         // description: all filter set, non matches
         // test: $PREFIX_ENV1 and $ENV2_SUFFIX and $VAR should not be replaced.
         // env: -
         // result: $PREFIX_ENV1 and $ENV2_SUFFIX and $VAR should not be replaced.
         let line = "$PREFIX_ENV1 and $ENV2_SUFFIX and $VAR should not be replaced.".to_string();
-        let result = process_line(
+        let result = replace_variables_in_line(
             &line,
             &Flags::default(),
             &Filters {
@@ -1400,14 +1404,14 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_regular_var_all_filter_match() {
+    fn test_replace_variables_in_line_regular_var_all_filter_match() {
         // description: all filter set, all match
         // test: ${PREFIX_VAR_SUFFIX}
         // env: -
         // result: prefix var suffix
         env::set_var("PREFIX_VAR_SUFFIX", "prefix var suffix");
         let line = "${PREFIX_VAR_SUFFIX}".to_string();
-        let result = process_line(
+        let result = replace_variables_in_line(
             &line,
             &Flags::default(),
             &Filters {
@@ -1767,9 +1771,9 @@ mod tests {
     }
 
     #[test]
-    fn test_example_process_line() {
+    fn test_example_replace_variables_in_line() {
         let line = "Hello, ${NAME:-User}! How are you, ${NAME}?";
-        let result = process_line(line, &Flags::default(), &Filters::default());
+        let result = replace_variables_in_line(line, &Flags::default(), &Filters::default());
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Hello, User! How are you, ?");
@@ -1809,7 +1813,7 @@ mod tests {
     }
 
     #[test]
-    fn test_perform_substitution_write_error() {
+    fn test_process_input_write_error() {
         let input = "Line 1\nLine 2\nLine 3";
         let input_reader = Cursor::new(input);
         let mut output = ErrorWriter;
@@ -1817,7 +1821,7 @@ mod tests {
         let flags = Flags::default();
         let filters = Filters::default();
 
-        let result = perform_substitution(input_reader, &mut output, &flags, &filters);
+        let result = process_input(input_reader, &mut output, &flags, &filters);
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
@@ -1826,7 +1830,7 @@ mod tests {
     }
 
     #[test]
-    fn test_example_perform_substitution() {
+    fn test_example_process_input() {
         use std::io::Cursor;
 
         let input = Cursor::new("Hello $WORLD!");
@@ -1834,13 +1838,13 @@ mod tests {
         let flags = Flags::default();
         let filters = Filters::default();
 
-        perform_substitution(Box::new(input), Box::new(&mut output), &flags, &filters).unwrap();
+        process_input(Box::new(input), Box::new(&mut output), &flags, &filters).unwrap();
 
         assert_eq!(String::from_utf8(output.into_inner()).unwrap(), "Hello !");
     }
 
     #[test]
-    fn test_example_perform_substitution_error() {
+    fn test_example_process_input_error() {
         use std::io::Cursor;
 
         let input = Cursor::new("Hello $WORLD!");
@@ -1851,7 +1855,7 @@ mod tests {
         assert!(f.is_ok());
 
         let filters = Filters::default();
-        let result = perform_substitution(Box::new(input), Box::new(&mut output), &flags, &filters);
+        let result = process_input(Box::new(input), Box::new(&mut output), &flags, &filters);
 
         assert!(result.is_err());
     }

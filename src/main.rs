@@ -4,8 +4,9 @@ mod filters;
 mod flags;
 mod substitute;
 mod utils;
+
 use crate::args::{Args, HELP_TEXT};
-use crate::substitute::perform_substitution;
+use crate::substitute::process_input;
 use crate::utils::print_error;
 use std::env;
 
@@ -44,7 +45,7 @@ fn run(args: &[String]) -> Result<(), String> {
         return Ok(());
     }
 
-    perform_substitution(
+    process_input(
         Box::new(std::io::stdin()),
         Box::new(std::io::stdout()),
         &parsed_args.flags,
