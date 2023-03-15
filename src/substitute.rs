@@ -362,8 +362,8 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
 ///
 /// # Arguments
 ///
-/// * `input_file` - A boxed `std::io::Read` trait object that represents the input file to be read.
-/// * `output_file` - A boxed `std::io::Write` trait object that represents the output file to be written.
+/// * `input` - A boxed `std::io::Read` trait object that represents the input to be read.
+/// * `output` - A boxed `std::io::Write` trait object that represents the output to be written.
 /// * `flags` - A reference to a `Flags` struct that specifies how the variable substitution should be performed.
 /// * `filters` - A reference to a `Filters` struct that specifies which variables should be substituted.
 ///
@@ -411,34 +411,30 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
 /// assert_eq!(String::from_utf8(output.into_inner()).unwrap(), "Hello !\n");
 /// ```
 pub fn perform_substitution<R: std::io::Read, W: std::io::Write>(
-    input_file: R,
-    mut output_file: W,
+    input: R,
+    mut output: W,
     flags: &Flags,
     filters: &Filters,
 ) -> Result<(), String> {
-    let reader: BufReader<R> = BufReader::new(input_file);
-    let mut buffer: Vec<String> = vec![]; // Vector to store the processed lines
+    let reader: BufReader<R> = BufReader::new(input);
+    let mut buffer = String::new();
 
     // replace variables in each line and write the replaced line in a buffer
-    // if no error occurs, write the butter to the wanted output_file (or stdout)
     for line in reader.lines() {
         let line = line.unwrap();
         // Replace variables with their values
         let replaced: Result<String, String> = process_line(&line, flags, filters);
         match replaced {
-            Ok(output) => buffer.push(output),
+            Ok(output) => buffer.push_str(&output),
             Err(e) => return Err(format!("Failed to replace variables: {e}")),
         }
     }
-    // Write the processed lines to the output buffer
-    for line in buffer {
-        match writeln!(output_file, "{line}") {
-            Ok(_) => (),
-            Err(e) => {
-                return Err(format!("Failed to write to output file: {e}"));
-            }
-        }
+
+    // write the entire buffer to the output file at once
+    if let Err(e) = output.write_all(buffer.as_bytes()) {
+        return Err(format!("Failed to write to output file: {e}"));
     }
+
     return Ok(());
 }
 
@@ -470,6 +466,28 @@ mod tests {
         let line = "$REGULAR_VAR_FOUND".to_string();
         let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value".to_string()));
+    }
+
+    #[test]
+    fn test_process_line_one_new_line_at_end() {
+        // description: regular variable found
+        // test: $REGULAR_VAR_FOUND
+        // env: REGULAR_VAR_FOUND=value
+        // result: value
+        let line = "this is a line\n".to_string();
+        let result = process_line(&line, &Flags::default(), &Filters::default());
+        assert_eq!(result, Ok("this is a line\n".to_string()));
+    }
+
+    #[test]
+    fn test_process_line_zwo_new_line_at_end() {
+        // description: regular variable found
+        // test: $REGULAR_VAR_FOUND
+        // env: REGULAR_VAR_FOUND=value
+        // result: value
+        let line = "this is a line\n\n".to_string();
+        let result = process_line(&line, &Flags::default(), &Filters::default());
+        assert_eq!(result, Ok("this is a line\n\n".to_string()));
     }
 
     #[test]
@@ -1818,7 +1836,7 @@ mod tests {
 
         perform_substitution(Box::new(input), Box::new(&mut output), &flags, &filters).unwrap();
 
-        assert_eq!(String::from_utf8(output.into_inner()).unwrap(), "Hello !\n");
+        assert_eq!(String::from_utf8(output.into_inner()).unwrap(), "Hello !");
     }
 
     #[test]
