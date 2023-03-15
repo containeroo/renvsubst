@@ -64,12 +64,8 @@ fn get_env_var_value(
         }
 
         // If the variable value is empty, and the default value is not empty,
-        // and the `no_replace_empty` flag is not set, return the default value.
-        Ok(value)
-            if value.is_empty()
-                && !default_value.is_empty()
-                && !flags.get_flag(Flag::NoReplaceEmpty).unwrap_or(false) =>
-        {
+        // return the default value.
+        Ok(value) if value.is_empty() && !default_value.is_empty() => {
             return Ok(default_value.to_owned())
         }
 
@@ -302,11 +298,6 @@ fn process_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, 
                     // append everything that was iterated over
                     new_line.push_str(&format!("${{{var_name}"));
 
-                    // append found default value
-                    if default_value_found {
-                        new_line.push_str(&format!(":-{default_value}"));
-                    }
-
                     // append the "broken" :
                     new_line.push(':');
                     continue; // continue to the next character
@@ -455,6 +446,19 @@ pub fn perform_substitution<R: std::io::Read, W: std::io::Write>(
 mod tests {
     use super::*;
     use std::collections::HashSet;
+    use std::io::{Cursor, Error, ErrorKind, Write};
+
+    struct ErrorWriter;
+
+    impl Write for ErrorWriter {
+        fn write(&mut self, _buf: &[u8]) -> std::io::Result<usize> {
+            Err(Error::new(ErrorKind::Other, "Simulated write error"))
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
 
     #[test]
     fn test_process_line_regular_var_found() {
@@ -587,6 +591,17 @@ mod tests {
         let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT:-default}".to_string();
         let result = process_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("default".to_string()));
+    }
+
+    #[test]
+    fn test_process_line_braces_var_broken_default() {
+        let input = "Hello, ${NAME:Worl:-d}!";
+        let flags = Flags::default();
+        let filters = Filters::default();
+
+        let result = process_line(input, &flags, &filters);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "Hello, ${NAME:Worl:-d}!");
     }
 
     #[test]
@@ -1720,6 +1735,20 @@ mod tests {
     }
 
     #[test]
+    fn test_evaluate_brace_variable_default_no_replace_empty_false() {
+        // description: brace variable with default an no-replace-empty not set
+        // test: ${VAR:-default}
+        // env: -
+        // result: default
+        let var_name = "BRACE_VARIABLE_DEFAULT_NO_REPLACE_EMPTY_FALSE";
+        let original_var = "${BRACE_VARIABLE_DEFAULT_NO_REPLACE_EMPTY_FALSE:-default}";
+        let default_value = "default";
+        let result = get_env_var_value(var_name, original_var, default_value, &Flags::default());
+
+        assert_eq!(result, Ok("default".to_string()));
+    }
+
+    #[test]
     fn test_example_process_line() {
         let line = "Hello, ${NAME:-User}! How are you, ${NAME}?";
         let result = process_line(line, &Flags::default(), &Filters::default());
@@ -1762,6 +1791,23 @@ mod tests {
     }
 
     #[test]
+    fn test_perform_substitution_write_error() {
+        let input = "Line 1\nLine 2\nLine 3";
+        let input_reader = Cursor::new(input);
+        let mut output = ErrorWriter;
+
+        let flags = Flags::default();
+        let filters = Filters::default();
+
+        let result = perform_substitution(input_reader, &mut output, &flags, &filters);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "Failed to write to output file: Simulated write error"
+        );
+    }
+
+    #[test]
     fn test_example_perform_substitution() {
         use std::io::Cursor;
 
@@ -1773,5 +1819,37 @@ mod tests {
         perform_substitution(Box::new(input), Box::new(&mut output), &flags, &filters).unwrap();
 
         assert_eq!(String::from_utf8(output.into_inner()).unwrap(), "Hello !\n");
+    }
+
+    #[test]
+    fn test_example_perform_substitution_error() {
+        use std::io::Cursor;
+
+        let input = Cursor::new("Hello $WORLD!");
+        let mut output = Cursor::new(Vec::new());
+        let mut flags = Flags::default();
+
+        let f = flags.set_flag(Flag::FailOnUnset, true);
+        assert!(f.is_ok());
+
+        let filters = Filters::default();
+        let result = perform_substitution(Box::new(input), Box::new(&mut output), &flags, &filters);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_get_env_var_value_default_value() {
+        let var_name = "EMPTY_VAR_NAME";
+        let original_variable = "${EMPTY_VAR_NAME:default}";
+        let default_value = "default";
+        let flags = Flags::default();
+
+        // set env var
+        env::set_var("EMPTY_VAR_NAME", "");
+
+        let result = get_env_var_value(var_name, original_variable, default_value, &flags);
+
+        assert_eq!(result, Ok("default".to_string()));
     }
 }

@@ -1,4 +1,5 @@
 mod args;
+mod errors;
 mod filters;
 mod flags;
 mod substitute;
@@ -7,25 +8,40 @@ use crate::args::{Args, HELP_TEXT};
 use crate::substitute::perform_substitution;
 use crate::utils::print_error;
 use std::env;
-mod errors;
 
-fn main() {
-    // parse command line arguments
-    let parsed_args = Args::parse(env::args().skip(1)).unwrap_or_else(|e| {
-        print_error(&e.to_string());
-        std::process::exit(1);
-    });
+/// Executes the main logic of the application based on the given command-line arguments.
+///
+/// This function is responsible for parsing the command-line arguments, handling
+/// version and help flags, and calling the `perform_substitution` function with
+/// the appropriate input and output streams as well as the parsed flags and filters.
+///
+/// # Arguments
+///
+/// * `args` - A slice of strings representing the command-line arguments passed to the program.
+///
+/// # Returns
+///
+/// * `Ok(())` - If the application successfully executes its tasks.
+/// * `Err(String)` - If there is an error during execution, containing a description of the error.
+///
+/// # Examples
+///
+/// ```
+/// let args = vec![String::from("--version")];
+/// let result = run(&args);
+/// assert!(result.is_ok());
+/// ```
+fn run(args: &[String]) -> Result<(), String> {
+    let parsed_args = Args::parse(args).map_err(|e| e.to_string())?;
 
-    // print version and exit if requested
     if parsed_args.version {
         println!("renvsubst {}", env!("CARGO_PKG_VERSION"));
-        std::process::exit(0);
+        return Ok(());
     }
 
-    // print help and exit if requested
     if parsed_args.help {
         println!("{HELP_TEXT}");
-        std::process::exit(0);
+        return Ok(());
     }
 
     perform_substitution(
@@ -34,8 +50,48 @@ fn main() {
         &parsed_args.flags,
         &parsed_args.filters,
     )
-    .unwrap_or_else(|e| {
-        print_error(&e);
-        std::process::exit(1);
-    });
+}
+
+fn main() {
+    let args = std::env::args()
+        .skip(1) // skip(1) to skip the program name
+        .collect::<Vec<String>>();
+
+    match run(&args) {
+        Ok(_) => (),
+        Err(err) => {
+            print_error(&err);
+            std::process::exit(1);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_run_version() {
+        let args = vec![String::from("--version")];
+        let output = run(&args).unwrap();
+
+        // The run function should return Ok(()) when the --version flag is provided
+        assert_eq!(output, ());
+    }
+
+    #[test]
+    fn test_run_help() {
+        let args = vec![String::from("--help")];
+        let output = run(&args).unwrap();
+
+        // The run function should return Ok(()) when the --help flag is provided
+        assert_eq!(output, ());
+    }
+
+    #[test]
+    fn test_example() {
+        let args = vec![String::from("--version")];
+        let result = run(&args);
+        assert!(result.is_ok());
+    }
 }
