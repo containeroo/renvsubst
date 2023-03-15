@@ -177,7 +177,7 @@ Here are other prefixed "$prefixed_VARIABLE_3" and suffixed "$VARIABLE_3_suffixe
 Or you can escape Text with two dollar signs ($$) like fi$h => fi$h.
 ```
 
-## multiple filter
+#### multiple filter
 
 Replace only variables with the prefixes `PREFIXED` or `prefixed` or suffix `SUFFIXED` from the variable `INPUT` and output to `stdout`:
 
