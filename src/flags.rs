@@ -181,7 +181,7 @@ impl Flags {
                 if self.no_replace_unset == Some(true) {
                     return Err(ParseArgsError::ConflictingFlags(
                         "--no-replace".to_string(),
-                        "--no_replace-unset".to_string(),
+                        "--no-replace-unset".to_string(),
                     ));
                 }
                 if self.no_replace_empty == Some(true) {
@@ -225,5 +225,335 @@ impl Flags {
             Flag::NoReplace => return self.no_replace,
             Flag::NoEscape => return self.no_escape,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_set_flag_success() {
+        let mut flags = Flags::default();
+
+        assert!(flags.set_flag(Flag::NoEscape, true).is_ok());
+        assert_eq!(flags.get_flag(Flag::NoEscape), Some(true));
+
+        assert!(flags.set_flag(Flag::NoReplaceUnset, true).is_ok());
+        assert_eq!(flags.get_flag(Flag::NoReplaceUnset), Some(true));
+
+        assert!(flags.set_flag(Flag::NoReplaceEmpty, true).is_ok());
+        assert_eq!(flags.get_flag(Flag::NoReplaceEmpty), Some(true));
+    }
+
+    #[test]
+    fn test_set_flag_duplicate_value() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::NoEscape, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::NoEscape, true),
+            Err(ParseArgsError::DuplicateValue("--no-escape".to_string()))
+        );
+    }
+
+    #[test]
+    fn test_set_flag_conflicting_flags() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::Fail, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::FailOnUnset, true),
+            Err(ParseArgsError::ConflictingFlags(
+                "--fail-on-unset".to_string(),
+                "--fail".to_string(),
+            ))
+        );
+
+        assert_eq!(
+            flags.set_flag(Flag::FailOnEmpty, true),
+            Err(ParseArgsError::ConflictingFlags(
+                "--fail-on-empty".to_string(),
+                "--fail".to_string(),
+            ))
+        );
+    }
+
+    #[test]
+    fn test_set_flag_no_replace_and_related_flags() {
+        let mut flags = Flags::default();
+
+        flags.set_flag(Flag::NoReplace, true).unwrap();
+        assert_eq!(
+            flags.set_flag(Flag::NoReplaceUnset, true),
+            Err(ParseArgsError::ConflictingFlags(
+                "--no-replace-unset".to_string(),
+                "--no-replace".to_string(),
+            ))
+        );
+
+        assert_eq!(
+            flags.set_flag(Flag::NoReplaceEmpty, true),
+            Err(ParseArgsError::ConflictingFlags(
+                "--no-replace-empty".to_string(),
+                "--no-replace".to_string(),
+            ))
+        );
+    }
+
+    #[test]
+    fn test_get_flag_default() {
+        let flags = Flags::default();
+
+        assert_eq!(flags.get_flag(Flag::NoEscape), None);
+        assert_eq!(flags.get_flag(Flag::NoReplaceUnset), None);
+        assert_eq!(flags.get_flag(Flag::NoReplaceEmpty), None);
+        assert_eq!(flags.get_flag(Flag::Fail), None);
+        assert_eq!(flags.get_flag(Flag::FailOnUnset), None);
+        assert_eq!(flags.get_flag(Flag::FailOnEmpty), None);
+        assert_eq!(flags.get_flag(Flag::NoReplace), None);
+    }
+
+    #[test]
+    fn test_fail_fail_on_unset() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::Fail, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::FailOnUnset, true),
+            Err(ParseArgsError::ConflictingFlags(
+                "--fail-on-unset".to_string(),
+                "--fail".to_string(),
+            ))
+        );
+    }
+
+    #[test]
+    fn test_fail_on_unset_fail() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::FailOnUnset, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::Fail, true),
+            Err(ParseArgsError::ConflictingFlags(
+                "--fail".to_string(),
+                "--fail-on-unset".to_string(),
+            ))
+        );
+    }
+
+    #[test]
+    fn test_fail_on_empty_fail() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::FailOnEmpty, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::Fail, true),
+            Err(ParseArgsError::ConflictingFlags(
+                "--fail".to_string(),
+                "--fail-on-empty".to_string(),
+            ))
+        );
+    }
+
+    #[test]
+    fn test_fail_fail_on_empty() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::Fail, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::FailOnEmpty, true),
+            Err(ParseArgsError::ConflictingFlags(
+                "--fail-on-empty".to_string(),
+                "--fail".to_string(),
+            ))
+        );
+    }
+
+    #[test]
+    fn test_fail_on_unset_already_set() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::FailOnUnset, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::FailOnUnset, true),
+            Err(ParseArgsError::DuplicateValue(
+                "--fail-on-unset".to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn test_fail_on_empty_conflict() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::FailOnEmpty, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::NoReplaceEmpty, true),
+            Err(ParseArgsError::ConflictingFlags(
+                "--no-replace-empty".to_string(),
+                "--fail-on-empty".to_string(),
+            ))
+        );
+    }
+    #[test]
+    fn test_fail_on_empty_already_set() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::FailOnEmpty, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::FailOnEmpty, true),
+            Err(ParseArgsError::DuplicateValue(
+                "--fail-on-empty".to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn test_flags_fail_fail_on_empty_conflict() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::Fail, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::FailOnEmpty, true),
+            Err(ParseArgsError::ConflictingFlags(
+                "--fail-on-empty".to_string(),
+                "--fail".to_string(),
+            ))
+        );
+    }
+    #[test]
+    fn test_flags_fail_fail_on_unset_conflict() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::Fail, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::FailOnUnset, true),
+            Err(ParseArgsError::ConflictingFlags(
+                "--fail-on-unset".to_string(),
+                "--fail".to_string(),
+            ))
+        );
+    }
+    #[test]
+    fn test_no_replace_empty_fail_on_empty_conflict() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::NoReplaceEmpty, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::FailOnEmpty, true),
+            Err(ParseArgsError::ConflictingFlags(
+                "--fail-on-empty".to_string(),
+                "--no-replace-empty".to_string(),
+            ))
+        );
+    }
+    #[test]
+    fn test_no_replace_empty_fail_on_unset_conflict() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::Fail, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::FailOnUnset, true),
+            Err(ParseArgsError::ConflictingFlags(
+                "--fail-on-unset".to_string(),
+                "--fail".to_string(),
+            ))
+        );
+    }
+
+    #[test]
+    fn test_no_replace_no_replace_unset() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::NoReplace, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::NoReplaceUnset, true),
+            Err(ParseArgsError::ConflictingFlags(
+                "--no-replace-unset".to_string(),
+                "--no-replace".to_string(),
+            ))
+        );
+    }
+
+    #[test]
+    fn test_nore_replace_no_replace_empty() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::NoReplace, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::NoReplaceEmpty, true),
+            Err(ParseArgsError::ConflictingFlags(
+                "--no-replace-empty".to_string(),
+                "--no-replace".to_string(),
+            ))
+        );
+    }
+
+    #[test]
+    fn test_no_replace_unset_duplicate() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::NoReplaceUnset, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::NoReplaceUnset, true),
+            Err(ParseArgsError::DuplicateValue(
+                "--no-replace-unset".to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn test_no_replace_empty_duplicate() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::NoReplaceEmpty, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::NoReplaceEmpty, true),
+            Err(ParseArgsError::DuplicateValue(
+                "--no-replace-empty".to_string()
+            ))
+        );
+    }
+    #[test]
+    fn test_no_replace_no_replace_empty() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::NoReplace, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::NoReplaceEmpty, true),
+            Err(ParseArgsError::ConflictingFlags(
+                "--no-replace-empty".to_string(),
+                "--no-replace".to_string(),
+            ))
+        );
+    }
+
+    #[test]
+    fn test_no_replace_empty_no_replace() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::NoReplaceEmpty, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::NoReplace, true),
+            Err(ParseArgsError::ConflictingFlags(
+                "--no-replace".to_string(),
+                "--no-replace-empty".to_string(),
+            ))
+        );
+    }
+
+    #[test]
+    fn test_no_replace_unset_no_replace() {
+        let mut flags = Flags::default();
+        flags.set_flag(Flag::NoReplaceUnset, true).unwrap();
+
+        assert_eq!(
+            flags.set_flag(Flag::NoReplace, true),
+            Err(ParseArgsError::ConflictingFlags(
+                "--no-replace".to_string(),
+                "--no-replace-unset".to_string(),
+            ))
+        );
     }
 }
