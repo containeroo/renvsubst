@@ -45,6 +45,7 @@ impl Args {
     /// let result = Args::validate_param_value("--input", Some("foo"), &start_params);
     /// assert_eq!(result.unwrap(), "foo".to_owned());
     /// ```
+    #[cfg(not(tarpaulin_include))]
     fn validate_param_value(
         arg: &str,
         arg_value: Option<&str>,

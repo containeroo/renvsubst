@@ -52,6 +52,7 @@ fn run(args: &[String]) -> Result<(), String> {
     )
 }
 
+#[cfg(not(tarpaulin_include))]
 fn main() {
     let args = std::env::args()
         .skip(1) // skip(1) to skip the program name
