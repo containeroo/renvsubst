@@ -3,6 +3,8 @@
 A command line utility to substitute (bash-like) variables in the format of `$VAR_NAME`, `${VAR_NAME}` or `${VAR_NAME:-DEFAULT_VALUE}` with their corresponding values from the environment or the default value if provided.
 A valid variable name is a string that starts with a letter or an underscore, followed by any number of letters, numbers, or underscores.
 
+The primary objective of `renvsubst` is to serve as a lightweight and high-performance utility for use in containers.
+
 ## Usage
 
 ```sh
