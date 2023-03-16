@@ -15,6 +15,7 @@ Flags:
   --no-replace-empty               Does not replace variables that are set but empty in the environment.
   --no-replace                     Alias for --no-replace-unset and --no-replace-empty.
   --no-escape                      Disables escaping of variables with two dollar signs ($$).
+  --unbuffer-lines                 Do not buffer lines. This will print each line as soon as it is processed in chunks of 4096 bytes.
 
 When the same flag is provided multiple times, renvsubst will throw an error.
 

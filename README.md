@@ -22,15 +22,16 @@ Usage: renvsubst [FLAGS] [FILTERS] [INPUT] | -h | --help | --version
 
 When the same flag is provided multiple times, renvsubst will throw an error.
 
-| Parameter            | Description                                                     |
-| -------------------- | --------------------------------------------------------------- |
-| `--fail-on-unset`    | Fails if an environment variable is not set.                    |
-| `--fail-on-empty`    | Fails if an environment variable is empty.                      |
-| `--fail`             | Alias for `--fail-on-unset` and `--fail-on-empty`.              |
-| `--no-replace-unset` | Does not replace variables that are not set in the environment. |
-| `--no-replace-empty` | Does not replace variables that are empty.                      |
-| `--no-replace`       | Alias for`--no-replace-unset` and `--no-replace-empty`.         |
-| `--no-escape`        | Disable escaping of variables.                                  |
+| Parameter            | Description                                                                                        |
+| -------------------- | -------------------------------------------------------------------------------------------------- |
+| `--fail-on-unset`    | Fails if an environment variable is not set.                                                       |
+| `--fail-on-empty`    | Fails if an environment variable is empty.                                                         |
+| `--fail`             | Alias for `--fail-on-unset` and `--fail-on-empty`.                                                 |
+| `--no-replace-unset` | Does not replace variables that are not set in the environment.                                    |
+| `--no-replace-empty` | Does not replace variables that are empty.                                                         |
+| `--no-replace`       | Alias for`--no-replace-unset` and `--no-replace-empty`.                                            |
+| `--no-escape`        | Disable escaping of variables.                                                                     |
+| `--unbuffer-lines    | Do not buffer lines. This will print each line as soon as it is processed in chunks of 4096 bytes. |
 
 ## Filters
 

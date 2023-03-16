@@ -76,8 +76,6 @@ mod tests {
     fn test_run_version() {
         let args = vec![String::from("--version")];
         let output = run(&args).unwrap();
-
-        // The run function should return Ok(()) when the --version flag is provided
         assert_eq!(output, ());
     }
 

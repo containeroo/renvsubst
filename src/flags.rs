@@ -17,6 +17,8 @@ use crate::errors::ParseArgsError;
 ///
 /// - `no_escape`: Disables escaping of variables with two dollar signs ($$).
 ///
+/// - `unbuffered_lines`: Do not buffer lines. This will print each line as soon as it is processed in chunks of 4096 bytes.
+///
 #[derive(Debug, Default)]
 pub struct Flags {
     fail_on_unset: Option<bool>,
@@ -26,6 +28,7 @@ pub struct Flags {
     no_replace_empty: Option<bool>,
     no_replace: Option<bool>,
     no_escape: Option<bool>,
+    unbuffered_lines: Option<bool>,
 }
 
 /// The `Flag` enum represents the various command-line flags that can be used to modify
@@ -44,6 +47,8 @@ pub struct Flags {
 ///
 /// - `NoEscape`: Disables escaping of variables with two dollar signs ($$).
 ///
+/// - `UnbufferedLines`: Do not buffer lines. This will print each line as soon as it is processed in chunks of 4096 bytes.
+///
 /// This enum implements the `Copy` and `Clone` traits, allowing it to be easily copied and
 /// cloned as needed. It also implements the `Debug`, `PartialEq`, `Eq`, and `Hash` traits for
 /// easy debugging and comparison.
@@ -56,6 +61,7 @@ pub enum Flag {
     NoReplaceEmpty,
     NoReplace,
     NoEscape,
+    UnbufferedLines,
 }
 
 impl Flags {
@@ -203,6 +209,15 @@ impl Flags {
                 self.no_escape = Some(value);
                 Ok(())
             }
+            Flag::UnbufferedLines => {
+                if self.unbuffered_lines.is_some() {
+                    return Err(ParseArgsError::DuplicateValue(
+                        "--unbuffered-lines".to_string(),
+                    ));
+                }
+                self.unbuffered_lines = Some(value);
+                Ok(())
+            }
         }
     }
 
@@ -224,6 +239,7 @@ impl Flags {
             Flag::NoReplaceEmpty => return self.no_replace_empty,
             Flag::NoReplace => return self.no_replace,
             Flag::NoEscape => return self.no_escape,
+            Flag::UnbufferedLines => return self.unbuffered_lines,
         }
     }
 }
@@ -553,6 +569,19 @@ mod tests {
             Err(ParseArgsError::ConflictingFlags(
                 "--no-replace".to_string(),
                 "--no-replace-unset".to_string(),
+            ))
+        );
+    }
+
+    #[test]
+    fn test_unbuffered_lines() {
+        let mut flags = Flags::default();
+        flags.set(Flag::UnbufferedLines, true).unwrap();
+
+        assert_eq!(
+            flags.set(Flag::UnbufferedLines, true),
+            Err(ParseArgsError::DuplicateValue(
+                "--unbuffered-lines".to_string()
             ))
         );
     }

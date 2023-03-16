@@ -87,6 +87,7 @@ impl Args {
     /// - `--no-replace-empty` - Do not replace variables that are set but empty in the environment.
     /// - `--no-replace` - Alias for `--no-replace-unset` and `--no-replace-empty`. Does not replace variables that are either not set or empty in the environment.
     /// - `--no-escape` - Disable escaping of variables with two dollar signs (`$$`).
+    ///  - `--unbuffer-lines` - Do not buffer lines. This is useful when using `renvsubst` in a pipeline.
     /// - `-h`, `--help` - Show the help text.
     /// - `-v`, `--version` - Show the version of the program.
     ///
@@ -131,6 +132,7 @@ impl Args {
             "--no-replace-unset",
             "--no-replace-empty",
             "--no-escape",
+            "--unbuffer-lines",
             "-p",
             "--prefix",
             "-s",
@@ -179,6 +181,10 @@ impl Args {
                 "--no-escape" => {
                     parsed_args.flags.set(Flag::NoEscape, true)?;
                 }
+                "--unbuffer-lines" => {
+                    parsed_args.flags.set(Flag::UnbufferedLines, true)?;
+                }
+
                 // FILTERS
                 "-p" | "--prefix" => {
                     // no check for already added prefixes needed, because the HashSet will ignore duplicates
@@ -325,6 +331,18 @@ mod tests {
                 "--fail-on-unset".to_string(),
                 "--no-replace-unset".to_string()
             )
+        );
+    }
+
+    #[test]
+    fn test_parse_unbuffered_lines() {
+        let args = vec!["--unbuffer-lines"];
+        let parsed_args = Args::parse(args);
+
+        assert!(parsed_args.is_ok());
+        assert_eq!(
+            parsed_args.unwrap().flags.get(Flag::UnbufferedLines),
+            Some(true)
         );
     }
 
