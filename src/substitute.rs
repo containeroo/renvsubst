@@ -12,8 +12,8 @@ use std::io::{BufRead, BufReader};
 /// # Arguments
 ///
 /// * `var_name`: A string slice that represents the name of the environment variable to retrieve.
-/// * `original_variable`: A string slice that represents the original value of the variable, to be used as a fallback.
 /// * `default_value`: A string slice that represents the default value to be used if the environment variable is not set.
+/// * `original_variable`: A string slice that represents the original value of the variable, to be used as a fallback.
 /// * `flags`: A reference to a `Flags` struct that contains various configuration options.
 ///
 /// # Configuration Options
@@ -37,7 +37,7 @@ use std::io::{BufRead, BufReader};
 /// let var_value = get_env_var_value(
 ///   "MY_VAR",
 ///   "default_value",
-///   "fallback_value",
+///   "${MY_VAR}",
 ///   &Flags::default(),
 /// );
 ///
@@ -48,8 +48,8 @@ use std::io::{BufRead, BufReader};
 /// ```
 fn get_env_var_value(
     var_name: &str,
-    original_variable: &str,
     default_value: &str,
+    original_variable: &str,
     flags: &Flags,
 ) -> Result<String, String> {
     match env::var(var_name) {
@@ -349,7 +349,7 @@ fn replace_variables_in_line(
             continue;
         }
 
-        match get_env_var_value(&var_name, &original_variable, &default_value, flags) {
+        match get_env_var_value(&var_name, &default_value, &original_variable, flags) {
             Ok(val) => new_line.push_str(&val),
             Err(err) => return Err(err),
         }
@@ -1635,7 +1635,7 @@ mod tests {
         let var_name = "REGULAR_VAR";
         let original_var = "${REGULAR_VAR}";
         let default_value = "";
-        let result = get_env_var_value(var_name, original_var, default_value, &Flags::default());
+        let result = get_env_var_value(var_name, default_value, original_var, &Flags::default());
         assert_eq!(result, Ok("var".to_string()));
     }
 
@@ -1649,7 +1649,7 @@ mod tests {
         let var_name = "REGULAR_VAR_WITH_DEFAULT";
         let original_var = "${REGULAR_VAR_WITH_DEFAULT:-default}";
         let default_value = "default";
-        let result = get_env_var_value(var_name, original_var, default_value, &Flags::default());
+        let result = get_env_var_value(var_name, default_value, original_var, &Flags::default());
         assert_eq!(result, Ok("var".to_string()));
     }
 
@@ -1665,7 +1665,7 @@ mod tests {
         let default_value = "";
         let mut flags = Flags::default();
         flags.set(Flag::NoReplaceEmpty, true).unwrap();
-        let result = get_env_var_value(var_name, original_var, default_value, &flags);
+        let result = get_env_var_value(var_name, default_value, original_var, &flags);
         assert_eq!(
             result,
             Ok("${REGULAR_VAR_NO_REPLACE_EMTPY_TRUE}".to_string())
@@ -1683,7 +1683,7 @@ mod tests {
         let default_value = "";
         let mut flags = Flags::default();
         flags.set(Flag::NoReplaceUnset, true).unwrap();
-        let result = get_env_var_value(var_name, original_var, default_value, &flags);
+        let result = get_env_var_value(var_name, default_value, original_var, &flags);
         assert_eq!(result, Ok("${REGULAR_VAR_NO_REPLACE_UNSET}".to_string()));
     }
 
@@ -1699,7 +1699,7 @@ mod tests {
         let mut flags = Flags::default();
         flags.set(Flag::NoReplaceUnset, true).unwrap();
         flags.set(Flag::NoReplaceEmpty, true).unwrap();
-        let result = get_env_var_value(var_name, original_var, default_value, &flags);
+        let result = get_env_var_value(var_name, default_value, original_var, &flags);
         assert_eq!(
             result,
             Ok("${REGULAR_VAR_NO_REPLACE_UNSET_EMPTY_TRUE}".to_string())
@@ -1718,7 +1718,7 @@ mod tests {
         let default_value = "";
         let mut flags = Flags::default();
         flags.set(Flag::FailOnEmpty, true).unwrap();
-        let result = get_env_var_value(var_name, original_var, default_value, &flags);
+        let result = get_env_var_value(var_name, default_value, original_var, &flags);
         assert!(result.is_err());
     }
 
@@ -1734,7 +1734,7 @@ mod tests {
         let mut flags = Flags::default();
         flags.set(Flag::FailOnUnset, true).unwrap();
 
-        let result = get_env_var_value(var_name, original_var, default_value, &flags);
+        let result = get_env_var_value(var_name, default_value, original_var, &flags);
         assert!(result.is_err());
     }
 
@@ -1751,7 +1751,7 @@ mod tests {
         flags.set(Flag::FailOnUnset, true).unwrap();
         flags.set(Flag::NoReplaceEmpty, true).unwrap();
 
-        let result = get_env_var_value(var_name, original_var, default_value, &flags);
+        let result = get_env_var_value(var_name, default_value, original_var, &flags);
         // check if the result is an error
         assert!(result.is_err());
     }
@@ -1765,7 +1765,7 @@ mod tests {
         let var_name = "BRACE_VARIABLE_DEFAULT_NO_REPLACE_EMPTY_FALSE";
         let original_var = "${BRACE_VARIABLE_DEFAULT_NO_REPLACE_EMPTY_FALSE:-default}";
         let default_value = "default";
-        let result = get_env_var_value(var_name, original_var, default_value, &Flags::default());
+        let result = get_env_var_value(var_name, default_value, original_var, &Flags::default());
 
         assert_eq!(result, Ok("default".to_string()));
     }
@@ -1802,7 +1802,7 @@ mod tests {
         let var_value = get_env_var_value(
             "MY_VAR",
             "default_value",
-            "fallback_value",
+            "${MY_VAR}",
             &Flags::default(),
         );
 
@@ -1870,8 +1870,9 @@ mod tests {
         // set env var
         env::set_var("EMPTY_VAR_NAME", "");
 
-        let result = get_env_var_value(var_name, original_variable, default_value, &flags);
+        let result = get_env_var_value(var_name, default_value, original_variable, &flags);
 
         assert_eq!(result, Ok("default".to_string()));
     }
+
 }
