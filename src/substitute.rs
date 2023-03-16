@@ -647,6 +647,10 @@ mod tests {
 
     #[test]
     fn test_replace_variables_in_line_braces_var_broken_default() {
+        // description: braces variable with broken default value
+        // test: "Hello, ${NAME:Worl:-d}!"
+        // env: unset
+        // result: "Hello, ${NAME:Worl:-d}!"
         let input = "Hello, ${NAME:Worl:-d}!";
         let flags = Flags::default();
         let filters = Filters::default();
@@ -672,7 +676,7 @@ mod tests {
         // description: braces variable with default value, use default
         // test: ${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa$ult}
         // env: unset
-        // result: defa:ult
+        // result: defa$ult
         let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa$ult}".to_string();
         let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("defa$ult".to_string()));
@@ -681,10 +685,10 @@ mod tests {
     #[test]
     fn test_replace_variables_in_line_braces_var_default_use_braces_in_default() {
         // description: braces variable with default value, use default
-        // test: ${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa$ult}
+        // test: ${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa}ult}
         // env: unset
-        // result: defa:ult
-        let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa}ult}".to_string();
+        // result: default}
+        let line = "${B:-defa}ult}".to_string();
         let result = replace_variables_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("default}".to_string()));
     }
@@ -1802,6 +1806,10 @@ mod tests {
 
     #[test]
     fn test_example_replace_variables_in_line() {
+        // description: replace variables in line
+        // test: Hello, ${NAME:-User}! How are you, ${NAME}?
+        // env: unset
+        // result: Hello, User! How are you, ?
         let line = "Hello, ${NAME:-User}! How are you, ${NAME}?";
         let result = replace_variables_in_line(line, &Flags::default(), &Filters::default());
 
@@ -1829,6 +1837,10 @@ mod tests {
 
     #[test]
     fn test_example_get_env_var_value() {
+        // description: get environment variable value
+        // test: unset
+        // env: unset
+        // result: The value of MY_VAR is default_value
         let var_value =
             get_env_var_value("MY_VAR", "default_value", "${MY_VAR}", &Flags::default());
 
@@ -1883,6 +1895,24 @@ mod tests {
         assert_eq!(
             String::from_utf8(output.into_inner()).unwrap(),
             "Hello !  \t \nHello !  \n\tHello !"
+        );
+    }
+
+    #[test]
+    fn test_example_process_input_multiline_unbuffered() {
+        use std::io::Cursor;
+
+        let input = Cursor::new("Hello $WORLD! 🙃 \t \nHello $WORLD! 🎂 \n\t❤️Hello $WORLD!");
+        let mut output = Cursor::new(Vec::new());
+        let mut flags = Flags::default();
+        flags.set(Flag::UnbufferedLines, true).unwrap();
+        let filters = Filters::default();
+
+        process_input(Box::new(input), Box::new(&mut output), &flags, &filters).unwrap();
+
+        assert_eq!(
+            String::from_utf8(output.into_inner()).unwrap(),
+            "Hello ! 🙃 \t \nHello ! 🎂 \n\t❤️Hello !"
         );
     }
 
@@ -1965,7 +1995,11 @@ mod tests {
     #[test]
     fn test_read_lines_emojies() {
         let input = "Hello 😃 World!\nHello 😃 World!\nHello 😃 World!\n";
-        let expected = vec!["Hello 😃 World!\n", "Hello 😃 World!\n", "Hello 😃 World!\n"];
+        let expected = vec![
+            "Hello 😃 World!\n",
+            "Hello 😃 World!\n",
+            "Hello 😃 World!\n",
+        ];
         let lines = read_lines(input.as_bytes());
         for (i, line_result) in lines.enumerate() {
             let line = line_result.unwrap();
