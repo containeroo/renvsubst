@@ -1934,6 +1934,21 @@ mod tests {
     }
 
     #[test]
+    fn test_full_lines_windows_ending() {
+        let input = "Hello $WORLD!\r\nHello $WORLD!\r\nHello $WORLD!\r\n";
+        let expected = vec![
+            "Hello $WORLD!\r\n",
+            "Hello $WORLD!\r\n",
+            "Hello $WORLD!\r\n",
+        ];
+        let lines = full_lines(input.as_bytes());
+        for (i, line_result) in lines.enumerate() {
+            let line = line_result.unwrap();
+            assert_eq!(line, expected[i]);
+        }
+    }
+
+    #[test]
     fn test_full_lines_error() {
         let input = b"Hello \xF0 World!";
         let mut lines = full_lines(Cursor::new(&input[..]));
