@@ -31,7 +31,7 @@ When the same flag is provided multiple times, renvsubst will throw an error.
 | `--no-replace-empty` | Does not replace variables that are empty.                                                         |
 | `--no-replace`       | Alias for`--no-replace-unset` and `--no-replace-empty`.                                            |
 | `--no-escape`        | Disable escaping of variables.                                                                     |
-| `--unbuffer-lines    | Do not buffer lines. This will print each line as soon as it is processed in chunks of 4096 bytes. |
+| `--unbuffer-lines`   | Do not buffer lines. This will print each line as soon as it is processed in chunks of 4096 bytes. |
 
 ## Filters
 
