@@ -356,34 +356,30 @@ fn replace_variables_in_line(
     return Ok(new_line);
 }
 
-/// Returns an iterator over the full lines read from the given `BufRead` instance,
-/// including any line-ending characters.
-///
-/// This function reads from the buffer until a newline character is encountered,
-/// and returns a `String` containing the line, including the newline character(s).
+/// Reads lines from the provided `BufRead` input and returns them as an iterator over `String` values.
+/// Each line includes any line-ending characters that are present in the input.
 ///
 /// # Arguments
 ///
-/// * `input`: A `BufRead` instance to read from.
+/// * `input`: A mutable reference to an object that implements the `BufRead` trait, such as a `BufReader`.
 ///
 /// # Returns
 ///
-/// An iterator that yields each line as a `String` wrapped in a `std::io::Result`.
+/// Returns an iterator that yields `Result<String, std::io::Error>` values. Each value represents a line of text
+/// that was read from the input, including any line-ending characters that are present in the input.
 ///
 /// # Examples
 ///
 /// ```
-/// use std::io::{self, BufRead};
+/// use std::io::BufReader;
 ///
-/// let input = io::stdin();
-/// for line in full_lines(input.lock()) {
-///     match line {
-///         Ok(s) => println!("Line: {}", s),
-///         Err(e) => eprintln!("Error: {}", e),
-///     }
-/// }
+/// let input = "hello\nworld\r\n".as_bytes();
+/// let reader = BufReader::new(input);
+///
+/// let lines: Vec<String> = read_lines(reader).map(|r| r.unwrap()).collect();
+/// assert_eq!(lines, vec!["hello\n", "world\r\n"]);
 /// ```
-fn full_lines(mut input: impl BufRead) -> impl Iterator<Item = std::io::Result<String>> {
+fn read_lines(mut input: impl BufRead) -> impl Iterator<Item = std::io::Result<String>> {
     std::iter::from_fn(move || {
         let mut vec = String::new();
         match input.read_line(&mut vec) {
@@ -459,8 +455,8 @@ pub fn process_input<R: std::io::Read, W: std::io::Write>(
     let reader: BufReader<R> = BufReader::new(input);
     let mut buffer = String::new();
 
-    for line in full_lines(reader) {
-        let line = line.unwrap();
+    for line in read_lines(reader) {
+        let line: String = line.unwrap();
         let replaced: Result<String, String> = replace_variables_in_line(&line, flags, filters);
         match replaced {
             Ok(output) => buffer.push_str(&output),
@@ -1914,19 +1910,17 @@ mod tests {
         let default_value = "default";
         let flags = Flags::default();
 
-        // set env var
         env::set_var("EMPTY_VAR_NAME", "");
-
         let result = get_env_var_value(var_name, default_value, original_variable, &flags);
 
         assert_eq!(result, Ok("default".to_string()));
     }
 
     #[test]
-    fn test_full_lines() {
+    fn test_read_lines() {
         let input = "Hello $WORLD!\nHello $WORLD!\nHello $WORLD!\n";
         let expected = vec!["Hello $WORLD!\n", "Hello $WORLD!\n", "Hello $WORLD!\n"];
-        let lines = full_lines(input.as_bytes());
+        let lines = read_lines(input.as_bytes());
         for (i, line_result) in lines.enumerate() {
             let line = line_result.unwrap();
             assert_eq!(line, expected[i]);
@@ -1934,14 +1928,14 @@ mod tests {
     }
 
     #[test]
-    fn test_full_lines_windows_ending() {
+    fn test_read_lines_windows_ending() {
         let input = "Hello $WORLD!\r\nHello $WORLD!\r\nHello $WORLD!\r\n";
         let expected = vec![
             "Hello $WORLD!\r\n",
             "Hello $WORLD!\r\n",
             "Hello $WORLD!\r\n",
         ];
-        let lines = full_lines(input.as_bytes());
+        let lines = read_lines(input.as_bytes());
         for (i, line_result) in lines.enumerate() {
             let line = line_result.unwrap();
             assert_eq!(line, expected[i]);
@@ -1949,11 +1943,33 @@ mod tests {
     }
 
     #[test]
-    fn test_full_lines_error() {
+    fn test_read_lines_error() {
         let input = b"Hello \xF0 World!";
-        let mut lines = full_lines(Cursor::new(&input[..]));
+        let mut lines = read_lines(Cursor::new(&input[..]));
         let result = lines.next();
         assert!(result.is_some());
         assert!(result.unwrap().is_err());
+    }
+
+    #[test]
+    fn test_read_lines_example() {
+        use std::io::BufReader;
+
+        let input = "hello\nworld\r\n".as_bytes();
+        let reader = BufReader::new(input);
+
+        let lines: Vec<String> = read_lines(reader).map(|r| r.unwrap()).collect();
+        assert_eq!(lines, vec!["hello\n", "world\r\n"]);
+    }
+
+    #[test]
+    fn test_read_lines_emojies() {
+        let input = "Hello 😃 World!\nHello 😃 World!\nHello 😃 World!\n";
+        let expected = vec!["Hello 😃 World!\n", "Hello 😃 World!\n", "Hello 😃 World!\n"];
+        let lines = read_lines(input.as_bytes());
+        for (i, line_result) in lines.enumerate() {
+            let line = line_result.unwrap();
+            assert_eq!(line, expected[i]);
+        }
     }
 }
