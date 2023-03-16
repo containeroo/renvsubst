@@ -182,18 +182,16 @@ impl Args {
                 // FILTERS
                 "-p" | "--prefix" => {
                     // no check for already added prefixes needed, because the HashSet will ignore duplicates
-                    let prefix_arg: String;
                     // check if the value is provided with the flag (eg. "--prefix=PREFIX")
-                    if let Some(value) = value {
-                        prefix_arg = value.to_string();
-                    } else {
-                        // if not, get the next argument as the value
-                        prefix_arg = args
-                            .next()
-                            .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))?
-                            .to_string();
-                        Self::validate_param_value(arg, Some(&prefix_arg), &start_params)?;
-                    }
+                    let prefix_arg = value
+                        .map(|value| Ok(value.to_string())) // if the value is provided with the flag, use it
+                        .unwrap_or_else(|| {
+                            args.next()
+                                .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))
+                                .map(|s| s.to_string())
+                        })?;
+                    // check if the value is valid
+                    Self::validate_param_value(arg, Some(&prefix_arg), &start_params)?;
 
                     // add to prefixes
                     parsed_args
@@ -202,21 +200,19 @@ impl Args {
                         .get_or_insert_with(HashSet::new)
                         .insert(prefix_arg);
                 }
-
                 "-s" | "--suffix" => {
                     // no check for already added suffixes needed, because the HashSet will ignore duplicates
-                    let suffix_arg: String;
                     // check if the value is provided with the flag (eg. "--suffix=SUFFIX")
-                    if let Some(value) = value {
-                        suffix_arg = value.to_string();
-                    } else {
-                        // if not, get the next argument as the value
-                        suffix_arg = args
-                            .next()
-                            .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))?
-                            .to_string();
-                        Self::validate_param_value(arg, Some(&suffix_arg), &start_params)?;
-                    }
+                    let suffix_arg = value
+                        .map(|value| Ok(value.to_string())) // if the value is provided with the flag, use it
+                        .unwrap_or_else(|| {
+                            args.next()
+                                .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))
+                                .map(|s| s.to_string())
+                        })?;
+                    // check if the value is valid
+                    Self::validate_param_value(arg, Some(&suffix_arg), &start_params)?;
+
                     // add to suffixes
                     parsed_args
                         .filters
@@ -226,18 +222,17 @@ impl Args {
                 }
                 "-v" | "--variable" => {
                     // no check for already added variables needed, because the HashSet will ignore duplicates
-                    let variable_arg: String;
-                    // check if the value is provided with the flag (eg. "--variable=VAR")
-                    if let Some(value) = value {
-                        variable_arg = value.to_string();
-                    } else {
-                        // if not, get the next argument as the value
-                        variable_arg = args
-                            .next()
-                            .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))?
-                            .to_string();
-                        Self::validate_param_value(arg, Some(&variable_arg), &start_params)?;
-                    }
+                    // check if the value is provided with the flag (eg. "--variable=VARIABLE")
+                    let variable_arg = value
+                        .map(|value| Ok(value.to_string())) // if the value is provided with the flag, use it
+                        .unwrap_or_else(|| {
+                            args.next()
+                                .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))
+                                .map(|s| s.to_string())
+                        })?;
+                    // check if the value is valid
+                    Self::validate_param_value(arg, Some(&variable_arg), &start_params)?;
+
                     // add to variables
                     parsed_args
                         .filters
@@ -643,4 +638,19 @@ mod tests {
         assert!(variables.contains("VAR"));
         assert!(variables.contains("VAR2"));
     }
+
+    #[test]
+    fn test_parse_prefix_arg() {
+        let args = vec!["-p", "prefix_value"];
+        let parsed_args = Args::parse(args).unwrap();
+        assert_eq!(
+            parsed_args
+                .filters
+                .prefixes
+                .unwrap()
+                .contains("prefix_value"),
+            true
+        );
+    }
+
 }
