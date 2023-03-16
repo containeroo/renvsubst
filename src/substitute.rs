@@ -58,7 +58,7 @@ fn get_env_var_value(
         Ok(value)
             if value.is_empty()
                 && default_value.is_empty()
-                && flags.get_flag(Flag::FailOnEmpty).unwrap_or(false) =>
+                && flags.get(Flag::FailOnEmpty).unwrap_or(false) =>
         {
             return Err(format!("environment variable '{var_name}' is empty"))
         }
@@ -71,7 +71,7 @@ fn get_env_var_value(
 
         // If the variable value is empty, and the `no_replace_empty` flag is set,
         // return the original variable value.
-        Ok(value) if value.is_empty() && flags.get_flag(Flag::NoReplaceEmpty).unwrap_or(false) => {
+        Ok(value) if value.is_empty() && flags.get(Flag::NoReplaceEmpty).unwrap_or(false) => {
             return Ok(original_variable.to_owned())
         }
 
@@ -84,13 +84,13 @@ fn get_env_var_value(
 
         // If the environment variable is not set, and the `fail_on_unset` flag is set,
         // return an error.
-        Err(_) if flags.get_flag(Flag::FailOnUnset).unwrap_or(false) => {
+        Err(_) if flags.get(Flag::FailOnUnset).unwrap_or(false) => {
             return Err(format!("environment variable '{var_name}' is not set"))
         }
 
         // If the environment variable is not set, and the `no_replace_unset` flag is set,
         // return the original variable value.
-        Err(_) if flags.get_flag(Flag::NoReplaceUnset).unwrap_or(false) => {
+        Err(_) if flags.get(Flag::NoReplaceUnset).unwrap_or(false) => {
             return Ok(original_variable.to_owned())
         }
 
@@ -222,7 +222,7 @@ fn replace_variables_in_line(
 
         let next_char = iter.peek();
 
-        if !flags.get_flag(Flag::NoEscape).unwrap_or(false) && next_char == Some(&'$') {
+        if !flags.get(Flag::NoEscape).unwrap_or(false) && next_char == Some(&'$') {
             // if inside here, then we have a double $
             iter.next(); // skip the second $
             new_line.push(c);
@@ -514,7 +514,7 @@ mod tests {
         // result: -
         let line = "$REGULAR_VAR_NOT_FOUND".to_string();
         let mut flags = Flags::default();
-        flags.set_flag(Flag::FailOnUnset, true).unwrap();
+        flags.set(Flag::FailOnUnset, true).unwrap();
         let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert!(result.is_err());
         assert_eq!(
@@ -595,7 +595,7 @@ mod tests {
         // result: -
         let line = "${BRACES_VAR_NOT_FOUND}".to_string();
         let mut flags = Flags::default();
-        flags.set_flag(Flag::FailOnUnset, true).unwrap();
+        flags.set(Flag::FailOnUnset, true).unwrap();
         let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert!(result.is_err());
         assert_eq!(
@@ -725,7 +725,7 @@ mod tests {
         // result: i like cas$ not so much!
         let line = "i like cas$$ not so much!".to_string();
         let mut flags = Flags::default();
-        flags.set_flag(Flag::NoEscape, true).unwrap();
+        flags.set(Flag::NoEscape, true).unwrap();
         let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(result, Ok(line));
     }
@@ -749,7 +749,7 @@ mod tests {
         // result: I have a pa$word
         let line = "I have a pa$$word".to_string();
         let mut flags = Flags::default();
-        flags.set_flag(Flag::NoReplaceUnset, true).unwrap();
+        flags.set(Flag::NoReplaceUnset, true).unwrap();
         let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(result, Ok("I have a pa$word".to_string()));
     }
@@ -762,7 +762,7 @@ mod tests {
         // result: this $ is a dollar sign
         let line = "this $ is a dollar sign".to_string();
         let mut flags = Flags::default();
-        flags.set_flag(Flag::NoEscape, true).unwrap();
+        flags.set(Flag::NoEscape, true).unwrap();
         let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(result, Ok(line));
     }
@@ -775,7 +775,7 @@ mod tests {
         // result: I have a pa$$word
         let line = "I have a pa$$word".to_string();
         let mut flags = Flags::default();
-        flags.set_flag(Flag::NoEscape, true).unwrap();
+        flags.set(Flag::NoEscape, true).unwrap();
         let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(result, Ok("I have a pa$".to_string()));
     }
@@ -788,7 +788,7 @@ mod tests {
         // result: this $ is a dollar sign
         let line = "this $ is a dollar sign".to_string();
         let mut flags = Flags::default();
-        flags.set_flag(Flag::NoEscape, true).unwrap();
+        flags.set(Flag::NoEscape, true).unwrap();
         let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(result, Ok(line));
     }
@@ -952,7 +952,7 @@ mod tests {
         // result:
         let line = "$VALID_REGULAR_VAR_FAIL_ON_UNSET".to_string();
         let mut flags = Flags::default();
-        flags.set_flag(Flag::FailOnUnset, true).unwrap();
+        flags.set(Flag::FailOnUnset, true).unwrap();
         let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert!(result.is_err());
     }
@@ -965,7 +965,7 @@ mod tests {
         // result:
         let line = "${VALID_BRACES_VAR_FAIL_ON_UNSET}".to_string();
         let mut flags = Flags::default();
-        flags.set_flag(Flag::FailOnUnset, true).unwrap();
+        flags.set(Flag::FailOnUnset, true).unwrap();
         let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert!(result.is_err());
     }
@@ -979,7 +979,7 @@ mod tests {
         env::set_var("VALID_REGULAR_VAR_FAIL_ON_EMPTY", "");
         let line = "$VALID_REGULAR_VAR_FAIL_ON_EMPTY".to_string();
         let mut flags = Flags::default();
-        flags.set_flag(Flag::FailOnEmpty, true).unwrap();
+        flags.set(Flag::FailOnEmpty, true).unwrap();
         let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert!(result.is_err());
     }
@@ -993,7 +993,7 @@ mod tests {
         env::set_var("VALID_REGULAR_VAR_FAIL_ON_EMPTY", "");
         let line = "${VALID_REGULAR_VAR_FAIL_ON_EMPTY}".to_string();
         let mut flags = Flags::default();
-        flags.set_flag(Flag::FailOnEmpty, true).unwrap();
+        flags.set(Flag::FailOnEmpty, true).unwrap();
         let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert!(result.is_err());
     }
@@ -1006,7 +1006,7 @@ mod tests {
         // result: $VALID_REGULAR_VAR_NO_REPLACE_ON_UNSET
         let line = "$VALID_REGULAR_VAR_FAIL_ON_UNSET".to_string();
         let mut flags = Flags::default();
-        flags.set_flag(Flag::NoReplaceUnset, true).unwrap();
+        flags.set(Flag::NoReplaceUnset, true).unwrap();
         let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(result, Ok("$VALID_REGULAR_VAR_FAIL_ON_UNSET".to_string()));
     }
@@ -1019,7 +1019,7 @@ mod tests {
         // result: ${VALID_BRACES_VAR_NO_REPLACE_ON_UNSET}
         let line = "${VALID_REGULAR_VAR_FAIL_ON_UNSET}".to_string();
         let mut flags = Flags::default();
-        flags.set_flag(Flag::NoReplaceUnset, true).unwrap();
+        flags.set(Flag::NoReplaceUnset, true).unwrap();
         let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(result, Ok("${VALID_REGULAR_VAR_FAIL_ON_UNSET}".to_string()));
     }
@@ -1033,7 +1033,7 @@ mod tests {
         env::set_var("VALID_REGULAR_VAR_NO_REPLACE_ON_EMPTY", "");
         let line = "$VALID_REGULAR_VAR_NO_REPLACE_ON_EMPTY".to_string();
         let mut flags = Flags::default();
-        flags.set_flag(Flag::NoReplaceEmpty, true).unwrap();
+        flags.set(Flag::NoReplaceEmpty, true).unwrap();
         let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(
             result,
@@ -1050,7 +1050,7 @@ mod tests {
         env::set_var("VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY", "");
         let line = "${VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY}".to_string();
         let mut flags = Flags::default();
-        flags.set_flag(Flag::NoReplaceEmpty, true).unwrap();
+        flags.set(Flag::NoReplaceEmpty, true).unwrap();
         let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(
             result,
@@ -1066,7 +1066,7 @@ mod tests {
         // result: ${IVALID_BRACES_VAR_DEFAULT_END:-
         let line = "${IVALID_BRACES_VAR_DEFAULT_END:-".to_string();
         let mut flags = Flags::default();
-        flags.set_flag(Flag::NoReplaceEmpty, true).unwrap();
+        flags.set(Flag::NoReplaceEmpty, true).unwrap();
         let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(result, Ok("${IVALID_BRACES_VAR_DEFAULT_END:-".to_string()));
     }
@@ -1079,7 +1079,7 @@ mod tests {
         // result: ${VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY:
         let line = "${VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY:".to_string();
         let mut flags = Flags::default();
-        flags.set_flag(Flag::NoReplaceEmpty, true).unwrap();
+        flags.set(Flag::NoReplaceEmpty, true).unwrap();
         let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(
             result,
@@ -1123,7 +1123,7 @@ mod tests {
         // result: this is a test line with two dollar sign at the end of line $$
         let line = "this is a test line with two dollar sign at the end of line $$".to_string();
         let mut flags = Flags::default();
-        flags.set_flag(Flag::NoEscape, true).unwrap();
+        flags.set(Flag::NoEscape, true).unwrap();
         let result = replace_variables_in_line(&line, &flags, &Filters::default());
         assert_eq!(
             result,
@@ -1664,7 +1664,7 @@ mod tests {
         let original_var = "${REGULAR_VAR_NO_REPLACE_EMTPY_TRUE}";
         let default_value = "";
         let mut flags = Flags::default();
-        flags.set_flag(Flag::NoReplaceEmpty, true).unwrap();
+        flags.set(Flag::NoReplaceEmpty, true).unwrap();
         let result = get_env_var_value(var_name, original_var, default_value, &flags);
         assert_eq!(
             result,
@@ -1682,7 +1682,7 @@ mod tests {
         let original_var = "${REGULAR_VAR_NO_REPLACE_UNSET}";
         let default_value = "";
         let mut flags = Flags::default();
-        flags.set_flag(Flag::NoReplaceUnset, true).unwrap();
+        flags.set(Flag::NoReplaceUnset, true).unwrap();
         let result = get_env_var_value(var_name, original_var, default_value, &flags);
         assert_eq!(result, Ok("${REGULAR_VAR_NO_REPLACE_UNSET}".to_string()));
     }
@@ -1697,8 +1697,8 @@ mod tests {
         let original_var = "${REGULAR_VAR_NO_REPLACE_UNSET_EMPTY_TRUE}";
         let default_value = "";
         let mut flags = Flags::default();
-        flags.set_flag(Flag::NoReplaceUnset, true).unwrap();
-        flags.set_flag(Flag::NoReplaceEmpty, true).unwrap();
+        flags.set(Flag::NoReplaceUnset, true).unwrap();
+        flags.set(Flag::NoReplaceEmpty, true).unwrap();
         let result = get_env_var_value(var_name, original_var, default_value, &flags);
         assert_eq!(
             result,
@@ -1717,7 +1717,7 @@ mod tests {
         let original_var = "${REGULAR_FAIL_ON_EMPTY}";
         let default_value = "";
         let mut flags = Flags::default();
-        flags.set_flag(Flag::FailOnEmpty, true).unwrap();
+        flags.set(Flag::FailOnEmpty, true).unwrap();
         let result = get_env_var_value(var_name, original_var, default_value, &flags);
         assert!(result.is_err());
     }
@@ -1732,7 +1732,7 @@ mod tests {
         let original_var = "${REGULAR_FAIL_ON_UNSET}";
         let default_value = "";
         let mut flags = Flags::default();
-        flags.set_flag(Flag::FailOnUnset, true).unwrap();
+        flags.set(Flag::FailOnUnset, true).unwrap();
 
         let result = get_env_var_value(var_name, original_var, default_value, &flags);
         assert!(result.is_err());
@@ -1748,8 +1748,8 @@ mod tests {
         let original_var = "${REGULAR_FAIL_ON_UNSET_EMTPY_TRUE}";
         let default_value = "";
         let mut flags = Flags::default();
-        flags.set_flag(Flag::FailOnUnset, true).unwrap();
-        flags.set_flag(Flag::NoReplaceEmpty, true).unwrap();
+        flags.set(Flag::FailOnUnset, true).unwrap();
+        flags.set(Flag::NoReplaceEmpty, true).unwrap();
 
         let result = get_env_var_value(var_name, original_var, default_value, &flags);
         // check if the result is an error
@@ -1851,7 +1851,7 @@ mod tests {
         let mut output = Cursor::new(Vec::new());
         let mut flags = Flags::default();
 
-        let f = flags.set_flag(Flag::FailOnUnset, true);
+        let f = flags.set(Flag::FailOnUnset, true);
         assert!(f.is_ok());
 
         let filters = Filters::default();

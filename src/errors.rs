@@ -13,6 +13,9 @@ pub enum ParseArgsError {
 
     /// Duplicate values were specified for a given flag.
     DuplicateValue(String),
+
+    /// Completion type is invalid.
+    InvalidCompletionType(String),
 }
 
 impl std::fmt::Display for ParseArgsError {
@@ -25,6 +28,9 @@ impl std::fmt::Display for ParseArgsError {
             }
             Self::DuplicateValue(flag) => {
                 return write!(f, "Flag '{flag}' cannot be specified more than once!")
+            }
+            Self::InvalidCompletionType(completion_type) => {
+                return write!(f, "Invalid completion type: {completion_type}")
             }
         }
     }

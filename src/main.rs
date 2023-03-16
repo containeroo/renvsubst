@@ -1,14 +1,15 @@
 mod args;
+mod completion;
 mod errors;
 mod filters;
 mod flags;
+mod help;
 mod substitute;
 mod utils;
 
-use crate::args::{Args, HELP_TEXT};
+use crate::args::Args;
 use crate::substitute::process_input;
 use crate::utils::print_error;
-use std::env;
 
 /// Executes the main logic of the application based on the given command-line arguments.
 ///
@@ -35,13 +36,18 @@ use std::env;
 fn run(args: &[String]) -> Result<(), String> {
     let parsed_args = Args::parse(args).map_err(|e| e.to_string())?;
 
-    if parsed_args.version {
-        println!("renvsubst {}", env!("CARGO_PKG_VERSION"));
+    if let Some(completion) = &parsed_args.completion {
+        println!("{}", completion.unwrap());
         return Ok(());
     }
 
-    if parsed_args.help {
-        println!("{HELP_TEXT}");
+    if let Some(version) = &parsed_args.version {
+        println!("{version}");
+        return Ok(());
+    }
+
+    if let Some(help) = &parsed_args.help {
+        println!("{help}");
         return Ok(());
     }
 
@@ -86,7 +92,6 @@ mod tests {
         let args = vec![String::from("--help")];
         let output = run(&args).unwrap();
 
-        // The run function should return Ok(()) when the --help flag is provided
         assert_eq!(output, ());
     }
 

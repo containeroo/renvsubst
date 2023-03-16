@@ -1,12 +1,14 @@
+use crate::completion::Completion;
 use crate::errors::ParseArgsError;
 use crate::filters::Filters;
 use crate::flags::{Flag, Flags};
+use crate::help::HELP_TEXT;
 use std::collections::HashSet;
-
 #[derive(Debug, Default)]
 pub struct Args {
-    pub version: bool,
-    pub help: bool,
+    pub version: Option<String>,
+    pub completion: Option<Completion>,
+    pub help: Option<String>,
     pub flags: Flags,
     pub filters: Filters,
 }
@@ -14,8 +16,9 @@ pub struct Args {
 impl Args {
     fn new() -> Self {
         Args {
-            version: false,
-            help: false,
+            version: None,
+            help: None,
+            completion: None,
             flags: Flags::default(),
             filters: Filters::default(),
         }
@@ -124,7 +127,7 @@ impl Args {
             "-h",
             "--help",
             "--version",
-            "--output",
+            "--completion",
             "--fail-on-unset",
             "--fail-on-empty",
             "--fail",
@@ -150,34 +153,54 @@ impl Args {
             };
             match flag_name {
                 "-h" | "--help" => {
-                    parsed_args.help = true;
+                    parsed_args.help = Some(HELP_TEXT.to_string());
+                    return Ok(parsed_args);
+                }
+                "--completion" => {
+                    // no check for already added prefixes needed, because the HashSet will ignore duplicates
+                    let completion_arg: String;
+                    // check if the value is provided with the flag (eg. "--prefix=PREFIX")
+                    if let Some(value) = value {
+                        completion_arg = value.to_string();
+                    } else {
+                        // if not, get the next argument as the value
+                        completion_arg = args
+                            .next()
+                            .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))?
+                            .to_string();
+                        Self::validate_param_value(arg, Some(&completion_arg), &start_params)?;
+                    }
+                    parsed_args
+                        .completion
+                        .get_or_insert_with(Default::default)
+                        .set(&completion_arg)?;
                     return Ok(parsed_args);
                 }
                 "--version" => {
-                    parsed_args.version = true;
+                    parsed_args.version = Some(env!("CARGO_PKG_VERSION").to_string());
                     return Ok(parsed_args);
                 }
                 // FLAGS
                 "--fail-on-unset" => {
-                    parsed_args.flags.set_flag(Flag::FailOnUnset, true)?;
+                    parsed_args.flags.set(Flag::FailOnUnset, true)?;
                 }
                 "--fail-on-empty" => {
-                    parsed_args.flags.set_flag(Flag::FailOnEmpty, true)?;
+                    parsed_args.flags.set(Flag::FailOnEmpty, true)?;
                 }
                 "--fail" => {
-                    parsed_args.flags.set_flag(Flag::Fail, true)?;
+                    parsed_args.flags.set(Flag::Fail, true)?;
                 }
                 "--no-replace-unset" => {
-                    parsed_args.flags.set_flag(Flag::NoReplaceUnset, true)?;
+                    parsed_args.flags.set(Flag::NoReplaceUnset, true)?;
                 }
                 "--no-replace-empty" => {
-                    parsed_args.flags.set_flag(Flag::NoReplaceEmpty, true)?;
+                    parsed_args.flags.set(Flag::NoReplaceEmpty, true)?;
                 }
                 "--no-replace" => {
-                    parsed_args.flags.set_flag(Flag::NoReplace, true)?;
+                    parsed_args.flags.set(Flag::NoReplace, true)?;
                 }
                 "--no-escape" => {
-                    parsed_args.flags.set_flag(Flag::NoEscape, true)?;
+                    parsed_args.flags.set(Flag::NoEscape, true)?;
                 }
                 // FILTERS
                 "-p" | "--prefix" => {
@@ -256,46 +279,6 @@ impl Args {
     }
 }
 
-pub const HELP_TEXT: &str = "Usage: renvsubst [FLAGS] [FILTERS] [INPUT] | -h | --help | --version
-
-renvsubst will substitute all (bash-like) environment variables in the format of $VAR_NAME, ${VAR_NAME} or ${VAR_NAME:-DEFAULT_VALUE} with their corresponding values from the environment or the default value if provided. If the variable is not valid, it remains as is.
-A valid variable name starts with a letter or underscore, followed by any combination of letters, numbers, or underscores.
-
-General:
-  -h, --help                       Show this help text.
-      --version                    Show the version of the program.
-
-Flags:
-  --fail-on-unset                  Fails if an environment variable is not set.
-  --fail-on-empty                  Fails if an environment variable is empty.
-  --fail                           Alias for --fail-on-unset and --fail-on-empty.
-  --no-replace-unset               Does not replace variables that are not set in the environment.
-  --no-replace-empty               Does not replace variables that are set but empty in the environment.
-  --no-replace                     Alias for --no-replace-unset and --no-replace-empty.
-  --no-escape                      Disables escaping of variables with two dollar signs ($$).
-
-When the same flag is provided multiple times, renvsubst will throw an error.
-
-Filters:
-
-  -p, --prefix[=PREFIX]...         Only replace variables with the specified prefix.
-                                   Prefixes can be specified multiple times.
-  -s, --suffix[=SUFFIX]...         Only replace variables with the specified suffix.
-                                   Suffixes can be specified multiple times.
-  -v, --variable[=VARIABLE]...     Specify the variables to replace. If not provided, all variables will be replaced.
-                                   Variables can be specified multiple times.
-
-The variables will be substituted according to the specified prefix, suffix, or variable name. If none of these options are provided, all variables will be substituted. When one or more options are specified, only variables that match the given prefix, suffix, or variable name will be replaced, while all others will remain unchanged.
-If multiple identical prefixes, suffixes or variables are provided, only one copy of each will be used.
-
-Input:
-The input can be passed via stdin. If no input is provided, the program will wait for input from the user.
-
-Escaping:
-To retain a variable's original value and prevent it from being substituted by an environment variable, add a second dollar sign ($). The second dollar sign will be removed during substitution. Only valid variables must be escaped.
-
-";
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -305,10 +288,7 @@ mod tests {
         let args = vec!["--no-replace-empty", "--prefix", "prefix-"];
         let parsed_args = Args::parse(args).unwrap();
 
-        assert!(parsed_args
-            .flags
-            .get_flag(Flag::NoReplaceEmpty)
-            .unwrap_or(false),);
+        assert!(parsed_args.flags.get(Flag::NoReplaceEmpty).unwrap_or(false),);
         assert!(parsed_args.filters.prefixes.unwrap().contains("prefix-"),);
     }
 
@@ -340,7 +320,7 @@ mod tests {
         let args = vec!["-h"];
         let parsed_args = Args::parse(args).unwrap();
 
-        assert!(parsed_args.help);
+        assert!(parsed_args.help.is_some());
     }
 
     #[test]
@@ -533,7 +513,7 @@ mod tests {
         let args = vec!["--version"];
         let parsed_args = Args::parse(args);
         assert!(parsed_args.is_ok());
-        assert!(parsed_args.unwrap().version);
+        assert!(parsed_args.unwrap().version.is_some());
     }
 
     #[test]
@@ -541,7 +521,7 @@ mod tests {
         let args = vec!["--no-escape"];
         let parsed_args = Args::parse(args);
         assert!(parsed_args.is_ok());
-        assert!(parsed_args.unwrap().flags.get_flag(Flag::NoEscape).unwrap())
+        assert!(parsed_args.unwrap().flags.get(Flag::NoEscape).unwrap())
     }
 
     #[test]
@@ -659,6 +639,31 @@ mod tests {
             .variables
             .unwrap()
             .contains("VAR"));
+    }
+
+    #[test]
+    fn test_parse_completion_equal() {
+        let args = vec!["--completion=zsh"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_ok());
+    }
+
+    #[test]
+    fn test_parse_completion_space() {
+        let args = vec!["--completion", "bash"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_ok());
+    }
+
+    #[test]
+    fn test_parse_completion_invalid() {
+        let args = vec!["--completion", "invalid"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_err());
+        assert_eq!(
+            parsed_args.unwrap_err(),
+            ParseArgsError::InvalidCompletionType("invalid".to_string())
+        );
     }
 
     #[test]
