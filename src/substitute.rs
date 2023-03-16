@@ -244,8 +244,6 @@ fn replace_variables_in_line(
             continue;
         }
 
-        //let mut var_start = i + 1;
-        //et mut var_end = var_start;
         let mut brace_ended = false;
         let mut original_variable: String = String::new();
         let mut var_name: String = String::new();
@@ -358,6 +356,44 @@ fn replace_variables_in_line(
     return Ok(new_line);
 }
 
+/// Returns an iterator over the full lines read from the given `BufRead` instance,
+/// including any line-ending characters.
+///
+/// This function reads from the buffer until a newline character is encountered,
+/// and returns a `String` containing the line, including the newline character(s).
+///
+/// # Arguments
+///
+/// * `input`: A `BufRead` instance to read from.
+///
+/// # Returns
+///
+/// An iterator that yields each line as a `String` wrapped in a `std::io::Result`.
+///
+/// # Examples
+///
+/// ```
+/// use std::io::{self, BufRead};
+///
+/// let input = io::stdin();
+/// for line in full_lines(input.lock()) {
+///     match line {
+///         Ok(s) => println!("Line: {}", s),
+///         Err(e) => eprintln!("Error: {}", e),
+///     }
+/// }
+/// ```
+fn full_lines(mut input: impl BufRead) -> impl Iterator<Item = std::io::Result<String>> {
+    std::iter::from_fn(move || {
+        let mut vec = String::new();
+        match input.read_line(&mut vec) {
+            Ok(0) => None,
+            Ok(_) => Some(Ok(vec)),
+            Err(e) => Some(Err(e)),
+        }
+    })
+}
+
 /// Perform variable substitution on the input file and write the result to the output file.
 ///
 /// The function reads from the provided `input` and writes the processed output to the provided `output`.
@@ -423,10 +459,8 @@ pub fn process_input<R: std::io::Read, W: std::io::Write>(
     let reader: BufReader<R> = BufReader::new(input);
     let mut buffer = String::new();
 
-    // replace variables in each line and write the replaced line in a buffer
-    for line in reader.lines() {
+    for line in full_lines(reader) {
         let line = line.unwrap();
-        // Replace variables with their values
         let replaced: Result<String, String> = replace_variables_in_line(&line, flags, filters);
         match replaced {
             Ok(output) => buffer.push_str(&output),
@@ -1799,12 +1833,8 @@ mod tests {
 
     #[test]
     fn test_example_get_env_var_value() {
-        let var_value = get_env_var_value(
-            "MY_VAR",
-            "default_value",
-            "${MY_VAR}",
-            &Flags::default(),
-        );
+        let var_value =
+            get_env_var_value("MY_VAR", "default_value", "${MY_VAR}", &Flags::default());
 
         match var_value {
             Ok(value) => println!("The value of MY_VAR is {value}"),
@@ -1844,6 +1874,23 @@ mod tests {
     }
 
     #[test]
+    fn test_example_process_input_multiline() {
+        use std::io::Cursor;
+
+        let input = Cursor::new("Hello $WORLD!  \t \nHello $WORLD!  \n\tHello $WORLD!");
+        let mut output = Cursor::new(Vec::new());
+        let flags = Flags::default();
+        let filters = Filters::default();
+
+        process_input(Box::new(input), Box::new(&mut output), &flags, &filters).unwrap();
+
+        assert_eq!(
+            String::from_utf8(output.into_inner()).unwrap(),
+            "Hello !  \t \nHello !  \n\tHello !"
+        );
+    }
+
+    #[test]
     fn test_example_process_input_error() {
         use std::io::Cursor;
 
@@ -1875,4 +1922,23 @@ mod tests {
         assert_eq!(result, Ok("default".to_string()));
     }
 
+    #[test]
+    fn test_full_lines() {
+        let input = "Hello $WORLD!\nHello $WORLD!\nHello $WORLD!\n";
+        let expected = vec!["Hello $WORLD!\n", "Hello $WORLD!\n", "Hello $WORLD!\n"];
+        let lines = full_lines(input.as_bytes());
+        for (i, line_result) in lines.enumerate() {
+            let line = line_result.unwrap();
+            assert_eq!(line, expected[i]);
+        }
+    }
+
+    #[test]
+    fn test_full_lines_error() {
+        let input = b"Hello \xF0 World!";
+        let mut lines = full_lines(Cursor::new(&input[..]));
+        let result = lines.next();
+        assert!(result.is_some());
+        assert!(result.unwrap().is_err());
+    }
 }
