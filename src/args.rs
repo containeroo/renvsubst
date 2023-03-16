@@ -1,13 +1,12 @@
-use crate::completion::Completion;
 use crate::errors::ParseArgsError;
 use crate::filters::Filters;
 use crate::flags::{Flag, Flags};
 use crate::help::HELP_TEXT;
 use std::collections::HashSet;
+
 #[derive(Debug, Default)]
 pub struct Args {
     pub version: Option<String>,
-    pub completion: Option<Completion>,
     pub help: Option<String>,
     pub flags: Flags,
     pub filters: Filters,
@@ -18,7 +17,6 @@ impl Args {
         Args {
             version: None,
             help: None,
-            completion: None,
             flags: Flags::default(),
             filters: Filters::default(),
         }
@@ -127,7 +125,6 @@ impl Args {
             "-h",
             "--help",
             "--version",
-            "--completion",
             "--fail-on-unset",
             "--fail-on-empty",
             "--fail",
@@ -154,26 +151,6 @@ impl Args {
             match flag_name {
                 "-h" | "--help" => {
                     parsed_args.help = Some(HELP_TEXT.to_string());
-                    return Ok(parsed_args);
-                }
-                "--completion" => {
-                    // no check for already added prefixes needed, because the HashSet will ignore duplicates
-                    let completion_arg: String;
-                    // check if the value is provided with the flag (eg. "--prefix=PREFIX")
-                    if let Some(value) = value {
-                        completion_arg = value.to_string();
-                    } else {
-                        // if not, get the next argument as the value
-                        completion_arg = args
-                            .next()
-                            .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))?
-                            .to_string();
-                        Self::validate_param_value(arg, Some(&completion_arg), &start_params)?;
-                    }
-                    parsed_args
-                        .completion
-                        .get_or_insert_with(Default::default)
-                        .set(&completion_arg)?;
                     return Ok(parsed_args);
                 }
                 "--version" => {
@@ -639,31 +616,6 @@ mod tests {
             .variables
             .unwrap()
             .contains("VAR"));
-    }
-
-    #[test]
-    fn test_parse_completion_equal() {
-        let args = vec!["--completion=zsh"];
-        let parsed_args = Args::parse(args);
-        assert!(parsed_args.is_ok());
-    }
-
-    #[test]
-    fn test_parse_completion_space() {
-        let args = vec!["--completion", "bash"];
-        let parsed_args = Args::parse(args);
-        assert!(parsed_args.is_ok());
-    }
-
-    #[test]
-    fn test_parse_completion_invalid() {
-        let args = vec!["--completion", "invalid"];
-        let parsed_args = Args::parse(args);
-        assert!(parsed_args.is_err());
-        assert_eq!(
-            parsed_args.unwrap_err(),
-            ParseArgsError::InvalidCompletionType("invalid".to_string())
-        );
     }
 
     #[test]

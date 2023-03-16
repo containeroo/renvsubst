@@ -1,5 +1,4 @@
 mod args;
-mod completion;
 mod errors;
 mod filters;
 mod flags;
@@ -35,11 +34,6 @@ use crate::utils::print_error;
 /// ```
 fn run(args: &[String]) -> Result<(), String> {
     let parsed_args = Args::parse(args).map_err(|e| e.to_string())?;
-
-    if let Some(completion) = &parsed_args.completion {
-        println!("{}", completion.unwrap());
-        return Ok(());
-    }
 
     if let Some(version) = &parsed_args.version {
         println!("{version}");
