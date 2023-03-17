@@ -454,19 +454,37 @@ pub fn process_input<R: std::io::Read, W: std::io::Write>(
 ) -> Result<(), String> {
     let reader: BufReader<R> = BufReader::new(input);
     let mut buffer = String::new();
+    let unbuffered_lines = flags.get(Flag::UnbufferedLines).unwrap_or(false);
 
     for line in read_lines(reader) {
         let line: String = line.unwrap();
         let replaced: Result<String, String> = replace_variables_in_line(&line, flags, filters);
         match replaced {
-            Ok(output) => buffer.push_str(&output),
+            Ok(out) => {
+                // if unbuffered lines mode is enabled, write each line as soon as it's processed
+                if unbuffered_lines {
+                    if let Err(e) = output.write(out.as_bytes()) {
+                        return Err(format!("Failed to write to output: {e}"));
+                    }
+                    continue;
+                }
+                // if unbuffered lines mode is not enabled, append the line to the buffer
+                buffer.push_str(&out)
+            }
             Err(e) => return Err(format!("Failed to replace variables: {e}")),
         }
     }
 
-    // write the entire buffer to the output file at once
-    if let Err(e) = output.write_all(buffer.as_bytes()) {
-        return Err(format!("Failed to write to output file: {e}"));
+    // if unbuffered lines mode is not enabled, write the entire buffer to the output file at once
+    if !unbuffered_lines {
+        if let Err(e) = output.write_all(buffer.as_bytes()) {
+            return Err(format!("Failed to write to output: {e}"));
+        }
+    }
+
+    // flush the output to ensure that all written data is actually written to the output stream
+    if let Err(e) = output.flush() {
+        return Err(format!("Failed to flush output: {e}"));
     }
 
     return Ok(());
@@ -476,20 +494,54 @@ pub fn process_input<R: std::io::Read, W: std::io::Write>(
 mod tests {
     use super::*;
     use std::collections::HashSet;
-    use std::io::{Cursor, Error, ErrorKind, Write};
+    use std::io::Cursor;
 
-    struct ErrorWriter;
+    // A dummy implementation of a writer that always fails to write and flush
+    struct FailingWriter<'a> {
+        writer: &'a mut dyn std::io::Write,
+        fail_on_write: bool,
+        fail_on_flush: bool,
+    }
 
-    impl Write for ErrorWriter {
-        fn write(&mut self, _buf: &[u8]) -> std::io::Result<usize> {
-            Err(Error::new(ErrorKind::Other, "Simulated write error"))
-        }
-
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
+    impl<'a> FailingWriter<'a> {
+        fn new(
+            writer: &'a mut dyn std::io::Write,
+            fail_on_write: bool,
+            fail_on_flush: bool,
+        ) -> FailingWriter<'a> {
+            FailingWriter {
+                writer,
+                fail_on_write: fail_on_write,
+                fail_on_flush: fail_on_flush,
+            }
         }
     }
 
+    impl<'a> std::io::Write for FailingWriter<'a> {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            if self.fail_on_write {
+                self.fail_on_write = false;
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "Simulated write error",
+                ))
+            } else {
+                self.writer.write(buf)
+            }
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            if self.fail_on_flush {
+                self.fail_on_flush = false;
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "Simulated flush error",
+                ))
+            } else {
+                self.writer.flush()
+            }
+        }
+    }
     #[test]
     fn test_replace_variables_in_line_regular_var_found() {
         // description: regular variable found
@@ -1851,23 +1903,6 @@ mod tests {
     }
 
     #[test]
-    fn test_process_input_write_error() {
-        let input = "Line 1\nLine 2\nLine 3";
-        let input_reader = Cursor::new(input);
-        let mut output = ErrorWriter;
-
-        let flags = Flags::default();
-        let filters = Filters::default();
-
-        let result = process_input(input_reader, &mut output, &flags, &filters);
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            "Failed to write to output file: Simulated write error"
-        );
-    }
-
-    #[test]
     fn test_example_process_input() {
         use std::io::Cursor;
 
@@ -1993,6 +2028,26 @@ mod tests {
     }
 
     #[test]
+    fn test_process_line_buffered_lines_write_error() {
+        let input = "Hello $WORLD!  \nHello $WORLD!  \nHello $WORLD!";
+        let mut output = Cursor::new(Vec::new());
+        let mut flags = Flags::default();
+        flags.set(Flag::UnbufferedLines, true).unwrap();
+
+        let result = process_input(
+            Box::new(input.as_bytes()),
+            &mut FailingWriter::new(&mut output, true, false),
+            &flags,
+            &Filters::default(),
+        );
+        assert!(result.is_err());
+        assert_eq!(
+          result.unwrap_err(),
+          "Failed to write to output: Simulated write error"
+      );
+    }
+
+    #[test]
     fn test_read_lines_emojies() {
         let input = "Hello 😃 World!\nHello 😃 World!\nHello 😃 World!\n";
         let expected = vec![
@@ -2005,5 +2060,42 @@ mod tests {
             let line = line_result.unwrap();
             assert_eq!(line, expected[i]);
         }
+    }
+
+    #[test]
+    fn test_process_input_write_output_error() {
+        let input = "Hello $WORLD!  \nHello $WORLD!  \nHello $WORLD!";
+        let mut output = Cursor::new(Vec::new());
+
+        let result = process_input(
+            Box::new(input.as_bytes()),
+            &mut FailingWriter::new(&mut output, true, false),
+            &Flags::default(),
+            &Filters::default(),
+        );
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "Failed to write to output: Simulated write error"
+        );
+    }
+
+    #[test]
+    fn test_process_input_flush_output_error() {
+        let input = "Hello $WORLD!  \nHello $WORLD!  \nHello $WORLD!";
+        let mut output = Cursor::new(Vec::new());
+
+        let result = process_input(
+            Box::new(input.as_bytes()),
+            &mut FailingWriter::new(&mut output, false, true),
+            &Flags::default(),
+            &Filters::default(),
+
+        );
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "Failed to flush output: Simulated flush error"
+        );
     }
 }
