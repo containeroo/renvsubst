@@ -454,7 +454,7 @@ pub fn process_input<R: std::io::Read, W: std::io::Write>(
 ) -> Result<(), String> {
     let reader: BufReader<R> = BufReader::new(input);
     let mut buffer = String::new();
-    let unbuffered_lines = flags.get(Flag::UnbufferedLines).unwrap_or(false);
+    let unbuffered_lines = flags.get(Flag::UnbufferedLines).unwrap_or_default();
 
     for line in read_lines(reader) {
         let line: String = line.unwrap();
