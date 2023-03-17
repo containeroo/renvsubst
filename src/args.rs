@@ -3,6 +3,15 @@ use crate::filters::{Filter, Filters};
 use crate::flags::{Flag, Flags};
 use crate::help::HELP_TEXT;
 
+/// A struct representing the command-line arguments for a program.
+///
+/// The `version` field is an optional `String` that can be used to display the version of the program.
+///
+/// The `help` field is an optional `String` that can be used to display help text for the program.
+///
+/// The `flags` field is a `Flags` struct that contains boolean flags that can be set by the user. The `Flags` struct is defined in the `flags` module.
+///
+/// The `filters` field is a `Filters` struct that contains optional filters for matching strings. The `Filters` struct is defined in the `filters` module.
 #[derive(Debug, Default)]
 pub struct Args {
     pub version: Option<String>,
@@ -12,6 +21,7 @@ pub struct Args {
 }
 
 impl Args {
+    /// Creates a new instance of Args with all fields set to their default values.
     fn new() -> Self {
         Args {
             version: None,

@@ -19,6 +19,12 @@ pub struct Filters {
 }
 
 /// An enum that represents the type of filter to be added to the `Filters` struct.
+///
+/// The `Prefix` variant indicates that the filter is a string prefix. When matching a string, the `starts_with` method is used to check if the string starts with any of the prefixes in the set. If multiple identical prefixes are added to the set, only one copy of each prefix will be stored.
+///
+/// The `Suffix` variant indicates that the filter is a string suffix. When matching a string, the `ends_with` method is used to check if the string ends with any of the suffixes in the set. If multiple identical suffixes are added to the set, only one copy of each suffix will be stored.
+///
+/// The `Variable` variant indicates that the filter is a string variable. When matching a string, the `contains` method is used to check if the string contains any of the variables in the set. If multiple identical variables are added to the set, only one copy of each variable will be stored.
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum Filter {
     Prefix,
