@@ -1,8 +1,7 @@
 use crate::errors::ParseArgsError;
-use crate::filters::Filters;
+use crate::filters::{Filter, Filters};
 use crate::flags::{Flag, Flags};
 use crate::help::HELP_TEXT;
-use std::collections::HashSet;
 
 #[derive(Debug, Default)]
 pub struct Args {
@@ -22,45 +21,6 @@ impl Args {
         }
     }
 
-    /// Validates the value of a given parameter against a set of allowed values.
-    ///
-    /// # Arguments
-    ///
-    /// * `arg` - A string slice representing the name of the parameter being validated.
-    /// * `arg_value` - An optional string slice representing the value of the parameter being validated.
-    /// * `start_params` - A reference to a `HashSet` containing the allowed values for the parameter.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `ParseArgsError` if the value of the parameter is not in the allowed set of values.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use crate::args::{Args, ParseArgsError};
-    ///
-    /// let start_params = vec!["foo", "bar"].into_iter().collect();
-    /// let result = Args::validate_param_value("--input", Some("baz"), &start_params);
-    /// assert_eq!(result.unwrap_err(), ParseArgsError::MissingValue("--input".to_owned()));
-    ///
-    /// let result = Args::validate_param_value("--input", Some("foo"), &start_params);
-    /// assert_eq!(result.unwrap(), "foo".to_owned());
-    /// ```
-    #[cfg(not(tarpaulin_include))]
-    fn validate_param_value(
-        arg: &str,
-        arg_value: Option<&str>,
-        start_params: &HashSet<&'static str>,
-    ) -> Result<String, ParseArgsError> {
-        let value = arg_value.ok_or_else(|| ParseArgsError::MissingValue(arg.to_owned()))?;
-
-        // check if the value is in the allowed set of values
-        if start_params.contains(value) {
-            return Err(ParseArgsError::MissingValue(arg.to_owned()));
-        }
-        return Ok(value.to_string());
-    }
-
     /// Parses command line arguments and returns an `Args` struct with the parsed values.
     ///
     /// # Arguments
@@ -70,7 +30,7 @@ impl Args {
     /// # Examples
     ///
     /// ```
-    /// use renvsubst::cli::Args;
+    /// use crate::args::Args;
     ///
     /// let args = vec!["--prefix", "VAR_", "--suffix", "_SUFFIX"];
     /// let parsed_args = Args::parse(args.iter()).unwrap();
@@ -113,36 +73,11 @@ impl Args {
             .map(|arg| arg.into().into_string())
             .filter_map(Result::ok)
             .collect();
+
         // create an iterator over the arguments
         let mut args = args.iter();
 
         let mut parsed_args = Self::new();
-
-        // a set of all start parameters
-        // this is used to check if the next argument is a start parameter
-        // eg. if the current argument is "--prefix" and the next argument is "--fail-on-unset",
-        // then "--fail-on-unset" is a start parameter and "--prefix" has missing a value
-        let start_params: HashSet<&'static str> = [
-            "-h",
-            "--help",
-            "--version",
-            "--fail-on-unset",
-            "--fail-on-empty",
-            "--fail",
-            "--no-replace-unset",
-            "--no-replace-empty",
-            "--no-escape",
-            "--unbuffer-lines",
-            "-p",
-            "--prefix",
-            "-s",
-            "--suffix",
-            "-v",
-            "--variable",
-        ]
-        .iter()
-        .copied()
-        .collect();
 
         while let Some(arg) = args.next() {
             // Split the argument by the first occurrence of '='
@@ -187,84 +122,19 @@ impl Args {
 
                 // FILTERS
                 "-p" | "--prefix" => {
-                    // no check for already added prefixes needed, because the HashSet will ignore duplicates
-
-                    // check if the value is provided with the flag (eg. "--prefix=PREFIX")
-                    let prefix_arg = value
-                        .map(|value| Ok(value.to_string())) // if the value is provided with the flag, use it
-                        .map_or_else(
-                            || {
-                                // if not, get the next argument as the value
-                                args.next()
-                                    .map(std::string::ToString::to_string) // convert the value to a string
-                                    .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))
-                                // return an error if the value is missing
-                            },
-                            |s| s, // return the value if it exists
-                        )?;
-
-                    // check if the value is valid
-                    Self::validate_param_value(arg, Some(&prefix_arg), &start_params)?;
-
-                    // add to prefixes
                     parsed_args
                         .filters
-                        .prefixes
-                        .get_or_insert_with(HashSet::new)
-                        .insert(prefix_arg);
+                        .add(Filter::Prefix, arg, value, &mut args)?;
                 }
                 "-s" | "--suffix" => {
-                    // no check for already added suffixes needed, because the HashSet will ignore duplicates
-
-                    // check if the value is provided with the flag (eg. "--suffix=SUFFIX")
-                    let suffix_arg = value
-                        .map(|value| Ok(value.to_string())) // if the value is provided with the flag, use it
-                        .map_or_else(
-                            || {
-                                // if not, get the next argument as the value
-                                args.next()
-                                    .map(std::string::ToString::to_string) // convert the value to a string
-                                    .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))
-                                // return an error if the value is missing
-                            },
-                            |s| s, // return the value if it exists
-                        )?;
-                    // check if the value is valid
-                    Self::validate_param_value(arg, Some(&suffix_arg), &start_params)?;
-
-                    // add to suffixes
                     parsed_args
                         .filters
-                        .suffixes
-                        .get_or_insert_with(HashSet::new)
-                        .insert(suffix_arg);
+                        .add(Filter::Suffix, arg, value, &mut args)?;
                 }
                 "-v" | "--variable" => {
-                    // no check for already added variables needed, because the HashSet will ignore duplicates
-                    
-                    // check if the value is provided with the flag (eg. "--variable=VARIABLE")
-                    let variable_arg = value
-                        .map(|value| Ok(value.to_string())) // if the value is provided with the flag, use it
-                        .map_or_else(
-                            || {
-                                // if not, get the next argument as the value
-                                args.next()
-                                    .map(std::string::ToString::to_string) // convert the value to a string
-                                    .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))
-                                // return an error if the value is missing
-                            },
-                            |s| s, // return the value if it exists
-                        )?;
-
-                    // check if the value is valid
-                    Self::validate_param_value(arg, Some(&variable_arg), &start_params)?;
-
-                    // add to variables
                     parsed_args
                         .filters
-                        .variables
-                        .get_or_insert_with(HashSet::new)
-                        .insert(variable_arg);
+                        .add(Filter::Variable, arg, value, &mut args)?;
                 }
                 // UNKNOWN
                 _ => {
@@ -410,7 +280,7 @@ mod tests {
 
     #[test]
     fn test_filters_prefix_space() {
-        let args = vec!["--prefix", "prefix-"];
+        let args = vec!["--prefix", "prefix-", "--no-replace-empty"];
         let parsed_args = Args::parse(args).unwrap();
 
         assert!(parsed_args.filters.prefixes.unwrap().contains("prefix-"),);
