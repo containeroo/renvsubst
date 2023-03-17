@@ -188,15 +188,21 @@ impl Args {
                 // FILTERS
                 "-p" | "--prefix" => {
                     // no check for already added prefixes needed, because the HashSet will ignore duplicates
+
                     // check if the value is provided with the flag (eg. "--prefix=PREFIX")
                     let prefix_arg = value
                         .map(|value| Ok(value.to_string())) // if the value is provided with the flag, use it
-                        .unwrap_or_else(|| {
-                            // if not, get the next argument as the value
-                            args.next()
-                                .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))
-                                .map(std::string::ToString::to_string) // convert the value to a string
-                        })?;
+                        .map_or_else(
+                            || {
+                                // if not, get the next argument as the value
+                                args.next()
+                                    .map(std::string::ToString::to_string) // convert the value to a string
+                                    .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))
+                                // return an error if the value is missing
+                            },
+                            |s| s, // return the value if it exists
+                        )?;
+
                     // check if the value is valid
                     Self::validate_param_value(arg, Some(&prefix_arg), &start_params)?;
 
@@ -209,15 +215,20 @@ impl Args {
                 }
                 "-s" | "--suffix" => {
                     // no check for already added suffixes needed, because the HashSet will ignore duplicates
+
                     // check if the value is provided with the flag (eg. "--suffix=SUFFIX")
                     let suffix_arg = value
                         .map(|value| Ok(value.to_string())) // if the value is provided with the flag, use it
-                        .unwrap_or_else(|| {
-                            // if not, get the next argument as the value
-                            args.next()
-                                .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))
-                                .map(std::string::ToString::to_string) // convert the value to a string
-                        })?;
+                        .map_or_else(
+                            || {
+                                // if not, get the next argument as the value
+                                args.next()
+                                    .map(std::string::ToString::to_string) // convert the value to a string
+                                    .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))
+                                // return an error if the value is missing
+                            },
+                            |s| s, // return the value if it exists
+                        )?;
                     // check if the value is valid
                     Self::validate_param_value(arg, Some(&suffix_arg), &start_params)?;
 
@@ -230,15 +241,21 @@ impl Args {
                 }
                 "-v" | "--variable" => {
                     // no check for already added variables needed, because the HashSet will ignore duplicates
+                    
                     // check if the value is provided with the flag (eg. "--variable=VARIABLE")
                     let variable_arg = value
                         .map(|value| Ok(value.to_string())) // if the value is provided with the flag, use it
-                        .unwrap_or_else(|| {
-                            // if not, get the next argument as the value
-                            args.next()
-                                .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))
-                                .map(std::string::ToString::to_string) // convert the value to a string
-                        })?;
+                        .map_or_else(
+                            || {
+                                // if not, get the next argument as the value
+                                args.next()
+                                    .map(std::string::ToString::to_string) // convert the value to a string
+                                    .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))
+                                // return an error if the value is missing
+                            },
+                            |s| s, // return the value if it exists
+                        )?;
+
                     // check if the value is valid
                     Self::validate_param_value(arg, Some(&variable_arg), &start_params)?;
 
