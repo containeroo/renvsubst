@@ -76,7 +76,6 @@ impl Filters {
         value: Option<&str>,
         iter: &mut std::slice::Iter<String>,
     ) -> Result<(), ParseArgsError> {
-        println!("iter before: {:?}", iter.clone().next());
         let flag_arg: String = value
             .map(|value| Ok(value.to_string())) // if the value is provided with the flag, use it
             .map_or_else(
