@@ -511,8 +511,8 @@ mod tests {
         ) -> FailingWriter<'a> {
             FailingWriter {
                 writer,
-                fail_on_write: fail_on_write,
-                fail_on_flush: fail_on_flush,
+                fail_on_write,
+                fail_on_flush,
             }
         }
     }

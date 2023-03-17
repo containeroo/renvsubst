@@ -195,7 +195,7 @@ impl Args {
                             // if not, get the next argument as the value
                             args.next()
                                 .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))
-                                .map(|s| s.to_string()) // convert the value to a string
+                                .map(std::string::ToString::to_string) // convert the value to a string
                         })?;
                     // check if the value is valid
                     Self::validate_param_value(arg, Some(&prefix_arg), &start_params)?;
@@ -216,7 +216,7 @@ impl Args {
                             // if not, get the next argument as the value
                             args.next()
                                 .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))
-                                .map(|s| s.to_string()) // convert the value to a string
+                                .map(std::string::ToString::to_string) // convert the value to a string
                         })?;
                     // check if the value is valid
                     Self::validate_param_value(arg, Some(&suffix_arg), &start_params)?;
@@ -237,7 +237,7 @@ impl Args {
                             // if not, get the next argument as the value
                             args.next()
                                 .ok_or_else(|| ParseArgsError::MissingValue(arg.clone()))
-                                .map(|s| s.to_string()) // convert the value to a string
+                                .map(std::string::ToString::to_string) // convert the value to a string
                         })?;
                     // check if the value is valid
                     Self::validate_param_value(arg, Some(&variable_arg), &start_params)?;
@@ -514,7 +514,7 @@ mod tests {
         let args = vec!["--no-escape"];
         let parsed_args = Args::parse(args);
         assert!(parsed_args.is_ok());
-        assert!(parsed_args.unwrap().flags.get(Flag::NoEscape).unwrap())
+        assert!(parsed_args.unwrap().flags.get(Flag::NoEscape).unwrap());
     }
 
     #[test]
@@ -664,13 +664,10 @@ mod tests {
     fn test_parse_prefix_arg() {
         let args = vec!["-p", "prefix_value"];
         let parsed_args = Args::parse(args).unwrap();
-        assert_eq!(
-            parsed_args
-                .filters
-                .prefixes
-                .unwrap()
-                .contains("prefix_value"),
-            true
-        );
+        assert!(parsed_args
+            .filters
+            .prefixes
+            .unwrap()
+            .contains("prefix_value"));
     }
 }
