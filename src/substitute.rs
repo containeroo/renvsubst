@@ -469,7 +469,7 @@ pub fn process_input<R: std::io::Read, W: std::io::Write>(
                     continue;
                 }
                 // if unbuffered lines mode is not enabled, append the line to the buffer
-                buffer.push_str(&out)
+                buffer.push_str(&out);
             }
             Err(e) => return Err(format!("Failed to replace variables: {e}")),
         }
@@ -2023,7 +2023,9 @@ mod tests {
         let input = "hello\nworld\r\n".as_bytes();
         let reader = BufReader::new(input);
 
-        let lines: Vec<String> = read_lines(reader).map(|r| r.unwrap()).collect();
+        let lines: Vec<String> = read_lines(reader)
+            .map(std::result::Result::unwrap)
+            .collect();
         assert_eq!(lines, vec!["hello\n", "world\r\n"]);
     }
 
