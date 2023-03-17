@@ -2099,4 +2099,56 @@ mod tests {
             "Failed to flush output: Simulated flush error"
         );
     }
+
+    #[test]
+    fn test_process_input_large() {
+        let mut input = String::new();
+        for _i in 0..50_000 {
+            input.push_str(&format!("
+              This is a \"$FILE_NAME\" file.
+              It has more than \"${{AMOUNT}}\" different variables.
+              You can also use \"${{UNSET_VARIABLE:-default}}\" values inside variables like \"${{UNSET_VARIABLE:-default}}\".
+              Here are more variable like \"${{PREFIXED_VARIABLE_1}}\" and \"${{VARIABLE_1_SUFFIXED}}\".
+              Here are more \"$PREFIXED_VARIABLE_2\" and \"$VARIABLE_2_SUFFIXED\" variables!
+              Here are other prefixed \"$prefixed_VARIABLE_3\" and suffixed \"$VARIABLE_3_suffixed\" variables!
+              Or you can escape Text with two dollar signs ($$) like fi$$h => fi$h.
+              "
+            ));
+        }
+        println!("input size in MB: {}", input.len() / 1024 / 1024);
+
+        let mut filter: Filters = Default::default();
+
+        let mut prefixes = HashSet::new();
+        for i in 0..1000 {
+            // append to prefixes set
+            prefixes.insert(format!("PREFIXED_{i}"));
+        }
+        filter.prefixes = Some(prefixes);
+
+        let mut suffixes = HashSet::new();
+        for i in 0..512 {
+            // append to prefixes set
+            suffixes.insert(format!("_SUFFIXED{i}"));
+        }
+        filter.suffixes = Some(suffixes);
+
+        let mut variables = HashSet::new();
+        for i in 0..512 {
+            // append to prefixes set
+            variables.insert(format!("VARIABLE{i}"));
+        }
+        filter.variables = Some(variables);
+
+        let result = process_input(
+            Box::new(input.as_bytes()),
+            Cursor::new(Vec::new()),
+            &Flags::default(),
+            &Filters::default(),
+        );
+
+        assert!(result.is_ok());
+
+        // add more assertions here to test the expected behavior of `process_input` given the large input and filters
+    }
 }
