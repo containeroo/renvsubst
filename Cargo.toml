@@ -1,6 +1,6 @@
 [package]
 name = "renvsubst"
-version = "0.6.1"
+version = "0.6.2"
 edition = "2021"
 authors = ["gi8@containeroo.ch"]
 categories = ["command-line-utilities"]

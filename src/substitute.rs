@@ -2042,9 +2042,9 @@ mod tests {
         );
         assert!(result.is_err());
         assert_eq!(
-          result.unwrap_err(),
-          "Failed to write to output: Simulated write error"
-      );
+            result.unwrap_err(),
+            "Failed to write to output: Simulated write error"
+        );
     }
 
     #[test]
@@ -2090,7 +2090,6 @@ mod tests {
             &mut FailingWriter::new(&mut output, false, true),
             &Flags::default(),
             &Filters::default(),
-
         );
         assert!(result.is_err());
         assert_eq!(
