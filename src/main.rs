@@ -75,13 +75,13 @@ mod tests {
     #[test]
     fn test_run_version() {
         let args = vec![String::from("--version")];
-        assert_eq!(run(&args).unwrap(), ());
+        assert!(run(&args).is_ok());
     }
 
     #[test]
     fn test_run_help() {
         let args = vec![String::from("--help")];
-        assert_eq!(run(&args).unwrap(), ());
+        assert!(run(&args).is_ok());
     }
 
     #[test]
