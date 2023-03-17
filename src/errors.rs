@@ -39,20 +39,20 @@ mod tests {
     #[test]
     fn test_unknown_flag_error() {
         let error = ParseArgsError::UnknownFlag(String::from("foo"));
-        assert_eq!(format!("{}", error), "Unknown flag: foo");
+        assert_eq!(format!("{error}"), "Unknown flag: foo");
     }
 
     #[test]
     fn test_missing_value_error() {
         let error = ParseArgsError::MissingValue(String::from("foo"));
-        assert_eq!(format!("{}", error), "Flag 'foo' requires a value!");
+        assert_eq!(format!("{error}"), "Flag 'foo' requires a value!");
     }
 
     #[test]
     fn test_conflicting_flags_error() {
         let error = ParseArgsError::ConflictingFlags(String::from("foo"), String::from("bar"));
         assert_eq!(
-            format!("{}", error),
+            format!("{error}"),
             "Flags foo and bar cannot be used together!"
         );
     }
@@ -61,7 +61,7 @@ mod tests {
     fn test_duplicate_value_error() {
         let error = ParseArgsError::DuplicateValue(String::from("foo"));
         assert_eq!(
-            format!("{}", error),
+            format!("{error}"),
             "Flag 'foo' cannot be specified more than once!"
         );
     }
