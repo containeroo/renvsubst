@@ -76,16 +76,17 @@ impl Filters {
         value: Option<&str>,
         iter: &mut std::slice::Iter<String>,
     ) -> Result<(), ParseArgsError> {
-        let flag_arg: String = value
-            .map_or_else(  // if no value is provided... (was not --prefix=prefix_)
-                || {
-                    // if not, get the next argument as the value
-                    iter.next()
-                        .map(std::string::ToString::to_string) // convert the value to a string
-                        .ok_or_else(|| ParseArgsError::MissingValue(arg.to_string())) // return an error if the value is missing
-                },
-                |s| Ok(s.to_string()), // return the value if it exists
-            )?;
+        let flag_arg: String = value.map_or_else(
+            // if no value is provided... (was not --prefix=prefix_)
+            || {
+                // if not, get the next argument as the value
+                iter.next()
+                    .map(std::string::ToString::to_string) // convert the value to a string
+                    // return an error if the value is missing
+                    .ok_or_else(|| ParseArgsError::MissingValue(arg.to_string()))
+            },
+            |s| Ok(s.to_string()), // return the value if it exists
+        )?;
 
         if START_PARAMETERS.contains(&flag_arg.as_str()) {
             return Err(ParseArgsError::MissingValue(arg.to_string()));
