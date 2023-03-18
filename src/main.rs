@@ -59,13 +59,10 @@ fn main() {
         .skip(1) // skip(1) to skip the program name
         .collect::<Vec<String>>();
 
-    match run(&args) {
-        Ok(_) => (),
-        Err(err) => {
-            print_error(&err);
-            std::process::exit(1);
-        }
-    }
+    run(&args).unwrap_or_else(|err| {
+        print_error(&err);
+        std::process::exit(1);
+    });
 }
 
 #[cfg(test)]
