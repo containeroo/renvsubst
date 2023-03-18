@@ -142,19 +142,19 @@ jobs:
           build-args: |
             TARGET=x86_64-unknown-linux-musl
             VERSION=${{ env.PROJECT_VERSION }}
-      - name: Build Docker Image arm
-        uses: docker/build-push-action@v4.0.0
-        with:
-          context: .
-          file: Dockerfile
-          push: true
-          platforms: linux/arm64
-          tags: |
-            ghcr.io/containeroo/renvsubst:arm-latest
-            ghcr.io/containeroo/renvsubst:arm-${{ env.PROJECT_VERSION }}
-          labels: |
-            maintainer=gi8lino <gi8@containeroo.ch>
-            version=${{ env.PROJECT_VERSION }}
-          build-args: |
-            TARGET=arm-unknown-linux-musleabihf
-            VERSION=${{ env.PROJECT_VERSION }}
+      #- name: Build Docker Image arm
+      #  uses: docker/build-push-action@v4.0.0
+      #  with:
+      #    context: .
+      #    file: Dockerfile
+      #    push: true
+      #    platforms: linux/arm64
+      #    tags: |
+      #      ghcr.io/containeroo/renvsubst:arm-latest
+      #      ghcr.io/containeroo/renvsubst:arm-${{ env.PROJECT_VERSION }}
+      #    labels: |
+      #      maintainer=gi8lino <gi8@containeroo.ch>
+      #      version=${{ env.PROJECT_VERSION }}
+      #    build-args: |
+      #      TARGET=arm-unknown-linux-musleabihf
+      #      VERSION=${{ env.PROJECT_VERSION }}
