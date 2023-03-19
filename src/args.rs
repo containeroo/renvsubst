@@ -583,7 +583,10 @@ mod tests {
     fn test_input() {
         let args = vec!["--input", "input_file"];
         let parsed_args = Args::parse(args).unwrap();
-        assert_eq!(parsed_args.io.get(IO::Input), Some("input_file".to_string()));
+        assert_eq!(
+            parsed_args.io.get(IO::Input),
+            Some("input_file".to_string())
+        );
     }
 
     #[test]
@@ -601,7 +604,10 @@ mod tests {
     fn test_output() {
         let args = vec!["--output", "output_file"];
         let parsed_args = Args::parse(args).unwrap();
-        assert_eq!(parsed_args.io.get(IO::Output), Some("output_file".to_string()));
+        assert_eq!(
+            parsed_args.io.get(IO::Output),
+            Some("output_file".to_string())
+        );
     }
 
     #[test]

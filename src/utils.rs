@@ -30,4 +30,3 @@ pub const START_PARAMETERS: &[&str] = &[
     "-v",
     "--variable",
 ];
-

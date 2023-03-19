@@ -70,7 +70,7 @@ fn main() {
 mod tests {
     use super::*;
     use std::fs::File;
-    use std::io::{BufReader, Write, Read};
+    use std::io::{BufReader, Read, Write};
     use tempfile::NamedTempFile;
 
     #[test]
@@ -149,7 +149,6 @@ mod tests {
 
         assert!(result.is_ok()); // check if run() was successful
         assert_eq!(contents, "Hello, world!"); // check if output file contains the correct text
-
     }
 
     #[test]
