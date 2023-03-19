@@ -65,8 +65,8 @@ pub fn open_input(input_file: Option<String>) -> Result<Box<dyn Read>, String> {
 
     // open input file
     match File::open(file) {
-        Ok(file) => Ok(Box::new(BufReader::new(file))),
-        Err(e) => Err(format!("Failed to open input file: {}", e)),
+        Ok(file) => return Ok(Box::new(BufReader::new(file))),
+        Err(e) => return Err(format!("Failed to open input file: {e}")),
     }
 }
 
@@ -81,8 +81,8 @@ pub fn open_output(output_file: Option<String>) -> Result<Box<dyn Write>, String
 
     // create output file
     match File::create(file) {
-        Ok(file) => Ok(Box::new(file)),
-        Err(e) => Err(format!("Failed to create output file: {}", e)),
+        Ok(file) => return Ok(Box::new(file)),
+        Err(e) => return Err(format!("Failed to create output file: {e}")),
     }
 }
 
