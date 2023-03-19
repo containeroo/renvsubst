@@ -26,8 +26,11 @@ spec:
   initContainers:
     - name: renvsubst
       image: ghcr.io/containeroo/renvsubst:latest
-      command:
-        - "renvsubst < /config/config.yaml > /transfer/config.yaml"
+      args:
+        - -i
+        - /config/config.yaml
+        - -o
+        - /transfer/config.yaml
       envFrom:
         - secretRef:
             name: config-secrets

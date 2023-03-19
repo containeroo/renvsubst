@@ -1,4 +1,5 @@
 use crate::errors::ParseArgsError;
+use crate::file_io::{InputOutput, IO};
 use crate::filters::{Filter, Filters};
 use crate::flags::{Flag, Flags};
 use crate::help::HELP_TEXT;
@@ -14,6 +15,7 @@ use crate::help::HELP_TEXT;
 /// The `filters` field is a `Filters` struct that contains optional filters for matching strings. The `Filters` struct is defined in the `filters` module.
 #[derive(Debug, Default)]
 pub struct Args {
+    pub io: InputOutput,
     pub version: Option<String>,
     pub help: Option<String>,
     pub flags: Flags,
@@ -24,6 +26,7 @@ impl Args {
     /// Creates a new instance of Args with all fields set to their default values.
     fn new() -> Self {
         Args {
+            io: InputOutput::default(),
             version: None,
             help: None,
             flags: Flags::default(),
@@ -104,6 +107,14 @@ impl Args {
                     parsed_args.version = Some(env!("CARGO_PKG_VERSION").to_string());
                     return Ok(parsed_args);
                 }
+                // INPUT / OUTPUT
+                "-i" | "--input" => {
+                    parsed_args.io.set(IO::Input, arg, value, &mut args)?;
+                }
+                "-o" | "--output" => {
+                    parsed_args.io.set(IO::Output, arg, value, &mut args)?;
+                }
+
                 // FLAGS
                 "--fail-on-unset" => {
                     parsed_args.flags.set(Flag::FailOnUnset, true)?;
@@ -566,5 +577,41 @@ mod tests {
             .prefixes
             .unwrap()
             .contains("prefix_value"));
+    }
+
+    #[test]
+    fn test_input() {
+        let args = vec!["--input", "input_file"];
+        let parsed_args = Args::parse(args).unwrap();
+        assert_eq!(parsed_args.io.get(IO::Input), Some("input_file".to_string()));
+    }
+
+    #[test]
+    fn test_input_error() {
+        let args = vec!["--input"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_err());
+        assert_eq!(
+            parsed_args.unwrap_err(),
+            ParseArgsError::MissingValue("--input".to_string())
+        );
+    }
+
+    #[test]
+    fn test_output() {
+        let args = vec!["--output", "output_file"];
+        let parsed_args = Args::parse(args).unwrap();
+        assert_eq!(parsed_args.io.get(IO::Output), Some("output_file".to_string()));
+    }
+
+    #[test]
+    fn test_output_error() {
+        let args = vec!["--output"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_err());
+        assert_eq!(
+            parsed_args.unwrap_err(),
+            ParseArgsError::MissingValue("--output".to_string())
+        );
     }
 }

@@ -1,5 +1,6 @@
 mod args;
 mod errors;
+mod file_io;
 mod filters;
 mod flags;
 mod help;
@@ -7,6 +8,7 @@ mod substitute;
 mod utils;
 
 use crate::args::Args;
+use crate::file_io::{open_input, open_output, IO};
 use crate::substitute::process_input;
 use crate::utils::print_error;
 
@@ -45,12 +47,11 @@ fn run(args: &[String]) -> Result<(), String> {
         return Ok(());
     }
 
-    process_input(
-        Box::new(std::io::stdin()),
-        Box::new(std::io::stdout()),
-        &parsed_args.flags,
-        &parsed_args.filters,
-    )
+    // create input and output streams
+    let input = open_input(parsed_args.io.get(IO::Input))?;
+    let output = open_output(parsed_args.io.get(IO::Output))?;
+
+    process_input(input, output, &parsed_args.flags, &parsed_args.filters)
 }
 
 #[cfg(not(tarpaulin_include))]
@@ -68,6 +69,9 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::File;
+    use std::io::{BufReader, Write, Read};
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_run_version() {
@@ -86,5 +90,75 @@ mod tests {
         let args = vec![String::from("--version")];
         let result = run(&args);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_run_input_file() {
+        // create a temp file
+        let input_file = NamedTempFile::new().unwrap();
+        let input_file_path = input_file.path().to_str().unwrap().to_string();
+
+        // add some text
+        let mut file = File::create(&input_file_path).unwrap();
+        let buf = b"Hello, world!";
+        file.write(buf).unwrap();
+
+        let args = vec![String::from("--input"), String::from(input_file_path)];
+        let result = run(&args);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_run_input_error() {
+        let args = vec![
+            String::from("--input"),
+            String::from("nonexistent_file.txt"),
+        ];
+        let result = run(&args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_run_output_file() {
+        // create a temp file for input
+        let input_file = NamedTempFile::new().unwrap();
+        let input_file_path = input_file.path().to_str().unwrap().to_string();
+
+        // add some text to input file
+        let mut file = File::create(&input_file_path).unwrap();
+        let buf = b"Hello, ${NOT_FOUND_VAR:-world}!";
+        file.write(buf).unwrap();
+
+        // create a temp file for output
+        let output_file = NamedTempFile::new().unwrap();
+        let output_file_path = output_file.path().to_str().unwrap().to_string();
+
+        let args = vec![
+            String::from("--input"),
+            String::from(input_file_path),
+            String::from("--output"),
+            String::from(output_file_path.clone()),
+        ];
+        let result = run(&args);
+
+        // read output file
+        let file = File::open(output_file_path).unwrap();
+        let mut reader = BufReader::new(file);
+        let mut contents = String::new();
+        reader.read_to_string(&mut contents).unwrap();
+
+        assert!(result.is_ok()); // check if run() was successful
+        assert_eq!(contents, "Hello, world!"); // check if output file contains the correct text
+
+    }
+
+    #[test]
+    fn test_run_output_error() {
+        let args = vec![
+            String::from("--output"),
+            String::from("/nonexistent_dir/output.txt"),
+        ];
+        let result = run(&args);
+        assert!(result.is_err());
     }
 }

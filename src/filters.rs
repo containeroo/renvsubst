@@ -1,4 +1,5 @@
 use crate::errors::ParseArgsError;
+use crate::utils::START_PARAMETERS;
 use std::collections::HashSet;
 
 /// A struct that contains optional filters for matching strings.
@@ -31,27 +32,6 @@ pub enum Filter {
     Suffix,
     Variable,
 }
-
-/// List with all the parameters that can be used to start the program.
-/// This is used to check if the value of a flag is another flag.
-const START_PARAMETERS: &[&str] = &[
-    "-h",
-    "--help",
-    "--version",
-    "--fail-on-unset",
-    "--fail-on-empty",
-    "--fail",
-    "--no-replace-unset",
-    "--no-replace-empty",
-    "--no-escape",
-    "--unbuffer-lines",
-    "-p",
-    "--prefix",
-    "-s",
-    "--suffix",
-    "-v",
-    "--variable",
-];
 
 impl Filters {
     /// Adds a filter to the `Filters` struct.

@@ -8,7 +8,7 @@ The primary objective of `renvsubst` is to serve as a lightweight and high-perfo
 ## Usage
 
 ```sh
-Usage: renvsubst [FLAGS] [FILTERS] [INPUT] | -h | --help | --version
+Usage: renvsubst [FLAGS] [FILTERS] [INPUT/OUTPUT] | -h | --help | --version
 ```
 
 ## General
@@ -49,7 +49,10 @@ If multiple identical prefixes, suffixes or variables are provided, only one cop
 
 ## Input
 
-The input can be passed via `stdin`. If no input is provided, the program will wait for input from the user.
+| Parameter               | Description                                                                                                                  |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `-i`, `--input`[=FILE]  | Path to the input file. If omitted, renvsubst will read from `stdin`. To use `stdin` explicitly, use `-` as the input file.    |
+| `-o`, `--output`[=FILE] | Path to the output file. If omitted, renvsubst will write to `stdout`. To use `stdout` explicitly, use `-` as the output file. |
 
 ## Escaping
 
