@@ -1,7 +1,7 @@
 use crate::errors::ParseArgsError;
 use crate::utils::START_PARAMETERS;
 use std::fs::File;
-use std::io::{BufReader, Read, Write};
+use std::io::{Read, Write};
 
 /// A struct representing input and output streams.
 #[derive(Debug, Default)]
@@ -92,7 +92,7 @@ pub fn open_input(input_file: Option<String>) -> Result<Box<dyn Read>, String> {
         Some(file) => {
             Box::new(
                 // open the file with the given name
-                File::open(&file).map_err(
+                File::open(file).map_err(
                     // if there is an error, convert it to a string and return it
                     |e| format!("Failed to open input file: {e}"),
                 )?,

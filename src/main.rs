@@ -1,14 +1,14 @@
 mod args;
 mod errors;
-mod file_io;
 mod filters;
 mod flags;
 mod help;
+mod io;
 mod substitute;
 mod utils;
 
 use crate::args::Args;
-use crate::file_io::{open_input, open_output, IO};
+use crate::io::{open_input, open_output, IO};
 use crate::substitute::process_input;
 use crate::utils::print_error;
 

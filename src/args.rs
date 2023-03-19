@@ -1,8 +1,8 @@
 use crate::errors::ParseArgsError;
-use crate::file_io::{InputOutput, IO};
 use crate::filters::{Filter, Filters};
 use crate::flags::{Flag, Flags};
 use crate::help::HELP_TEXT;
+use crate::io::{InputOutput, IO};
 
 /// A struct representing the command-line arguments for a program.
 ///
