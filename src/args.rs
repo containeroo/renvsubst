@@ -580,8 +580,28 @@ mod tests {
     }
 
     #[test]
-    fn test_input() {
+    fn test_input_space() {
         let args = vec!["--input", "input_file"];
+        let parsed_args = Args::parse(args).unwrap();
+        assert_eq!(
+            parsed_args.io.get(IO::Input),
+            Some("input_file".to_string())
+        );
+    }
+
+    #[test]
+    fn test_input_equal() {
+        let args = vec!["--input=input_file"];
+        let parsed_args = Args::parse(args).unwrap();
+        assert_eq!(
+            parsed_args.io.get(IO::Input),
+            Some("input_file".to_string())
+        );
+    }
+
+    #[test]
+    fn test_input_equal_short() {
+        let args = vec!["-i=input_file"];
         let parsed_args = Args::parse(args).unwrap();
         assert_eq!(
             parsed_args.io.get(IO::Input),
@@ -601,8 +621,28 @@ mod tests {
     }
 
     #[test]
-    fn test_output() {
+    fn test_output_space() {
         let args = vec!["--output", "output_file"];
+        let parsed_args = Args::parse(args).unwrap();
+        assert_eq!(
+            parsed_args.io.get(IO::Output),
+            Some("output_file".to_string())
+        );
+    }
+
+    #[test]
+    fn test_output_equal() {
+        let args = vec!["--output=output_file"];
+        let parsed_args = Args::parse(args).unwrap();
+        assert_eq!(
+            parsed_args.io.get(IO::Output),
+            Some("output_file".to_string())
+        );
+    }
+
+    #[test]
+    fn test_output_equal_short() {
+        let args = vec!["-o=output_file"];
         let parsed_args = Args::parse(args).unwrap();
         assert_eq!(
             parsed_args.io.get(IO::Output),
