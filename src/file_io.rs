@@ -75,52 +75,61 @@ impl InputOutput {
     }
 }
 
-/// Opens the input file, if provided, otherwise returns `stdin`.
+/// Opens an input file, or returns stdin if no input file is provided or "-" is specified.
+/// Returns a boxed `dyn Read` instance on success, or an error message on failure.
 ///
 /// # Arguments
 ///
-/// * `input_file` - The path to the input file, if provided.
+/// * `input_file` - An optional `String` containing the path to the input file, or "-" to specify stdin.
 ///
-/// # Returns
+/// # Errors
 ///
-/// Returns a `Result` containing the input stream or an error message.
+/// Returns an error message as a `String` if the input file cannot be opened.
+///
 pub fn open_input(input_file: Option<String>) -> Result<Box<dyn Read>, String> {
-    // check if file is None or "-"
-    let file = match input_file {
-        Some(file) if file == "-" => return Ok(Box::new(std::io::stdin())),
-        Some(file) => file,
-        None => return Ok(Box::new(std::io::stdin())),
+    let input: Box<dyn Read> = match input_file {
+        Some(file) if file == "-" => Box::new(std::io::stdin()),
+        Some(file) => {
+            Box::new(
+                // open the file with the given name
+                File::open(&file).map_err(
+                    // if there is an error, convert it to a string and return it
+                    |e| format!("Failed to open input file: {e}"),
+                )?,
+            )
+        }
+        None => Box::new(std::io::stdin()),
     };
 
-    // open input file
-    match File::open(file) {
-        Ok(file) => return Ok(Box::new(BufReader::new(file))),
-        Err(e) => return Err(format!("Failed to open input file: {e}")),
-    }
+    return Ok(input);
 }
 
-/// Opens the output file, if provided, otherwise returns `stdout`.
+/// Opens the output file specified in the command-line arguments, or returns `stdout` if none was specified.
 ///
 /// # Arguments
 ///
-/// * `output_file` - The path to the output file, if provided.
+/// * `output_file`: An optional `String` that contains the path to the output file. If this is `None` or `"-"`, the function returns `stdout`.
 ///
 /// # Returns
 ///
-/// Returns a `Result` containing the output stream or an error message.
+/// * `Result<Box<dyn Write>, String>`: A `Result` that contains a boxed `Write` trait object representing the opened file, or an error message as a `String` if the file couldn't be opened or created.
+///
 pub fn open_output(output_file: Option<String>) -> Result<Box<dyn Write>, String> {
-    // check if file is None or "-"
-    let file = match output_file {
-        Some(file) if file == "-" => return Ok(Box::new(std::io::stdout())),
-        Some(file) => file,
-        None => return Ok(Box::new(std::io::stdout())),
+    let output: Box<dyn Write> = match output_file {
+        Some(file) if file == "-" => Box::new(std::io::stdout()),
+        Some(file) => {
+            Box::new(
+                // create a new file with the given name
+                File::create(file).map_err(
+                    // if there is an error, convert it to a string and return it
+                    |e| format!("Failed to create output file: {e}"),
+                )?,
+            )
+        }
+        None => Box::new(std::io::stdout()),
     };
 
-    // create output file
-    match File::create(file) {
-        Ok(file) => return Ok(Box::new(file)),
-        Err(e) => return Err(format!("Failed to create output file: {e}")),
-    }
+    return Ok(output);
 }
 
 #[cfg(test)]
