@@ -158,9 +158,7 @@ impl Args {
                         .add(Filter::Variable, arg, value, &mut args)?;
                 }
                 // UNKNOWN
-                _ => {
-                    return Err(ParseArgsError::UnknownFlag(arg.to_string()));
-                }
+                _ => return Err(ParseArgsError::UnknownFlag(arg.to_string())),
             }
         }
 
@@ -190,17 +188,6 @@ mod tests {
         assert_eq!(
             parsed_args.unwrap_err(),
             ParseArgsError::UnknownFlag("--invalid-flag".to_string())
-        );
-    }
-
-    #[test]
-    fn test_parse_unknown_flag2() {
-        let args = vec!["--unknown-flag"];
-        let parsed_args = Args::parse(args);
-        assert!(parsed_args.is_err());
-        assert_eq!(
-            parsed_args.unwrap_err(),
-            ParseArgsError::UnknownFlag("--unknown-flag".to_owned())
         );
     }
 
