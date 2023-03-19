@@ -125,7 +125,7 @@ export VARIABLE_3_suffixed="small letters suffix"
 Replace all variables inside `input.txt` and output the result to `output.txt`:
 
 ```sh
-renvsubst < input.txt > output.txt
+renvsubst --input input.txt --output output.txt
 
 # output.txt:
 This is a "test.txt" file.
@@ -159,7 +159,7 @@ Or you can escape Text with two dollar signs ($$) like fi$h => fi$h.
 Replace only variables with the prefix `PREFIXED` from the variable `INPUT` and write the output to the file `output.txt`:
 
 ```sh
-renvsubst --prefix PREFIXED <<< $INPUT > output.txt
+renvsubst --prefix PREFIXED --input - <<< $INPUT > output.txt
 
 # output.txt:
 This is a "$FILE_NAME" file.
@@ -176,7 +176,7 @@ Or you can escape Text with two dollar signs ($$) like fi$h => fi$h.
 Replace only variables with the suffix `SUFFIXED` inside `input.txt` and write the output to the file `output.txt`:
 
 ```sh
-renvsubst --suffix=SUFFIXED < input.txt > output.txt
+renvsubst --suffix=SUFFIXED -i - < input.txt > output.txt
 
 # output.txt:
 This is a "$FILE_NAME" file.
