@@ -3,19 +3,35 @@ use crate::utils::START_PARAMETERS;
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
 
+/// A struct representing input and output streams.
 #[derive(Debug, Default)]
 pub struct InputOutput {
     input: Option<String>,
     output: Option<String>,
 }
 
+/// An enum representing input and output types.
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum IO {
+    /// Input type
     Input,
+    /// Output type
     Output,
 }
 
 impl InputOutput {
+    /// Sets the input or output stream.
+    ///
+    /// # Arguments
+    ///
+    /// * `io` - The input or output type.
+    /// * `arg` - The command line argument name.
+    /// * `value` - The command line argument value, if provided.
+    /// * `iter` - A mutable iterator over the command line arguments.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ParseArgsError` if the value is missing or if the argument is already set.
     pub fn set(
         &mut self,
         io: IO,
@@ -46,6 +62,11 @@ impl InputOutput {
         Ok(())
     }
 
+    /// Gets the input or output value.
+    ///
+    /// # Arguments
+    ///
+    /// * `io` - The input or output type.
     pub fn get(&self, io: IO) -> Option<String> {
         match io {
             IO::Input => self.input.clone(),
@@ -54,7 +75,15 @@ impl InputOutput {
     }
 }
 
-// function to open input file, if provided, otherwise use stdin
+/// Opens the input file, if provided, otherwise returns `stdin`.
+///
+/// # Arguments
+///
+/// * `input_file` - The path to the input file, if provided.
+///
+/// # Returns
+///
+/// Returns a `Result` containing the input stream or an error message.
 pub fn open_input(input_file: Option<String>) -> Result<Box<dyn Read>, String> {
     // check if file is None or "-"
     let file = match input_file {
@@ -70,7 +99,15 @@ pub fn open_input(input_file: Option<String>) -> Result<Box<dyn Read>, String> {
     }
 }
 
-// function to open output file, if provided, otherwise use stdout
+/// Opens the output file, if provided, otherwise returns `stdout`.
+///
+/// # Arguments
+///
+/// * `output_file` - The path to the output file, if provided.
+///
+/// # Returns
+///
+/// Returns a `Result` containing the output stream or an error message.
 pub fn open_output(output_file: Option<String>) -> Result<Box<dyn Write>, String> {
     // check if file is None or "-"
     let file = match output_file {
