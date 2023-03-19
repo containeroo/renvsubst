@@ -8,7 +8,7 @@ The primary objective of `renvsubst` is to serve as a lightweight and high-perfo
 ## Usage
 
 ```sh
-Usage: renvsubst [FLAGS] [FILTERS] [INPUT/OUTPUT] | -h | --help | --version
+Usage: renvsubst [FLAGS] [FILTERS] [INPUT] [OUTPUT] | [-h | --help | --version]
 ```
 
 ## General
