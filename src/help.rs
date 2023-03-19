@@ -3,10 +3,6 @@ pub const HELP_TEXT: &str = "Usage: renvsubst [FLAGS] [FILTERS] [INPUT] [OUTPUT]
 renvsubst will substitute all (bash-like) environment variables in the format of $VAR_NAME, ${VAR_NAME} or ${VAR_NAME:-DEFAULT_VALUE} with their corresponding values from the environment or the default value if provided. If the variable is not valid, it remains as is.
 A valid variable name starts with a letter or underscore, followed by any combination of letters, numbers, or underscores.
 
-General:
-  -h, --help                       Show this help text.
-      --version                    Show the version of the program.
-
 Flags:
   --fail-on-unset                  Fails if an environment variable is not set.
   --fail-on-empty                  Fails if an environment variable is empty.
@@ -39,6 +35,10 @@ Input:
 Output:
   -o, --output[=FILE]              Output file path. Use '-' to write to stdout.
                                    Defaults to stdout if omitted.
+
+General:
+-h, --help                       Show this help text.
+    --version                    Show the version of the program.
 
 Escaping:
 To retain a variable's original value and prevent it from being substituted by an environment variable, add a second dollar sign ($). The second dollar sign will be removed during substitution. Only valid variables must be escaped.

@@ -11,13 +11,6 @@ The primary objective of `renvsubst` is to serve as a lightweight and high-perfo
 Usage: renvsubst [FLAGS] [FILTERS] [INPUT] [OUTPUT] | [-h | --help | --version]
 ```
 
-## General
-
-| Parameter        | Description                      |
-| ---------------- | -------------------------------- |
-| `-h` \| `--help` | Show help text.                  |
-| `--version`      | Show the version of the program. |
-
 ## Flags
 
 When the same flag is provided multiple times, renvsubst will throw an error.
@@ -58,6 +51,13 @@ If multiple identical prefixes, suffixes or variables are provided, only one cop
 | Parameter               | Description                                                                                                                    |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `-o`, `--output`[=FILE] | Path to the output file. If omitted, renvsubst will write to `stdout`. To use `stdout` explicitly, use `-` as the output file. |
+
+## General
+
+| Parameter        | Description                      |
+| ---------------- | -------------------------------- |
+| `-h` \| `--help` | Show help text.                  |
+| `--version`      | Show the version of the program. |
 
 ## Escaping
 
