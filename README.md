@@ -206,4 +206,16 @@ Here are other prefixed "" and suffixed "$VARIABLE_3_suffixed" variables!
 
 ## container
 
-Additionally, there is a minimal renvsubst container. You can find an example kubernetes manifest in the  `deploy` folder.
+Furthermore, there is a `renvsubst` container available in a minimal form. In the `deploy` directory, you can find Kubernetes manifests as examples. Please note that as the container uses `scratch` as the "base image," it lacks a shell within the container. Consequently, input/output redirection will __NOT__ work at all. Instead, it is necessary to use the `-i|--input` and `-o|--output` options to pass data to `renvsubst`. Please refrain from using the `<` and `>` symbols to redirect input/output, as illustrated in the "bad" example. Instead, use the "good" example, which employs the `--input` and `--output` options to pass data.
+
+__bad:__
+
+```sh
+renvsubst < input.txt > output.txt
+```
+
+__good:__
+
+```sh
+renvsubst --input input.txt --output output.txt
+```
