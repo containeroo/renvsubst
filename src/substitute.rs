@@ -383,9 +383,9 @@ fn read_lines(mut input: impl BufRead) -> impl Iterator<Item = std::io::Result<S
     std::iter::from_fn(move || {
         let mut vec = String::new();
         match input.read_line(&mut vec) {
-            Ok(0) => None,
-            Ok(_) => Some(Ok(std::mem::replace(&mut vec, String::new()))),
-            Err(e) => Some(Err(e)),
+            Ok(0) => return None,
+            Ok(_) => return Some(Ok(std::mem::take(&mut vec))),
+            Err(e) => return Some(Err(e)),
         }
     })
 }
