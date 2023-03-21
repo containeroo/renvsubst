@@ -1,15 +1,15 @@
 mod args;
+mod env_subst;
 mod errors;
 mod filters;
 mod flags;
 mod help;
 mod io;
-mod substitute;
 mod utils;
 
 use crate::args::Args;
+use crate::env_subst::process_input;
 use crate::io::{open_input, open_output, IO};
-use crate::substitute::process_input;
 use crate::utils::print_error;
 
 /// Executes the main logic of the application based on the given command-line arguments.
