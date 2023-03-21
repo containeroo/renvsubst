@@ -11,8 +11,8 @@ pub enum ParseArgsError {
     /// Two or more conflicting flags were specified.
     ConflictingFlags(String, String),
 
-    /// Duplicate values were specified for a given flag.
-    DuplicateValue(String),
+    /// Flag were specified multiple times.
+    DuplicateFlag(String),
 }
 
 impl std::fmt::Display for ParseArgsError {
@@ -23,7 +23,7 @@ impl std::fmt::Display for ParseArgsError {
             Self::ConflictingFlags(flag1, flag2) => {
                 return write!(f, "Flags {flag1} and {flag2} cannot be used together!")
             }
-            Self::DuplicateValue(flag) => {
+            Self::DuplicateFlag(flag) => {
                 return write!(f, "Flag '{flag}' cannot be specified more than once!")
             }
         }
@@ -59,7 +59,7 @@ mod tests {
 
     #[test]
     fn test_duplicate_value_error() {
-        let error = ParseArgsError::DuplicateValue(String::from("foo"));
+        let error = ParseArgsError::DuplicateFlag(String::from("foo"));
         assert_eq!(
             format!("{error}"),
             "Flag 'foo' cannot be specified more than once!"

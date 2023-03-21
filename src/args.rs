@@ -1,6 +1,6 @@
 use crate::errors::ParseArgsError;
 use crate::filters::{Filter, Filters};
-use crate::flags::{Flag, Flags};
+use crate::flags::{FlagType, Flags};
 use crate::help::HELP_TEXT;
 use crate::io::{InputOutput, IO};
 
@@ -32,6 +32,66 @@ impl Args {
             flags: Flags::default(),
             filters: Filters::default(),
         }
+    }
+    /// Expands combined single-hyphen flags into separate flag-value pairs.
+    ///
+    /// This function takes an input argument and returns a vector of tuples,
+    /// where each tuple contains a flag and its associated value (if any).
+    /// The function handles different flag formats, such as:
+    /// - `-abc` expands to `-a`, `-b`, `-c`
+    /// - `-a=value` expands to `-a` with value `value`
+    /// - `--long-flag` does not expand
+    /// - `--long-flag=value` does not expand, but associates the value with the flag
+    ///
+    /// # Arguments
+    ///
+    /// * `arg` - The input argument as a string slice
+    ///
+    /// # Returns
+    ///
+    /// A vector of tuples containing flags and their associated values (if any)
+    fn expand_combined_flags(arg: &str) -> Vec<(String, Option<&str>)> {
+        let mut expanded_flags = Vec::new();
+
+        let prefixes = ["--", "-"];
+        // Extract flag prefix and flag body
+        let (flag_prefix, flag_body) = prefixes
+            .iter() // iterate over the prefixes
+            .find_map(
+                // find the first prefix that matches the start of the arg
+                |prefix| {
+                    arg.strip_prefix(prefix).map(
+                        // if there is a match, return the prefix and the rest of the arg
+                        |stripped| (prefix, stripped), // return the prefix and the rest of the arg
+                    )
+                },
+            )
+            .unwrap_or(
+                // if there is no match, return an empty string for the prefix and the whole arg
+                (&arg, ""),
+            );
+
+        // Check if there's an equal sign in the flag body, and separate the flag
+        // body into the part before the equal sign and the value part
+        let (flag_body_no_value, value) = match flag_body.find('=') {
+            Some(index) => (&flag_body[..index], Some(&flag_body[index + 1..])),
+            None => (flag_body, None),
+        };
+
+        // Determine whether the flag should be expanded (single hyphen with
+        // multiple characters and no value)
+        let should_expand = flag_prefix == &"-" && flag_body_no_value.len() > 1 && value.is_none();
+
+        // Expand the flag if necessary, or add the flag with its value (if any)
+        if should_expand {
+            for c in flag_body_no_value.chars() {
+                expanded_flags.push((format!("{flag_prefix}{c}"), None));
+            }
+        } else {
+            expanded_flags.push((format!("{flag_prefix}{flag_body_no_value}",), value));
+        }
+
+        return expanded_flags;
     }
 
     /// Parses command line arguments and returns an `Args` struct with the parsed values.
@@ -93,72 +153,85 @@ impl Args {
         let mut parsed_args = Self::new();
 
         while let Some(arg) = args.next() {
-            // Split the argument by the first occurrence of '='
-            let (flag_name, value) = match arg.find('=') {
-                Some(index) => (&arg[0..index], Some(&arg[(index + 1)..arg.len()])),
-                None => (arg.as_str(), None),
-            };
-            match flag_name {
-                "-h" | "--help" => {
-                    parsed_args.help = Some(HELP_TEXT.to_string());
-                    return Ok(parsed_args);
-                }
-                "--version" => {
-                    parsed_args.version = Some(env!("CARGO_PKG_VERSION").to_string());
-                    return Ok(parsed_args);
-                }
-                // INPUT / OUTPUT
-                "-i" | "--input" => {
-                    parsed_args.io.set(IO::Input, arg, value, &mut args)?;
-                }
-                "-o" | "--output" => {
-                    parsed_args.io.set(IO::Output, arg, value, &mut args)?;
-                }
+            for (flag, value) in Self::expand_combined_flags(arg) {
+                let flag_name = flag.as_str();
 
-                // FLAGS
-                "--fail-on-unset" => {
-                    parsed_args.flags.set(Flag::FailOnUnset, true)?;
-                }
-                "--fail-on-empty" => {
-                    parsed_args.flags.set(Flag::FailOnEmpty, true)?;
-                }
-                "--fail" => {
-                    parsed_args.flags.set(Flag::Fail, true)?;
-                }
-                "--no-replace-unset" => {
-                    parsed_args.flags.set(Flag::NoReplaceUnset, true)?;
-                }
-                "--no-replace-empty" => {
-                    parsed_args.flags.set(Flag::NoReplaceEmpty, true)?;
-                }
-                "--no-replace" => {
-                    parsed_args.flags.set(Flag::NoReplace, true)?;
-                }
-                "--no-escape" => {
-                    parsed_args.flags.set(Flag::NoEscape, true)?;
-                }
-                "--unbuffer-lines" => {
-                    parsed_args.flags.set(Flag::UnbufferedLines, true)?;
-                }
+                match flag_name {
+                    "-h" | "--help" => {
+                        parsed_args.help = Some(HELP_TEXT.to_string());
+                        return Ok(parsed_args);
+                    }
+                    "--version" => {
+                        parsed_args.version = Some(env!("CARGO_PKG_VERSION").to_string());
+                        return Ok(parsed_args);
+                    }
+                    // INPUT / OUTPUT
+                    "-i" | "--input" => {
+                        parsed_args.io.set(IO::Input, flag_name, value, &mut args)?;
+                    }
+                    "-o" | "--output" => {
+                        parsed_args
+                            .io
+                            .set(IO::Output, flag_name, value, &mut args)?;
+                    }
 
-                // FILTERS
-                "-p" | "--prefix" => {
-                    parsed_args
-                        .filters
-                        .add(Filter::Prefix, arg, value, &mut args)?;
+                    // FLAGS
+                    "-u" | "--fail-on-unset" => {
+                        parsed_args
+                            .flags
+                            .set(FlagType::FailOnUnset, flag_name, true)?;
+                    }
+                    "-e" | "--fail-on-empty" => {
+                        parsed_args
+                            .flags
+                            .set(FlagType::FailOnEmpty, flag_name, true)?;
+                    }
+                    "-f" | "--fail" => {
+                        parsed_args.flags.set(FlagType::Fail, flag_name, true)?;
+                    }
+                    "-U" | "--no-replace-unset" => {
+                        parsed_args
+                            .flags
+                            .set(FlagType::NoReplaceUnset, flag_name, true)?;
+                    }
+                    "-E" | "--no-replace-empty" => {
+                        parsed_args
+                            .flags
+                            .set(FlagType::NoReplaceEmpty, flag_name, true)?;
+                    }
+                    "-N" | "--no-replace" => {
+                        parsed_args
+                            .flags
+                            .set(FlagType::NoReplace, flag_name, true)?;
+                    }
+                    "-x" | "--no-escape" => {
+                        parsed_args.flags.set(FlagType::NoEscape, flag_name, true)?;
+                    }
+                    "-b" | "--unbuffer-lines" => {
+                        parsed_args
+                            .flags
+                            .set(FlagType::UnbufferedLines, flag_name, true)?;
+                    }
+
+                    // FILTERS
+                    "-p" | "--prefix" => {
+                        parsed_args
+                            .filters
+                            .add(Filter::Prefix, flag_name, value, &mut args)?;
+                    }
+                    "-s" | "--suffix" => {
+                        parsed_args
+                            .filters
+                            .add(Filter::Suffix, flag_name, value, &mut args)?;
+                    }
+                    "-v" | "--variable" => {
+                        parsed_args
+                            .filters
+                            .add(Filter::Variable, flag_name, value, &mut args)?;
+                    }
+                    // UNKNOWN
+                    _ => return Err(ParseArgsError::UnknownFlag(flag)),
                 }
-                "-s" | "--suffix" => {
-                    parsed_args
-                        .filters
-                        .add(Filter::Suffix, arg, value, &mut args)?;
-                }
-                "-v" | "--variable" => {
-                    parsed_args
-                        .filters
-                        .add(Filter::Variable, arg, value, &mut args)?;
-                }
-                // UNKNOWN
-                _ => return Err(ParseArgsError::UnknownFlag(arg.to_string())),
             }
         }
 
@@ -175,7 +248,11 @@ mod tests {
         let args = vec!["--no-replace-empty", "--prefix", "prefix-"];
         let parsed_args = Args::parse(args).unwrap();
 
-        assert!(parsed_args.flags.get(Flag::NoReplaceEmpty).unwrap_or(false),);
+        assert!(parsed_args
+            .flags
+            .get(FlagType::NoReplaceEmpty)
+            .value
+            .unwrap_or(false),);
         assert!(parsed_args.filters.prefixes.unwrap().contains("prefix-"),);
     }
 
@@ -236,7 +313,11 @@ mod tests {
 
         assert!(parsed_args.is_ok());
         assert_eq!(
-            parsed_args.unwrap().flags.get(Flag::UnbufferedLines),
+            parsed_args
+                .unwrap()
+                .flags
+                .get(FlagType::UnbufferedLines)
+                .value,
             Some(true)
         );
     }
@@ -409,7 +490,12 @@ mod tests {
         let args = vec!["--no-escape"];
         let parsed_args = Args::parse(args);
         assert!(parsed_args.is_ok());
-        assert!(parsed_args.unwrap().flags.get(Flag::NoEscape).unwrap());
+        assert!(parsed_args
+            .unwrap()
+            .flags
+            .get(FlagType::NoEscape)
+            .value
+            .unwrap_or(false));
     }
 
     #[test]
@@ -567,6 +653,85 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_shorts_fail_unset_fail_empty() {
+        let args = vec!["-uexb"];
+        let parsed_args = Args::parse(args);
+        let result = parsed_args.unwrap();
+        assert!(result
+            .flags
+            .get(FlagType::FailOnUnset)
+            .value
+            .unwrap_or(false));
+        assert!(result
+            .flags
+            .get(FlagType::FailOnEmpty)
+            .value
+            .unwrap_or(false));
+        assert!(result
+            .flags
+            .get(FlagType::UnbufferedLines)
+            .value
+            .unwrap_or(false));
+        assert!(result.flags.get(FlagType::NoEscape).value.unwrap_or(false));
+    }
+
+    #[test]
+    fn test_parse_shorts_long() {
+        let args = vec!["-uex", "--unbuffer-lines"];
+        let parsed_args = Args::parse(args);
+        let result = parsed_args.unwrap();
+        assert!(result
+            .flags
+            .get(FlagType::FailOnUnset)
+            .value
+            .unwrap_or(false));
+        assert!(result
+            .flags
+            .get(FlagType::FailOnEmpty)
+            .value
+            .unwrap_or(false));
+        assert!(result
+            .flags
+            .get(FlagType::UnbufferedLines)
+            .value
+            .unwrap_or(false));
+        assert!(result.flags.get(FlagType::NoEscape).value.unwrap_or(false));
+    }
+
+    #[test]
+    fn test_parse_shorts_unwknown() {
+        let args = vec!["-uen"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_err());
+        assert_eq!(
+            parsed_args.unwrap_err(),
+            ParseArgsError::UnknownFlag("-n".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_shorts_conflict() {
+        let args = vec!["-uef"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_err());
+        assert_eq!(
+            parsed_args.unwrap_err(),
+            ParseArgsError::ConflictingFlags("-f".to_string(), "-u".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_shorts_long_mixed_conflict() {
+        let args = vec!["-ue", "--fail"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_err());
+        assert_eq!(
+            parsed_args.unwrap_err(),
+            ParseArgsError::ConflictingFlags("--fail".to_string(), "-u".to_string())
+        );
+    }
+
+    #[test]
     fn test_input_space() {
         let args = vec!["--input", "input_file"];
         let parsed_args = Args::parse(args).unwrap();
@@ -593,6 +758,16 @@ mod tests {
         assert_eq!(
             parsed_args.io.get(IO::Input),
             Some("input_file".to_string())
+        );
+    }
+
+    #[test]
+    fn test_input_equal_equal_in_value_short() {
+        let args = vec!["-i=input=file.txt"];
+        let parsed_args = Args::parse(args).unwrap();
+        assert_eq!(
+            parsed_args.io.get(IO::Input),
+            Some("input=file.txt".to_string())
         );
     }
 
@@ -645,6 +820,53 @@ mod tests {
         assert_eq!(
             parsed_args.unwrap_err(),
             ParseArgsError::MissingValue("--output".to_string())
+        );
+    }
+
+    #[test]
+    fn test_flags_conflict_short_long() {
+        let args = vec!["-U", "--fail-on-unset"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_err());
+        assert_eq!(
+            parsed_args.unwrap_err(),
+            ParseArgsError::ConflictingFlags("--fail-on-unset".to_string(), "-U".to_string())
+        );
+    }
+
+    #[test]
+    fn test_flags_other_conflict_short_long() {
+        let args = vec!["--unbuffer-lines", "-U", "--fail-on-unset"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_err());
+        assert_eq!(
+            parsed_args.unwrap_err(),
+            ParseArgsError::ConflictingFlags("--fail-on-unset".to_string(), "-U".to_string())
+        );
+    }
+
+    #[test]
+    fn test_flags_other_conflict_long_long() {
+        let args = vec!["--unbuffer-lines", "--no-replace-unset", "--fail-on-unset"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_err());
+        assert_eq!(
+            parsed_args.unwrap_err(),
+            ParseArgsError::ConflictingFlags(
+                "--fail-on-unset".to_string(),
+                "--no-replace-unset".to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn test_no_replace_duplicate() {
+        let args = vec!["--no-replace-unset", "--no-replace-unset"];
+        let parsed_args = Args::parse(args);
+        assert!(parsed_args.is_err());
+        assert_eq!(
+            parsed_args.unwrap_err(),
+            ParseArgsError::DuplicateFlag("--no-replace-unset".to_string())
         );
     }
 }

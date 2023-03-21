@@ -21,14 +21,30 @@ use crate::errors::ParseArgsError;
 ///
 #[derive(Debug, Default)]
 pub struct Flags {
-    fail_on_unset: Option<bool>,
-    fail_on_empty: Option<bool>,
-    fail: Option<bool>,
-    no_replace_unset: Option<bool>,
-    no_replace_empty: Option<bool>,
-    no_replace: Option<bool>,
-    no_escape: Option<bool>,
-    unbuffered_lines: Option<bool>,
+    fail_on_unset: FlagItem,
+    fail_on_empty: FlagItem,
+    fail: FlagItem,
+    no_replace_unset: FlagItem,
+    no_replace_empty: FlagItem,
+    no_replace: FlagItem,
+    no_escape: FlagItem,
+    unbuffered_lines: FlagItem,
+}
+
+/// A `FlagItem` represents a command line flag and its associated value.
+///
+/// Each flag has a name and an optional boolean value. The `flag` field
+/// stores the name of the flag as it appears on the command line, while the `value`
+/// field stores the boolean value that is associated with the flag.
+#[derive(Debug, Default, Clone)]
+pub struct FlagItem {
+    /// The name of the flag as passed on the command line (e.g., "--fail", "-f").
+    pub flag: String,
+
+    /// The boolean value associated with the flag.
+    ///
+    /// This field is set to `None` if the flag does not have an associated value.
+    pub value: Option<bool>,
 }
 
 /// The `Flag` enum represents the various command-line flags that can be used to modify
@@ -53,7 +69,7 @@ pub struct Flags {
 /// cloned as needed. It also implements the `Debug`, `PartialEq`, `Eq`, and `Hash` traits for
 /// easy debugging and comparison.
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
-pub enum Flag {
+pub enum FlagType {
     FailOnUnset,
     FailOnEmpty,
     Fail,
@@ -65,158 +81,241 @@ pub enum Flag {
 }
 
 impl Flags {
-    /// Set a flag to a boolean value.
+    /// Sets the value of the given `flag_type` in the `Flags` struct.
+    ///
+    /// This function checks for conflicts and duplicates before setting the flag's value.
+    /// If a conflict or duplicate is found, an appropriate error is returned.
     ///
     /// # Arguments
     ///
-    /// * `flag` - The flag to set.
-    /// * `value` - The value to set the flag to.
+    /// * `flag_type` - The flag type to set.
+    /// * `flag` - The flag's name.
+    /// * `value` - The value to set for the flag.
     ///
-    /// # Errors
+    /// # Returns
     ///
-    /// Returns an error if the flag is already set or if there are conflicting flags.
-    pub fn set(&mut self, flag: Flag, value: bool) -> Result<(), ParseArgsError> {
-        match flag {
-            Flag::FailOnUnset => {
-                if self.fail == Some(true) {
+    /// * A `Result` indicating the success or failure of the operation.
+    pub fn set(
+        &mut self,
+        flag_type: FlagType,
+        flag: &str,
+        value: bool,
+    ) -> Result<(), ParseArgsError> {
+        match flag_type {
+            // Handle each flag type separately to check for conflicts and duplicates
+            FlagType::FailOnUnset => {
+                // Check for conflicts with other flags
+                if let Some(true) = self.fail.value.as_ref() {
                     return Err(ParseArgsError::ConflictingFlags(
-                        "--fail-on-unset".to_string(),
-                        "--fail".to_string(),
+                        flag.to_string(),
+                        self.fail.flag.clone(),
                     ));
                 }
-                if self.no_replace_unset == Some(true) {
+                if let Some(true) = self.no_replace_unset.value.as_ref() {
                     return Err(ParseArgsError::ConflictingFlags(
-                        "--fail-on-unset".to_string(),
-                        "--no-replace-unset".to_string(),
-                    ));
-                }
-                if self.fail_on_unset.is_some() {
-                    return Err(ParseArgsError::DuplicateValue(
-                        "--fail-on-unset".to_string(),
+                        flag.to_string(),
+                        self.no_replace_unset.flag.clone(),
                     ));
                 }
 
-                self.fail_on_unset = Some(value);
-                return Ok(());
-            }
-            Flag::FailOnEmpty => {
-                if self.fail == Some(true) {
-                    return Err(ParseArgsError::ConflictingFlags(
-                        "--fail-on-empty".to_string(),
-                        "--fail".to_string(),
-                    ));
+                // Check for duplicates
+                if let Some(true) = self.fail_on_unset.value.as_ref() {
+                    return Err(ParseArgsError::DuplicateFlag(flag.to_string()));
                 }
-                if self.no_replace_empty == Some(true) {
-                    return Err(ParseArgsError::ConflictingFlags(
-                        "--fail-on-empty".to_string(),
-                        "--no-replace-empty".to_string(),
-                    ));
-                }
-                if self.fail_on_empty.is_some() {
-                    return Err(ParseArgsError::DuplicateValue(
-                        "--fail-on-empty".to_string(),
-                    ));
-                }
-                self.fail_on_empty = Some(value);
-                return Ok(());
-            }
-            Flag::Fail => {
-                if self.fail_on_unset == Some(true) {
-                    return Err(ParseArgsError::ConflictingFlags(
-                        "--fail".to_string(),
-                        "--fail-on-unset".to_string(),
-                    ));
-                }
-                if self.fail_on_empty == Some(true) {
-                    return Err(ParseArgsError::ConflictingFlags(
-                        "--fail".to_string(),
-                        "--fail-on-empty".to_string(),
-                    ));
-                }
-                self.fail = Some(value);
-                self.fail_on_unset = Some(value);
-                self.fail_on_empty = Some(value);
+
+                // Set the flag value
+                self.fail_on_unset = FlagItem {
+                    flag: flag.to_string(),
+                    value: Some(value),
+                };
 
                 return Ok(());
             }
-            Flag::NoReplaceUnset => {
-                if self.no_replace == Some(true) {
+            FlagType::FailOnEmpty => {
+                // Check for conflicts with other flags
+                if let Some(true) = self.fail.value.as_ref() {
                     return Err(ParseArgsError::ConflictingFlags(
-                        "--no-replace-unset".to_string(),
-                        "--no-replace".to_string(),
+                        flag.to_string(),
+                        self.fail.flag.clone(),
                     ));
                 }
-                if self.fail_on_unset == Some(true) {
+                if let Some(true) = self.no_replace_empty.value.as_ref() {
                     return Err(ParseArgsError::ConflictingFlags(
-                        "--no-replace-unset".to_string(),
-                        "--fail-on-unset".to_string(),
+                        flag.to_string(),
+                        self.no_replace_empty.flag.clone(),
                     ));
                 }
-                if self.no_replace_unset.is_some() {
-                    return Err(ParseArgsError::DuplicateValue(
-                        "--no-replace-unset".to_string(),
-                    ));
+
+                // Check for duplicates
+                if let Some(true) = self.fail_on_empty.value.as_ref() {
+                    return Err(ParseArgsError::DuplicateFlag(flag.to_string()));
                 }
-                self.no_replace_unset = Some(value);
+
+                // Set the flag value
+                self.fail_on_empty = FlagItem {
+                    flag: flag.to_string(),
+                    value: Some(value),
+                };
 
                 return Ok(());
             }
-            Flag::NoReplaceEmpty => {
-                if self.no_replace == Some(true) {
+            FlagType::Fail => {
+                // Check for duplicates
+                if let Some(true) = self.fail.value.as_ref() {
+                    return Err(ParseArgsError::DuplicateFlag(flag.to_string()));
+                }
+
+                // Check for conflicts with other flags
+                if let Some(true) = self.fail_on_unset.value.as_ref() {
                     return Err(ParseArgsError::ConflictingFlags(
-                        "--no-replace-empty".to_string(),
-                        "--no-replace".to_string(),
+                        flag.to_string(),
+                        self.fail_on_unset.flag.clone(),
                     ));
                 }
-                if self.fail_on_empty == Some(true) {
+                if let Some(true) = self.fail_on_empty.value.as_ref() {
                     return Err(ParseArgsError::ConflictingFlags(
-                        "--no-replace-empty".to_string(),
-                        "--fail-on-empty".to_string(),
+                        flag.to_string(),
+                        self.fail_on_empty.flag.clone(),
                     ));
                 }
-                if self.no_replace_empty.is_some() {
-                    return Err(ParseArgsError::DuplicateValue(
-                        "--no-replace-empty".to_string(),
-                    ));
-                }
-                self.no_replace_empty = Some(value);
+
+                // Set the flag value
+                self.fail = FlagItem {
+                    flag: flag.to_string(),
+                    value: Some(value),
+                };
+                self.fail_on_unset = FlagItem {
+                    flag: flag.to_string(),
+                    value: Some(value),
+                };
+                self.fail_on_empty = FlagItem {
+                    flag: flag.to_string(),
+                    value: Some(value),
+                };
 
                 return Ok(());
             }
-            Flag::NoReplace => {
-                if self.no_replace_unset == Some(true) {
+            FlagType::NoReplaceUnset => {
+                // Check for conflicts with other flags
+                if let Some(true) = self.no_replace.value.as_ref() {
                     return Err(ParseArgsError::ConflictingFlags(
-                        "--no-replace".to_string(),
-                        "--no-replace-unset".to_string(),
+                        flag.to_string(),
+                        self.no_replace.flag.clone(),
                     ));
                 }
-                if self.no_replace_empty == Some(true) {
+                if let Some(true) = self.fail_on_unset.value.as_ref() {
                     return Err(ParseArgsError::ConflictingFlags(
-                        "--no-replace".to_string(),
-                        "--no-replace-empty".to_string(),
+                        flag.to_string(),
+                        self.fail_on_unset.flag.clone(),
                     ));
                 }
-                self.no_replace = Some(value);
-                self.fail_on_unset = Some(value);
-                self.fail_on_empty = Some(value);
+
+                // Check for duplicates
+                if let Some(true) = self.no_replace_unset.value.as_ref() {
+                    return Err(ParseArgsError::DuplicateFlag(flag.to_string()));
+                }
+
+                // Set the flag value
+                self.no_replace_unset = FlagItem {
+                    flag: flag.to_string(),
+                    value: Some(value),
+                };
 
                 return Ok(());
             }
-            Flag::NoEscape => {
-                if self.no_escape.is_some() {
-                    return Err(ParseArgsError::DuplicateValue("--no-escape".to_string()));
-                }
-                self.no_escape = Some(value);
-                Ok(())
-            }
-            Flag::UnbufferedLines => {
-                if self.unbuffered_lines.is_some() {
-                    return Err(ParseArgsError::DuplicateValue(
-                        "--unbuffered-lines".to_string(),
+            FlagType::NoReplaceEmpty => {
+                // Check for conflicts with other flags
+                if let Some(true) = self.no_replace.value.as_ref() {
+                    return Err(ParseArgsError::ConflictingFlags(
+                        flag.to_string(),
+                        self.no_replace.flag.clone(),
                     ));
                 }
-                self.unbuffered_lines = Some(value);
-                Ok(())
+                if let Some(true) = self.fail_on_empty.value.as_ref() {
+                    return Err(ParseArgsError::ConflictingFlags(
+                        flag.to_string(),
+                        self.fail_on_empty.flag.clone(),
+                    ));
+                }
+
+                // Check for duplicates
+                if let Some(true) = self.no_replace_empty.value.as_ref() {
+                    return Err(ParseArgsError::DuplicateFlag(flag.to_string()));
+                }
+
+                // Set the flag value
+                self.no_replace_empty = FlagItem {
+                    flag: flag.to_string(),
+                    value: Some(value),
+                };
+
+                return Ok(());
+            }
+            FlagType::NoReplace => {
+                // Check for duplicates
+                if let Some(true) = self.no_replace.value.as_ref() {
+                    return Err(ParseArgsError::DuplicateFlag(flag.to_string()));
+                }
+
+                // Check for conflicts with other flags
+                if let Some(true) = self.no_replace_unset.value.as_ref() {
+                    return Err(ParseArgsError::ConflictingFlags(
+                        flag.to_string(),
+                        self.no_replace_unset.flag.clone(),
+                    ));
+                }
+                if let Some(true) = self.no_replace_empty.value.as_ref() {
+                    return Err(ParseArgsError::ConflictingFlags(
+                        flag.to_string(),
+                        self.no_replace_empty.flag.clone(),
+                    ));
+                }
+
+                // Set the flag value
+                self.no_replace = FlagItem {
+                    flag: flag.to_string(),
+                    value: Some(value),
+                };
+
+                self.no_replace_unset = FlagItem {
+                    flag: flag.to_string(),
+                    value: Some(value),
+                };
+
+                self.fail_on_empty = FlagItem {
+                    flag: flag.to_string(),
+                    value: Some(value),
+                };
+
+                return Ok(());
+            }
+            FlagType::NoEscape => {
+                // Check for duplicates
+                if let Some(true) = self.no_escape.value.as_ref() {
+                    return Err(ParseArgsError::DuplicateFlag(flag.to_string()));
+                }
+
+                // Set the flag value
+                self.no_escape = FlagItem {
+                    flag: flag.to_string(),
+                    value: Some(value),
+                };
+
+                return Ok(());
+            }
+            FlagType::UnbufferedLines => {
+                // Check for duplicates
+                if let Some(true) = self.unbuffered_lines.value.as_ref() {
+                    return Err(ParseArgsError::DuplicateFlag(flag.to_string()));
+                }
+
+                // Set the flag value
+                self.unbuffered_lines = FlagItem {
+                    flag: flag.to_string(),
+                    value: Some(value),
+                };
+
+                return Ok(());
             }
         }
     }
@@ -230,16 +329,16 @@ impl Flags {
     /// # Returns
     ///
     /// Returns the value of the flag, or None if the flag has not been set.
-    pub fn get(&self, flag: Flag) -> Option<bool> {
+    pub fn get(&self, flag: FlagType) -> &FlagItem {
         match flag {
-            Flag::FailOnUnset => return self.fail_on_unset,
-            Flag::FailOnEmpty => return self.fail_on_empty,
-            Flag::Fail => return self.fail,
-            Flag::NoReplaceUnset => return self.no_replace_unset,
-            Flag::NoReplaceEmpty => return self.no_replace_empty,
-            Flag::NoReplace => return self.no_replace,
-            Flag::NoEscape => return self.no_escape,
-            Flag::UnbufferedLines => return self.unbuffered_lines,
+            FlagType::FailOnUnset => return &self.fail_on_unset,
+            FlagType::FailOnEmpty => return &self.fail_on_empty,
+            FlagType::Fail => return &self.fail,
+            FlagType::NoReplaceUnset => return &self.no_replace_unset,
+            FlagType::NoReplaceEmpty => return &self.no_replace_empty,
+            FlagType::NoReplace => return &self.no_replace,
+            FlagType::NoEscape => return &self.no_escape,
+            FlagType::UnbufferedLines => return &self.unbuffered_lines,
         }
     }
 }
@@ -252,34 +351,38 @@ mod tests {
     fn test_set_success() {
         let mut flags = Flags::default();
 
-        assert!(flags.set(Flag::NoEscape, true).is_ok());
-        assert_eq!(flags.get(Flag::NoEscape), Some(true));
+        assert!(flags.set(FlagType::NoEscape, "--no-escape", true).is_ok());
+        assert_eq!(flags.get(FlagType::NoEscape).value, Some(true));
 
-        assert!(flags.set(Flag::NoReplaceUnset, true).is_ok());
-        assert_eq!(flags.get(Flag::NoReplaceUnset), Some(true));
+        assert!(flags
+            .set(FlagType::NoReplaceUnset, "--no-replace-unset", true)
+            .is_ok());
+        assert_eq!(flags.get(FlagType::NoReplaceUnset).value, Some(true));
 
-        assert!(flags.set(Flag::NoReplaceEmpty, true).is_ok());
-        assert_eq!(flags.get(Flag::NoReplaceEmpty), Some(true));
+        assert!(flags
+            .set(FlagType::NoReplaceEmpty, "--no-replace-empty", true)
+            .is_ok());
+        assert_eq!(flags.get(FlagType::NoReplaceEmpty).value, Some(true));
     }
 
     #[test]
     fn test_set_duplicate_value() {
         let mut flags = Flags::default();
-        flags.set(Flag::NoEscape, true).unwrap();
+        flags.set(FlagType::NoEscape, "--no-escape", true).unwrap();
 
         assert_eq!(
-            flags.set(Flag::NoEscape, true),
-            Err(ParseArgsError::DuplicateValue("--no-escape".to_string()))
+            flags.set(FlagType::NoEscape, "--no-escape", true),
+            Err(ParseArgsError::DuplicateFlag("--no-escape".to_string()))
         );
     }
 
     #[test]
     fn test_set_conflicting_flags() {
         let mut flags = Flags::default();
-        flags.set(Flag::Fail, true).unwrap();
+        flags.set(FlagType::Fail, "--fail", true).unwrap();
 
         assert_eq!(
-            flags.set(Flag::FailOnUnset, true),
+            flags.set(FlagType::FailOnUnset, "--fail-on-unset", true),
             Err(ParseArgsError::ConflictingFlags(
                 "--fail-on-unset".to_string(),
                 "--fail".to_string(),
@@ -287,7 +390,7 @@ mod tests {
         );
 
         assert_eq!(
-            flags.set(Flag::FailOnEmpty, true),
+            flags.set(FlagType::FailOnEmpty, "--fail-on-empty", true),
             Err(ParseArgsError::ConflictingFlags(
                 "--fail-on-empty".to_string(),
                 "--fail".to_string(),
@@ -299,9 +402,11 @@ mod tests {
     fn test_set_no_replace_and_related_flags() {
         let mut flags = Flags::default();
 
-        flags.set(Flag::NoReplace, true).unwrap();
+        flags
+            .set(FlagType::NoReplace, "--no-replace", true)
+            .unwrap();
         assert_eq!(
-            flags.set(Flag::NoReplaceUnset, true),
+            flags.set(FlagType::NoReplaceUnset, "--no-replace-unset", true),
             Err(ParseArgsError::ConflictingFlags(
                 "--no-replace-unset".to_string(),
                 "--no-replace".to_string(),
@@ -309,7 +414,7 @@ mod tests {
         );
 
         assert_eq!(
-            flags.set(Flag::NoReplaceEmpty, true),
+            flags.set(FlagType::NoReplaceEmpty, "--no-replace-empty", true),
             Err(ParseArgsError::ConflictingFlags(
                 "--no-replace-empty".to_string(),
                 "--no-replace".to_string(),
@@ -321,22 +426,55 @@ mod tests {
     fn test_get_default() {
         let flags = Flags::default();
 
-        assert_eq!(flags.get(Flag::NoEscape), None);
-        assert_eq!(flags.get(Flag::NoReplaceUnset), None);
-        assert_eq!(flags.get(Flag::NoReplaceEmpty), None);
-        assert_eq!(flags.get(Flag::Fail), None);
-        assert_eq!(flags.get(Flag::FailOnUnset), None);
-        assert_eq!(flags.get(Flag::FailOnEmpty), None);
-        assert_eq!(flags.get(Flag::NoReplace), None);
+        assert_eq!(flags.get(FlagType::NoEscape).value, None);
+        assert_eq!(flags.get(FlagType::NoReplaceUnset).value, None);
+        assert_eq!(flags.get(FlagType::NoReplaceEmpty).value, None);
+        assert_eq!(flags.get(FlagType::Fail).value, None);
+        assert_eq!(flags.get(FlagType::FailOnUnset).value, None);
+        assert_eq!(flags.get(FlagType::FailOnEmpty).value, None);
+        assert_eq!(flags.get(FlagType::NoReplace).value, None);
+    }
+
+    #[test]
+    fn test_fail_duplicate_long_long() {
+        let mut flags = Flags::default();
+        flags.set(FlagType::Fail, "--fail", true).unwrap();
+
+        assert_eq!(
+            flags.set(FlagType::Fail, "--fail", true),
+            Err(ParseArgsError::DuplicateFlag("--fail".to_string(),))
+        );
+    }
+
+    #[test]
+    fn test_fail_duplicate_long_short() {
+        let mut flags = Flags::default();
+        flags.set(FlagType::Fail, "--fail", true).unwrap();
+
+        assert_eq!(
+            flags.set(FlagType::Fail, "-f", true),
+            Err(ParseArgsError::DuplicateFlag("-f".to_string(),))
+        );
+    }
+
+    #[test]
+    fn test_fail_duplicate_short_long() {
+        let mut flags = Flags::default();
+        flags.set(FlagType::Fail, "-f", true).unwrap();
+
+        assert_eq!(
+            flags.set(FlagType::Fail, "--fail", true),
+            Err(ParseArgsError::DuplicateFlag("--fail".to_string(),))
+        );
     }
 
     #[test]
     fn test_fail_fail_on_unset() {
         let mut flags = Flags::default();
-        flags.set(Flag::Fail, true).unwrap();
+        flags.set(FlagType::Fail, "--fail", true).unwrap();
 
         assert_eq!(
-            flags.set(Flag::FailOnUnset, true),
+            flags.set(FlagType::FailOnUnset, "--fail-on-unset", true),
             Err(ParseArgsError::ConflictingFlags(
                 "--fail-on-unset".to_string(),
                 "--fail".to_string(),
@@ -347,10 +485,12 @@ mod tests {
     #[test]
     fn test_fail_on_unset_fail() {
         let mut flags = Flags::default();
-        flags.set(Flag::FailOnUnset, true).unwrap();
+        flags
+            .set(FlagType::FailOnUnset, "--fail-on-unset", true)
+            .unwrap();
 
         assert_eq!(
-            flags.set(Flag::Fail, true),
+            flags.set(FlagType::Fail, "--fail", true),
             Err(ParseArgsError::ConflictingFlags(
                 "--fail".to_string(),
                 "--fail-on-unset".to_string(),
@@ -361,10 +501,12 @@ mod tests {
     #[test]
     fn test_fail_on_empty_fail() {
         let mut flags = Flags::default();
-        flags.set(Flag::FailOnEmpty, true).unwrap();
+        flags
+            .set(FlagType::FailOnEmpty, "--fail-on-empty", true)
+            .unwrap();
 
         assert_eq!(
-            flags.set(Flag::Fail, true),
+            flags.set(FlagType::Fail, "--fail", true),
             Err(ParseArgsError::ConflictingFlags(
                 "--fail".to_string(),
                 "--fail-on-empty".to_string(),
@@ -375,10 +517,10 @@ mod tests {
     #[test]
     fn test_fail_fail_on_empty() {
         let mut flags = Flags::default();
-        flags.set(Flag::Fail, true).unwrap();
+        flags.set(FlagType::Fail, "--fail", true).unwrap();
 
         assert_eq!(
-            flags.set(Flag::FailOnEmpty, true),
+            flags.set(FlagType::FailOnEmpty, "--fail-on-empty", true),
             Err(ParseArgsError::ConflictingFlags(
                 "--fail-on-empty".to_string(),
                 "--fail".to_string(),
@@ -389,23 +531,25 @@ mod tests {
     #[test]
     fn test_fail_on_unset_already_set() {
         let mut flags = Flags::default();
-        flags.set(Flag::FailOnUnset, true).unwrap();
+        flags
+            .set(FlagType::FailOnUnset, "--fail-on-unset", true)
+            .unwrap();
 
         assert_eq!(
-            flags.set(Flag::FailOnUnset, true),
-            Err(ParseArgsError::DuplicateValue(
-                "--fail-on-unset".to_string()
-            ))
+            flags.set(FlagType::FailOnUnset, "--fail-on-unset", true),
+            Err(ParseArgsError::DuplicateFlag("--fail-on-unset".to_string()))
         );
     }
 
     #[test]
     fn test_fail_on_empty_conflict() {
         let mut flags = Flags::default();
-        flags.set(Flag::FailOnEmpty, true).unwrap();
+        flags
+            .set(FlagType::FailOnEmpty, "--fail-on-empty", true)
+            .unwrap();
 
         assert_eq!(
-            flags.set(Flag::NoReplaceEmpty, true),
+            flags.set(FlagType::NoReplaceEmpty, "--no-replace-empty", true),
             Err(ParseArgsError::ConflictingFlags(
                 "--no-replace-empty".to_string(),
                 "--fail-on-empty".to_string(),
@@ -415,23 +559,23 @@ mod tests {
     #[test]
     fn test_fail_on_empty_already_set() {
         let mut flags = Flags::default();
-        flags.set(Flag::FailOnEmpty, true).unwrap();
+        flags
+            .set(FlagType::FailOnEmpty, "--fail-on-empty", true)
+            .unwrap();
 
         assert_eq!(
-            flags.set(Flag::FailOnEmpty, true),
-            Err(ParseArgsError::DuplicateValue(
-                "--fail-on-empty".to_string()
-            ))
+            flags.set(FlagType::FailOnEmpty, "--fail-on-empty", true),
+            Err(ParseArgsError::DuplicateFlag("--fail-on-empty".to_string()))
         );
     }
 
     #[test]
     fn test_flags_fail_fail_on_empty_conflict() {
         let mut flags = Flags::default();
-        flags.set(Flag::Fail, true).unwrap();
+        flags.set(FlagType::Fail, "--fail", true).unwrap();
 
         assert_eq!(
-            flags.set(Flag::FailOnEmpty, true),
+            flags.set(FlagType::FailOnEmpty, "--fail-on-empty", true),
             Err(ParseArgsError::ConflictingFlags(
                 "--fail-on-empty".to_string(),
                 "--fail".to_string(),
@@ -441,10 +585,10 @@ mod tests {
     #[test]
     fn test_flags_fail_fail_on_unset_conflict() {
         let mut flags = Flags::default();
-        flags.set(Flag::Fail, true).unwrap();
+        flags.set(FlagType::Fail, "--fail", true).unwrap();
 
         assert_eq!(
-            flags.set(Flag::FailOnUnset, true),
+            flags.set(FlagType::FailOnUnset, "--fail-on-unset", true),
             Err(ParseArgsError::ConflictingFlags(
                 "--fail-on-unset".to_string(),
                 "--fail".to_string(),
@@ -452,28 +596,30 @@ mod tests {
         );
     }
     #[test]
-    fn test_no_replace_empty_fail_on_empty_conflict() {
+    fn test_no_replace_empty_fail_on_empty_conflict_long_short() {
         let mut flags = Flags::default();
-        flags.set(Flag::NoReplaceEmpty, true).unwrap();
+        flags
+            .set(FlagType::NoReplaceEmpty, "--no-replace-empty", true)
+            .unwrap();
 
         assert_eq!(
-            flags.set(Flag::FailOnEmpty, true),
+            flags.set(FlagType::FailOnEmpty, "-e", true),
             Err(ParseArgsError::ConflictingFlags(
-                "--fail-on-empty".to_string(),
+                "-e".to_string(),
                 "--no-replace-empty".to_string(),
             ))
         );
     }
     #[test]
-    fn test_no_replace_empty_fail_on_unset_conflict() {
+    fn test_no_replace_empty_fail_on_unset_conflict_short_short() {
         let mut flags = Flags::default();
-        flags.set(Flag::Fail, true).unwrap();
+        flags.set(FlagType::Fail, "-f", true).unwrap();
 
         assert_eq!(
-            flags.set(Flag::FailOnUnset, true),
+            flags.set(FlagType::FailOnUnset, "-u", true),
             Err(ParseArgsError::ConflictingFlags(
-                "--fail-on-unset".to_string(),
-                "--fail".to_string(),
+                "-u".to_string(),
+                "-f".to_string(),
             ))
         );
     }
@@ -481,10 +627,12 @@ mod tests {
     #[test]
     fn test_no_replace_no_replace_unset() {
         let mut flags = Flags::default();
-        flags.set(Flag::NoReplace, true).unwrap();
+        flags
+            .set(FlagType::NoReplace, "--no-replace", true)
+            .unwrap();
 
         assert_eq!(
-            flags.set(Flag::NoReplaceUnset, true),
+            flags.set(FlagType::NoReplaceUnset, "--no-replace-unset", true),
             Err(ParseArgsError::ConflictingFlags(
                 "--no-replace-unset".to_string(),
                 "--no-replace".to_string(),
@@ -495,10 +643,12 @@ mod tests {
     #[test]
     fn test_nore_replace_no_replace_empty() {
         let mut flags = Flags::default();
-        flags.set(Flag::NoReplace, true).unwrap();
+        flags
+            .set(FlagType::NoReplace, "--no-replace", true)
+            .unwrap();
 
         assert_eq!(
-            flags.set(Flag::NoReplaceEmpty, true),
+            flags.set(FlagType::NoReplaceEmpty, "--no-replace-empty", true),
             Err(ParseArgsError::ConflictingFlags(
                 "--no-replace-empty".to_string(),
                 "--no-replace".to_string(),
@@ -509,11 +659,13 @@ mod tests {
     #[test]
     fn test_no_replace_unset_duplicate() {
         let mut flags = Flags::default();
-        flags.set(Flag::NoReplaceUnset, true).unwrap();
+        flags
+            .set(FlagType::NoReplaceUnset, "--no-replace-unset", true)
+            .unwrap();
 
         assert_eq!(
-            flags.set(Flag::NoReplaceUnset, true),
-            Err(ParseArgsError::DuplicateValue(
+            flags.set(FlagType::NoReplaceUnset, "--no-replace-unset", true),
+            Err(ParseArgsError::DuplicateFlag(
                 "--no-replace-unset".to_string()
             ))
         );
@@ -522,11 +674,13 @@ mod tests {
     #[test]
     fn test_no_replace_empty_duplicate() {
         let mut flags = Flags::default();
-        flags.set(Flag::NoReplaceEmpty, true).unwrap();
+        flags
+            .set(FlagType::NoReplaceEmpty, "--no-replace-empty", true)
+            .unwrap();
 
         assert_eq!(
-            flags.set(Flag::NoReplaceEmpty, true),
-            Err(ParseArgsError::DuplicateValue(
+            flags.set(FlagType::NoReplaceEmpty, "--no-replace-empty", true),
+            Err(ParseArgsError::DuplicateFlag(
                 "--no-replace-empty".to_string()
             ))
         );
@@ -534,10 +688,12 @@ mod tests {
     #[test]
     fn test_no_replace_no_replace_empty() {
         let mut flags = Flags::default();
-        flags.set(Flag::NoReplace, true).unwrap();
+        flags
+            .set(FlagType::NoReplace, "--no-replace", true)
+            .unwrap();
 
         assert_eq!(
-            flags.set(Flag::NoReplaceEmpty, true),
+            flags.set(FlagType::NoReplaceEmpty, "--no-replace-empty", true),
             Err(ParseArgsError::ConflictingFlags(
                 "--no-replace-empty".to_string(),
                 "--no-replace".to_string(),
@@ -548,10 +704,12 @@ mod tests {
     #[test]
     fn test_no_replace_empty_no_replace() {
         let mut flags = Flags::default();
-        flags.set(Flag::NoReplaceEmpty, true).unwrap();
+        flags
+            .set(FlagType::NoReplaceEmpty, "--no-replace-empty", true)
+            .unwrap();
 
         assert_eq!(
-            flags.set(Flag::NoReplace, true),
+            flags.set(FlagType::NoReplace, "--no-replace", true),
             Err(ParseArgsError::ConflictingFlags(
                 "--no-replace".to_string(),
                 "--no-replace-empty".to_string(),
@@ -562,10 +720,12 @@ mod tests {
     #[test]
     fn test_no_replace_unset_no_replace() {
         let mut flags = Flags::default();
-        flags.set(Flag::NoReplaceUnset, true).unwrap();
+        flags
+            .set(FlagType::NoReplaceUnset, "--no-replace-unset", true)
+            .unwrap();
 
         assert_eq!(
-            flags.set(Flag::NoReplace, true),
+            flags.set(FlagType::NoReplace, "--no-replace", true),
             Err(ParseArgsError::ConflictingFlags(
                 "--no-replace".to_string(),
                 "--no-replace-unset".to_string(),
@@ -574,14 +734,29 @@ mod tests {
     }
 
     #[test]
-    fn test_unbuffered_lines() {
+    fn test_no_replace_duplicate() {
         let mut flags = Flags::default();
-        flags.set(Flag::UnbufferedLines, true).unwrap();
+        flags
+            .set(FlagType::NoReplace, "--no-replace", true)
+            .unwrap();
 
         assert_eq!(
-            flags.set(Flag::UnbufferedLines, true),
-            Err(ParseArgsError::DuplicateValue(
-                "--unbuffered-lines".to_string()
+            flags.set(FlagType::NoReplace, "--no-replace", true),
+            Err(ParseArgsError::DuplicateFlag("--no-replace".to_string()))
+        );
+    }
+
+    #[test]
+    fn test_unbuffered_lines() {
+        let mut flags = Flags::default();
+        flags
+            .set(FlagType::UnbufferedLines, "--unbuffer-lines", true)
+            .unwrap();
+
+        assert_eq!(
+            flags.set(FlagType::UnbufferedLines, "--unbuffer-lines", true),
+            Err(ParseArgsError::DuplicateFlag(
+                "--unbuffer-lines".to_string()
             ))
         );
     }

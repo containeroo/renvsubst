@@ -109,9 +109,9 @@ mod tests {
 
         let args = vec![
             String::from("--input"),
-            String::from(input_file_path),
+            input_file_path,
             String::from("--output"),
-            String::from(output_file_path.clone()),
+            output_file_path,
         ];
 
         let result = run(&args);
@@ -145,9 +145,9 @@ mod tests {
 
         let args = vec![
             String::from("--input"),
-            String::from(input_file_path),
+            input_file_path,
             String::from("--output"),
-            String::from(output_file_path.clone()),
+            output_file_path.clone(),
         ];
         let result = run(&args);
 
