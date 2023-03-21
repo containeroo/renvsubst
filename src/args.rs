@@ -1,6 +1,6 @@
 use crate::errors::ParseArgsError;
 use crate::filters::{Filter, Filters};
-use crate::flags::{FlagType, Flags};
+use crate::flags::{Flag, Flags};
 use crate::help::HELP_TEXT;
 use crate::io::{InputOutput, IO};
 
@@ -177,40 +177,34 @@ impl Args {
 
                     // FLAGS
                     "-u" | "--fail-on-unset" => {
-                        parsed_args
-                            .flags
-                            .set(FlagType::FailOnUnset, flag_name, true)?;
+                        parsed_args.flags.set(Flag::FailOnUnset, flag_name, true)?;
                     }
                     "-e" | "--fail-on-empty" => {
-                        parsed_args
-                            .flags
-                            .set(FlagType::FailOnEmpty, flag_name, true)?;
+                        parsed_args.flags.set(Flag::FailOnEmpty, flag_name, true)?;
                     }
                     "-f" | "--fail" => {
-                        parsed_args.flags.set(FlagType::Fail, flag_name, true)?;
+                        parsed_args.flags.set(Flag::Fail, flag_name, true)?;
                     }
                     "-U" | "--no-replace-unset" => {
                         parsed_args
                             .flags
-                            .set(FlagType::NoReplaceUnset, flag_name, true)?;
+                            .set(Flag::NoReplaceUnset, flag_name, true)?;
                     }
                     "-E" | "--no-replace-empty" => {
                         parsed_args
                             .flags
-                            .set(FlagType::NoReplaceEmpty, flag_name, true)?;
+                            .set(Flag::NoReplaceEmpty, flag_name, true)?;
                     }
                     "-N" | "--no-replace" => {
-                        parsed_args
-                            .flags
-                            .set(FlagType::NoReplace, flag_name, true)?;
+                        parsed_args.flags.set(Flag::NoReplace, flag_name, true)?;
                     }
                     "-x" | "--no-escape" => {
-                        parsed_args.flags.set(FlagType::NoEscape, flag_name, true)?;
+                        parsed_args.flags.set(Flag::NoEscape, flag_name, true)?;
                     }
                     "-b" | "--unbuffer-lines" => {
                         parsed_args
                             .flags
-                            .set(FlagType::UnbufferedLines, flag_name, true)?;
+                            .set(Flag::UnbufferedLines, flag_name, true)?;
                     }
 
                     // FILTERS
@@ -250,7 +244,7 @@ mod tests {
 
         assert!(parsed_args
             .flags
-            .get(FlagType::NoReplaceEmpty)
+            .get(Flag::NoReplaceEmpty)
             .map_or(false, |f| f.value.unwrap_or(false)));
         assert!(parsed_args.filters.prefixes.unwrap().contains("prefix-"),);
     }
@@ -312,7 +306,7 @@ mod tests {
 
         assert!(parsed_args
             .flags
-            .get(FlagType::UnbufferedLines)
+            .get(Flag::UnbufferedLines)
             .map_or(false, |f| f.value.unwrap_or(false)));
     }
 
@@ -487,7 +481,7 @@ mod tests {
         assert!(parsed_args
             .unwrap()
             .flags
-            .get(FlagType::NoEscape)
+            .get(Flag::NoEscape)
             .map_or(false, |f| f.value.unwrap_or(false)));
     }
 
@@ -652,19 +646,19 @@ mod tests {
         let result = parsed_args.unwrap();
         assert!(result
             .flags
-            .get(FlagType::FailOnUnset)
+            .get(Flag::FailOnUnset)
             .map_or(false, |f| f.value.unwrap_or(false)));
         assert!(result
             .flags
-            .get(FlagType::FailOnEmpty)
+            .get(Flag::FailOnEmpty)
             .map_or(false, |f| f.value.unwrap_or(false)));
         assert!(result
             .flags
-            .get(FlagType::UnbufferedLines)
+            .get(Flag::UnbufferedLines)
             .map_or(false, |f| f.value.unwrap_or(false)));
         assert!(result
             .flags
-            .get(FlagType::NoEscape)
+            .get(Flag::NoEscape)
             .map_or(false, |f| f.value.unwrap_or(false)));
     }
 
@@ -675,19 +669,19 @@ mod tests {
         let result = parsed_args.unwrap();
         assert!(result
             .flags
-            .get(FlagType::FailOnUnset)
+            .get(Flag::FailOnUnset)
             .map_or(false, |f| f.value.unwrap_or(false)));
         assert!(result
             .flags
-            .get(FlagType::FailOnEmpty)
+            .get(Flag::FailOnEmpty)
             .map_or(false, |f| f.value.unwrap_or(false)));
         assert!(result
             .flags
-            .get(FlagType::UnbufferedLines)
+            .get(Flag::UnbufferedLines)
             .map_or(false, |f| f.value.unwrap_or(false)));
         assert!(result
             .flags
-            .get(FlagType::NoEscape)
+            .get(Flag::NoEscape)
             .map_or(false, |f| f.value.unwrap_or(false)));
     }
 
