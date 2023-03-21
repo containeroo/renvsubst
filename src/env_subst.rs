@@ -104,9 +104,11 @@ fn get_env_value(
         Ok(value)
             if value.is_empty()
                 && default_value.is_empty()
-                && flags.get(FlagType::FailOnEmpty).value.unwrap_or(false) =>
+                && flags
+                    .get(FlagType::FailOnEmpty)
+                    .map_or(false, |f| f.value.unwrap_or(false)) =>
         {
-            return Err(format!("environment variable '{var_name}' is empty"))
+            return Err(format!("environment variable '{var_name}' is empty"));
         }
 
         // If the variable value is empty, and the default value is not empty,
@@ -118,7 +120,10 @@ fn get_env_value(
         // If the variable value is empty, and the `no_replace_empty` flag is set,
         // return the original variable value.
         Ok(value)
-            if value.is_empty() && flags.get(FlagType::NoReplaceEmpty).value.unwrap_or(false) =>
+            if value.is_empty()
+                && flags
+                    .get(FlagType::NoReplaceEmpty)
+                    .map_or(false, |f| f.value.unwrap_or(false)) =>
         {
             return Ok(original_variable.to_owned())
         }
@@ -132,13 +137,21 @@ fn get_env_value(
 
         // If the environment variable is not set, and the `fail_on_unset` flag is set,
         // return an error.
-        Err(_) if flags.get(FlagType::FailOnUnset).value.unwrap_or(false) => {
+        Err(_)
+            if flags
+                .get(FlagType::FailOnUnset)
+                .map_or(false, |f| f.value.unwrap_or(false)) =>
+        {
             return Err(format!("environment variable '{var_name}' is not set"))
         }
 
         // If the environment variable is not set, and the `no_replace_unset` flag is set,
         // return the original variable value.
-        Err(_) if flags.get(FlagType::NoReplaceUnset).value.unwrap_or(false) => {
+        Err(_)
+            if flags
+                .get(FlagType::NoReplaceUnset)
+                .map_or(false, |f| f.value.unwrap_or(false)) =>
+        {
             return Ok(original_variable.to_owned())
         }
 
@@ -205,7 +218,11 @@ fn replace_vars_in_line(line: &str, flags: &Flags, filters: &Filters) -> Result<
 
         let next_char = iter.peek();
 
-        if !flags.get(FlagType::NoEscape).value.unwrap_or(false) && next_char == Some(&'$') {
+        if !flags
+            .get(FlagType::NoEscape)
+            .map_or(false, |f| f.value.unwrap_or(false))
+            && next_char == Some(&'$')
+        {
             // if inside here, then we have a double $
             iter.next(); // skip the second $
             new_line.push(c);
@@ -403,7 +420,9 @@ pub fn process_input<R: std::io::Read, W: std::io::Write>(
 ) -> Result<(), String> {
     let reader: BufReader<R> = BufReader::new(input);
     let mut buffer = String::new();
-    let unbuffered_lines = flags.get(FlagType::UnbufferedLines).value.unwrap_or(false);
+    let unbuffered_lines = flags
+        .get(FlagType::UnbufferedLines)
+        .map_or(false, |f| f.value.unwrap_or(false));
 
     for line in read_lines(reader) {
         let line: String = line.unwrap();

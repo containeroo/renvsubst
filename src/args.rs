@@ -251,8 +251,7 @@ mod tests {
         assert!(parsed_args
             .flags
             .get(FlagType::NoReplaceEmpty)
-            .value
-            .unwrap_or(false),);
+            .map_or(false, |f| f.value.unwrap_or(false)));
         assert!(parsed_args.filters.prefixes.unwrap().contains("prefix-"),);
     }
 
@@ -309,17 +308,12 @@ mod tests {
     #[test]
     fn test_parse_unbuffered_lines() {
         let args = vec!["--unbuffer-lines"];
-        let parsed_args = Args::parse(args);
+        let parsed_args = Args::parse(args).unwrap();
 
-        assert!(parsed_args.is_ok());
-        assert_eq!(
-            parsed_args
-                .unwrap()
-                .flags
-                .get(FlagType::UnbufferedLines)
-                .value,
-            Some(true)
-        );
+        assert!(parsed_args
+            .flags
+            .get(FlagType::UnbufferedLines)
+            .map_or(false, |f| f.value.unwrap_or(false)));
     }
 
     #[test]
@@ -494,8 +488,7 @@ mod tests {
             .unwrap()
             .flags
             .get(FlagType::NoEscape)
-            .value
-            .unwrap_or(false));
+            .map_or(false, |f| f.value.unwrap_or(false)));
     }
 
     #[test]
@@ -660,19 +653,19 @@ mod tests {
         assert!(result
             .flags
             .get(FlagType::FailOnUnset)
-            .value
-            .unwrap_or(false));
+            .map_or(false, |f| f.value.unwrap_or(false)));
         assert!(result
             .flags
             .get(FlagType::FailOnEmpty)
-            .value
-            .unwrap_or(false));
+            .map_or(false, |f| f.value.unwrap_or(false)));
         assert!(result
             .flags
             .get(FlagType::UnbufferedLines)
-            .value
-            .unwrap_or(false));
-        assert!(result.flags.get(FlagType::NoEscape).value.unwrap_or(false));
+            .map_or(false, |f| f.value.unwrap_or(false)));
+        assert!(result
+            .flags
+            .get(FlagType::NoEscape)
+            .map_or(false, |f| f.value.unwrap_or(false)));
     }
 
     #[test]
@@ -683,19 +676,19 @@ mod tests {
         assert!(result
             .flags
             .get(FlagType::FailOnUnset)
-            .value
-            .unwrap_or(false));
+            .map_or(false, |f| f.value.unwrap_or(false)));
         assert!(result
             .flags
             .get(FlagType::FailOnEmpty)
-            .value
-            .unwrap_or(false));
+            .map_or(false, |f| f.value.unwrap_or(false)));
         assert!(result
             .flags
             .get(FlagType::UnbufferedLines)
-            .value
-            .unwrap_or(false));
-        assert!(result.flags.get(FlagType::NoEscape).value.unwrap_or(false));
+            .map_or(false, |f| f.value.unwrap_or(false)));
+        assert!(result
+            .flags
+            .get(FlagType::NoEscape)
+            .map_or(false, |f| f.value.unwrap_or(false)));
     }
 
     #[test]
