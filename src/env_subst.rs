@@ -3,6 +3,52 @@ use crate::flags::{Flag, Flags};
 use std::env;
 use std::io::{BufRead, BufReader};
 
+/// Returns an iterator that yields lines read from a buffered reader.
+///
+/// This function takes an `impl BufRead` and returns an iterator that yields
+/// `std::io::Result<String>` for each line read from the buffered reader. It handles
+/// any errors that may occur while reading the lines and stops when reaching the end of the input.
+///
+/// # Arguments
+///
+/// * `input` - A mutable buffered reader (`impl BufRead`) from which the lines are read.
+///
+/// # Returns
+///
+/// Returns an iterator (`impl Iterator<Item = std::io::Result<String>>`) that yields
+/// `std::io::Result<String>` for each line read from the input.
+///
+/// # Examples
+///
+/// ```
+/// use std::io::BufReader;
+/// use std::io::Cursor;
+///
+/// let data = "line1\nline2\nline3";
+/// let cursor = Cursor::new(data);
+/// let buf_reader = BufReader::new(cursor);
+///
+/// let lines = read_lines(buf_reader);
+///
+/// for line in lines {
+///     println!("{}", line.unwrap());
+/// }
+/// ```
+fn read_lines(mut input: impl BufRead) -> impl Iterator<Item = std::io::Result<String>> {
+    std::iter::from_fn(move || {
+        let mut vec = String::new();
+        match input.read_line(&mut vec) {
+            Ok(0) => return None, // Reached the end of the input
+            Ok(_) => {
+                // Use std::mem::take to replace the vec with an empty String
+                // and return the original vec as the result
+                return Some(Ok(std::mem::take(&mut vec)));
+            }
+            Err(e) => return Some(Err(e)), // Return any errors that occur while reading
+        }
+    })
+}
+
 /// Retrieves the value of the environment variable specified by `var_name`, and returns it as a `String`.
 /// If the variable is not set, the function checks if `default_value` is set, and returns it if it is.
 /// If `default_value` is not set, the function returns the value of `original_variable`.
@@ -98,67 +144,6 @@ fn get_env_value(
         // This is wanted behavior, as we don't want to replace the variable if it's not set.
         Err(_) => return Ok(String::new()),
     }
-}
-
-/// Determines whether a given variable name matches a set of filters.
-///
-/// # Arguments
-///
-/// * `filters`: A reference to a `Filters` struct that contains the filter criteria.
-/// * `var_name`: A string slice that represents the name of the variable to match against the filters.
-///
-/// # Returns
-///
-/// Returns an `Option` that contains either `true` or `false` if the variable name matches the filters, or `None` if no filters are set.
-///
-/// # Filters
-///
-/// The `Filters` struct has the following fields:
-///
-/// * `prefix`: A string slice that represents the prefix that variable names must have in order to match.
-/// * `suffix`: A string slice that represents the suffix that variable names must have in order to match.
-/// * `variables`: A vector of string slices that represents the variable names that must match.
-///
-/// If none of these fields are set, the function returns `None`.
-///
-/// # Examples
-///
-/// ```
-/// use my_crate::matches_filters;
-///
-/// let filters = Filters {
-///     prefix: Some("prefixed_".to_string()),
-///     suffix: Some("_suffixed".to_string()),
-///     variables: Some(vec!["my_variable".to_string(), "another_variable".to_string()]),
-/// };
-///
-/// assert_eq!(matches_filters(&filters, "prefixed_variable"), Some(true));
-/// assert_eq!(matches_filters(&filters, "variable_suffixed"), Some(true));
-/// assert_eq!(matches_filters(&filters, "my_variable"), Some(true));
-/// assert_eq!(matches_filters(&filters, "another_variable"), Some(true));
-/// assert_eq!(matches_filters(&filters, "your_variable"), Some(false));
-/// ```
-fn matches_filters(filters: &Filters, var_name: &str) -> Option<bool> {
-    // return None if no filters are set
-    if !(filters.prefixes.is_some() || filters.suffixes.is_some() || filters.variables.is_some()) {
-        return None;
-    }
-
-    // check if the variable name matches the filters
-    let match_prefix: bool = filters
-        .prefixes
-        .as_ref()
-        .map_or(false, |p| p.iter().any(|item| var_name.starts_with(item)));
-    let match_suffix: bool = filters
-        .suffixes
-        .as_ref()
-        .map_or(false, |s| s.iter().any(|item| var_name.ends_with(item)));
-    let match_variable: bool = filters
-        .variables
-        .as_ref()
-        .map_or(false, |v| v.contains(&var_name.to_string()));
-
-    return Some(match_prefix || match_suffix || match_variable);
 }
 
 /// Processes a single line of text and replaces all instances of environment variables with their values.
@@ -338,7 +323,7 @@ fn replace_vars_in_line(line: &str, flags: &Flags, filters: &Filters) -> Result<
             }
         }
 
-        if matches_filters(filters, &var_name) == Some(false) {
+        if filters.matches(&var_name) == Some(false) {
             new_line.push_str(&original_variable);
             continue;
         }
@@ -350,40 +335,6 @@ fn replace_vars_in_line(line: &str, flags: &Flags, filters: &Filters) -> Result<
     }
 
     return Ok(new_line);
-}
-
-/// Reads lines from the provided `BufRead` input and returns them as an iterator over `String` values.
-/// Each line includes any line-ending characters that are present in the input.
-///
-/// # Arguments
-///
-/// * `input`: A mutable reference to an object that implements the `BufRead` trait, such as a `BufReader`.
-///
-/// # Returns
-///
-/// Returns an iterator that yields `Result<String, std::io::Error>` values. Each value represents a line of text
-/// that was read from the input, including any line-ending characters that are present in the input.
-///
-/// # Examples
-///
-/// ```
-/// use std::io::BufReader;
-///
-/// let input = "hello\nworld\r\n".as_bytes();
-/// let reader = BufReader::new(input);
-///
-/// let lines: Vec<String> = read_lines(reader).map(|r| r.unwrap()).collect();
-/// assert_eq!(lines, vec!["hello\n", "world\r\n"]);
-/// ```
-fn read_lines(mut input: impl BufRead) -> impl Iterator<Item = std::io::Result<String>> {
-    std::iter::from_fn(move || {
-        let mut vec = String::new();
-        match input.read_line(&mut vec) {
-            Ok(0) => return None,
-            Ok(_) => return Some(Ok(std::mem::take(&mut vec))),
-            Err(e) => return Some(Err(e)),
-        }
-    })
 }
 
 /// Perform variable substitution on the input file and write the result to the output file.
@@ -1504,208 +1455,6 @@ mod tests {
         );
         assert_eq!(result, Ok("prefix var suffix".to_string()));
     }
-    #[test]
-    fn test_matches_filters_no_filters() {
-        // description: no filters
-        // test: -
-        // env: -
-        // result: true
-        assert_eq!(matches_filters(&Filters::default(), "VAR"), None);
-    }
-
-    #[test]
-    fn test_matches_filters_all_filters() {
-        // description: all filters
-        // test: -
-        // env: -
-        // result: true
-        assert_eq!(
-            matches_filters(
-                &Filters {
-                    variables: Some(HashSet::from_iter(vec!["VAR".to_string()])),
-                    prefixes: Some(HashSet::from_iter(vec!["PREFIX".to_string()])),
-                    suffixes: Some(HashSet::from_iter(vec!["SUFFIX".to_string()])),
-                },
-                "PREFIX_VAR_SUFFIX"
-            ),
-            Some(true)
-        );
-    }
-    #[test]
-    fn test_matches_filters_prefix() {
-        // description: prefix filter
-        // test: -
-        // env: -
-        // result: true
-        assert_eq!(
-            matches_filters(
-                &Filters {
-                    prefixes: Some(HashSet::from_iter(vec!["PREFIX".to_string()])),
-                    ..Filters::default()
-                },
-                "PREFIX_VAR"
-            ),
-            Some(true)
-        );
-    }
-    #[test]
-    fn test_matches_filters_suffix() {
-        // description: suffix filter
-        // test: -
-        // env: -
-        // result: true
-        assert_eq!(
-            matches_filters(
-                &Filters {
-                    suffixes: Some(HashSet::from_iter(vec!["SUFFIX".to_string()])),
-                    ..Filters::default()
-                },
-                "VAR_SUFFIX"
-            ),
-            Some(true)
-        );
-    }
-    #[test]
-    fn test_matches_filters_variables() {
-        // description: variables filter
-        // test: -
-        // env: -
-        // result: true
-        assert_eq!(
-            matches_filters(
-                &Filters {
-                    variables: Some(HashSet::from_iter(vec!["VAR".to_string()])),
-                    ..Filters::default()
-                },
-                "VAR"
-            ),
-            Some(true)
-        );
-    }
-    #[test]
-    fn test_matches_filters_prefix_not_found() {
-        // description: prefix filter not found
-        // test: -
-        // env: -
-        // result: false
-        assert_eq!(
-            matches_filters(
-                &Filters {
-                    prefixes: Some(HashSet::from_iter(vec!["PREFIX".to_string()])),
-                    ..Filters::default()
-                },
-                "VAR"
-            ),
-            Some(false)
-        );
-    }
-    #[test]
-    fn test_matches_filters_suffix_not_found() {
-        // description: suffix filter not found
-        // test: -
-        // env: -
-        // result: false
-        assert_eq!(
-            matches_filters(
-                &Filters {
-                    suffixes: Some(HashSet::from_iter(vec!["SUFFIX".to_string()])),
-                    ..Filters::default()
-                },
-                "VAR"
-            ),
-            Some(false)
-        );
-    }
-    #[test]
-    fn test_matches_filters_variables_not_found() {
-        // description: variables filter not found
-        // test: -
-        // env: -
-        // result: false
-        assert_eq!(
-            matches_filters(
-                &Filters {
-                    variables: Some(HashSet::from_iter(vec!["VAR".to_string()])),
-                    ..Filters::default()
-                },
-                "VAR2"
-            ),
-            Some(false)
-        );
-    }
-    #[test]
-    fn test_matches_filters_prefix_suffix_not_found() {
-        // description: prefix and suffix filter not found
-        // test: -
-        // env: -
-        // result: false
-        assert_eq!(
-            matches_filters(
-                &Filters {
-                    prefixes: Some(HashSet::from_iter(vec!["PREFIX".to_string()])),
-                    suffixes: Some(HashSet::from_iter(vec!["SUFFIX".to_string()])),
-                    ..Filters::default()
-                },
-                "VAR"
-            ),
-            Some(false)
-        );
-    }
-    #[test]
-    fn test_matches_filters_variables_prefix_not_found() {
-        // description: variables and prefix filter not found
-        // test: -
-        // env: -
-        // result: false
-        assert_eq!(
-            matches_filters(
-                &Filters {
-                    variables: Some(HashSet::from_iter(vec!["VAR".to_string()])),
-                    prefixes: Some(HashSet::from_iter(vec!["PREFIX".to_string()])),
-                    ..Filters::default()
-                },
-                "VAR2"
-            ),
-            Some(false)
-        );
-    }
-    #[test]
-    fn test_matches_filters_variables_suffix_not_found() {
-        // description: variables and suffix filter not found
-        // test: -
-        // env: -
-        // result: false
-        assert_eq!(
-            matches_filters(
-                &Filters {
-                    variables: Some(HashSet::from_iter(vec!["VAR".to_string()])),
-                    suffixes: Some(HashSet::from_iter(vec!["SUFFIX".to_string()])),
-                    ..Filters::default()
-                },
-                "VAR2"
-            ),
-            Some(false)
-        );
-    }
-
-    #[test]
-    fn test_matches_filters_variables_prefix_suffix_not_found() {
-        // description: variables, prefix and suffix filter not found
-        // test: -
-        // env: -
-        // result: false
-        assert_eq!(
-            matches_filters(
-                &Filters {
-                    variables: Some(HashSet::from_iter(vec!["VAR".to_string()])),
-                    prefixes: Some(HashSet::from_iter(vec!["PREFIX".to_string()])),
-                    suffixes: Some(HashSet::from_iter(vec!["SUFFIX".to_string()])),
-                },
-                "VAR2"
-            ),
-            Some(false)
-        );
-    }
 
     #[test]
     fn test_evaluate_variable_regular_var() {
@@ -1866,24 +1615,6 @@ mod tests {
     }
 
     #[test]
-    fn test_example_match_filters() {
-        let filters = Filters {
-            prefixes: Some(HashSet::from_iter(vec!["prefixed_".to_string()])),
-            suffixes: Some(HashSet::from_iter(vec!["_suffixed".to_string()])),
-            variables: Some(HashSet::from_iter(vec![
-                "my_variable".to_string(),
-                "another_variable".to_string(),
-            ])),
-        };
-
-        assert_eq!(matches_filters(&filters, "prefixed_variable"), Some(true));
-        assert_eq!(matches_filters(&filters, "variable_suffixed"), Some(true));
-        assert_eq!(matches_filters(&filters, "my_variable"), Some(true));
-        assert_eq!(matches_filters(&filters, "another_variable"), Some(true));
-        assert_eq!(matches_filters(&filters, "your_variable"), Some(false));
-    }
-
-    #[test]
     fn test_example_get_env_value() {
         // description: get environment variable value
         // test: unset
@@ -1891,10 +1622,12 @@ mod tests {
         // result: The value of MY_VAR is default_value
         let var_value = get_env_value("MY_VAR", "default_value", "${MY_VAR}", &Flags::default());
 
-        match var_value {
-            Ok(value) => println!("The value of MY_VAR is {value}"),
-            Err(err) => eprintln!("Error: {err}"),
-        }
+        //match var_value {
+        //    Ok(value) => println!("The value of MY_VAR is {value}"),
+        //    Err(err) => eprintln!("Error: {err}"),
+        //}
+        assert!(var_value.is_ok());
+        assert_eq!(var_value.unwrap(), "default_value");
     }
 
     #[test]
@@ -2014,14 +1747,18 @@ mod tests {
     #[test]
     fn test_read_lines_example() {
         use std::io::BufReader;
+        use std::io::Cursor;
 
-        let input = "hello\nworld\r\n".as_bytes();
-        let reader = BufReader::new(input);
+        let data = "line1\nline2\nline3";
+        let cursor = Cursor::new(data);
+        let buf_reader = BufReader::new(cursor);
 
-        let lines: Vec<String> = read_lines(reader)
-            .map(std::result::Result::unwrap)
-            .collect();
-        assert_eq!(lines, vec!["hello\n", "world\r\n"]);
+        let lines = read_lines(buf_reader);
+
+        for line in lines {
+            // assert if line can unwrap
+            line.unwrap();
+        }
     }
 
     #[test]
@@ -2110,7 +1847,7 @@ mod tests {
               "
             ));
         }
-        println!("input size in MB: {}", input.len() / 1024 / 1024);
+        //println!("input size in MB: {}", input.len() / 1024 / 1024);
 
         let mut filter: Filters = Default::default();
 

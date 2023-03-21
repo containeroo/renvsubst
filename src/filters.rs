@@ -34,21 +34,33 @@ pub enum Filter {
 }
 
 impl Filters {
-    /// Adds a filter to the `Filters` struct.
+    /// Adds a new filter criterion to the `Filters` struct.
+    ///
+    /// This function adds a new filter criterion (prefix, suffix, or specific variable name)
+    /// to the `Filters` struct. If an invalid filter value is provided, a `ParseArgsError` is returned.
     ///
     /// # Arguments
     ///
-    /// * `filter` - An enum that represents the type of filter to be added to the `Filters` struct.
+    /// * `filter` - A `Filter` enum value representing the type of filter (prefix, suffix, or variable).
+    /// * `arg` - A string slice that holds the argument name associated with the filter (e.g., "--prefix").
+    /// * `value` - An `Option<&str>` containing the filter value. If `None`, the value will be extracted from the `iter`.
+    /// * `iter` - A mutable iterator over a slice of strings, used to extract the filter value if it is not provided in `value`.
     ///
-    /// * `arg` - A string slice that represents the filter argument to be added.
+    /// # Errors
     ///
-    /// * `value` - An optional string slice that represents the value of the filter argument.
+    /// Returns a `ParseArgsError` if the filter value is missing or if it matches a reserved start parameter.
     ///
-    /// * `iter` - A mutable slice iterator of strings that represents the remaining arguments to be processed.
+    /// # Examples
     ///
-    /// # Returns
+    /// ```
+    /// use filters::{Filter, Filters};
     ///
-    /// * `Result<(), ParseArgsError>` - A result that returns `Ok(())` if the filter was added successfully, or a `ParseArgsError` if an error occurred.
+    /// let mut filters = Filters::default();
+    /// let mut args: Vec<String> = vec!["--prefix".to_string(), "prefix_".to_string()];
+    /// filters.add(Filter::Prefix, "--prefix", None, &mut args.iter()).unwrap();
+    ///
+    /// assert_eq!(filters.matches("prefix_test_var"), Some(true));
+    /// ```
     pub fn add(
         &mut self,
         filter: Filter,
@@ -91,6 +103,67 @@ impl Filters {
         }
 
         return Ok(());
+    }
+
+    /// Determines if a given variable name matches the specified filter criteria.
+    ///
+    /// This function checks if the given `var_name` matches any of the filters
+    /// set in the `Filters` struct (i.e., prefixes, suffixes, and specific variable names).
+    /// If there are no filters set, it returns `None`. Otherwise, it returns `Some(bool)`,
+    /// where the boolean value indicates whether the variable name matches any filter.
+    ///
+    /// # Arguments
+    ///
+    /// * `var_name` - A string slice that holds the variable name to be tested against the filters.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use filters::{Filter, Filters};
+    ///
+    /// let mut filters = Filters::default();
+    /// filters
+    ///     .add(Filter::Prefix, "--prefix", Some("test"), &mut [].iter())
+    ///     .unwrap();
+    /// filters
+    ///     .add(Filter::Suffix, "--suffix", Some("test"), &mut [].iter())
+    ///     .unwrap();
+    /// filters
+    ///     .add(Filter::Variable, "--variable", Some("test"), &mut [].iter())
+    ///     .unwrap();
+    /// assert_eq!(filters.matches("test_var"), Some(true));
+    /// assert_eq!(filters.matches("var_test"), Some(true));
+    /// assert_eq!(filters.matches("test"), Some(true));
+    /// ```
+    ///
+    /// # Returns
+    ///
+    /// An `Option<bool>` value:
+    ///
+    /// * `None` if there are no filters set
+    /// * `Some(true)` if the given variable name matches any filter
+    /// * `Some(false)` if the given variable name does not match any filter
+    pub fn matches(&self, var_name: &str) -> Option<bool> {
+        // return None if no filters are set
+        if !(self.prefixes.is_some() || self.suffixes.is_some() || self.variables.is_some()) {
+            return None;
+        }
+
+        // check if the variable name matches the filters
+        let match_prefix: bool = self
+            .prefixes
+            .as_ref()
+            .map_or(false, |p| p.iter().any(|item| var_name.starts_with(item)));
+        let match_suffix: bool = self
+            .suffixes
+            .as_ref()
+            .map_or(false, |s| s.iter().any(|item| var_name.ends_with(item)));
+        let match_variable: bool = self
+            .variables
+            .as_ref()
+            .map_or(false, |v| v.contains(&var_name.to_string()));
+
+        return Some(match_prefix || match_suffix || match_variable);
     }
 }
 
@@ -209,5 +282,166 @@ mod tests {
             result.unwrap_err(),
             ParseArgsError::MissingValue("--help".to_string())
         );
+    }
+
+    #[test]
+    fn test_no_filters() {
+        let filters = Filters::default();
+        assert_eq!(filters.matches("test_var"), None);
+    }
+
+    #[test]
+    fn test_prefix_filter() {
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Prefix, "--prefix", Some("test"), &mut [].iter())
+            .unwrap();
+        assert_eq!(filters.matches("test_var"), Some(true));
+        assert_eq!(filters.matches("var_test"), Some(false));
+    }
+
+    #[test]
+    fn test_suffix_filter() {
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Suffix, "--suffix", Some("test"), &mut [].iter())
+            .unwrap();
+        assert_eq!(filters.matches("test_var"), Some(false));
+        assert_eq!(filters.matches("var_test"), Some(true));
+    }
+
+    #[test]
+    fn test_variable_filter() {
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Variable, "--variable", Some("test"), &mut [].iter())
+            .unwrap();
+        assert_eq!(filters.matches("test_var"), Some(false));
+        assert_eq!(filters.matches("test"), Some(true));
+    }
+
+    #[test]
+    fn test_multiple_prefix_filters() {
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Prefix, "--prefix", Some("test"), &mut [].iter())
+            .unwrap();
+        filters
+            .add(Filter::Prefix, "-p", Some("hello"), &mut [].iter())
+            .unwrap();
+        assert_eq!(filters.matches("test_var"), Some(true));
+        assert_eq!(filters.matches("var_test"), Some(false));
+        assert_eq!(filters.matches("hello_var"), Some(true));
+        assert_eq!(filters.matches("var_hello"), Some(false));
+    }
+
+    #[test]
+    fn test_multiple_suffix_filters() {
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Suffix, "--suffix", Some("test"), &mut [].iter())
+            .unwrap();
+        filters
+            .add(Filter::Suffix, "-s", Some("hello"), &mut [].iter())
+            .unwrap();
+        assert_eq!(filters.matches("test_var"), Some(false));
+        assert_eq!(filters.matches("var_test"), Some(true));
+        assert_eq!(filters.matches("hello_var"), Some(false));
+        assert_eq!(filters.matches("var_hello"), Some(true));
+    }
+
+    #[test]
+    fn test_multiple_variable_filters() {
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Variable, "--variable", Some("test"), &mut [].iter())
+            .unwrap();
+        filters
+            .add(Filter::Variable, "-v", Some("hello"), &mut [].iter())
+            .unwrap();
+        assert_eq!(filters.matches("test"), Some(true));
+        assert_eq!(filters.matches("var_test"), Some(false));
+        assert_eq!(filters.matches("hello"), Some(true));
+        assert_eq!(filters.matches("hello_var"), Some(false));
+    }
+
+    #[test]
+    fn test_multiple_filters() {
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Prefix, "--prefix", Some("test"), &mut [].iter())
+            .unwrap();
+        filters
+            .add(Filter::Suffix, "--suffix", Some("test"), &mut [].iter())
+            .unwrap();
+        filters
+            .add(Filter::Variable, "--variable", Some("test"), &mut [].iter())
+            .unwrap();
+        assert_eq!(filters.matches("test_var"), Some(true));
+        assert_eq!(filters.matches("var_test"), Some(true));
+        assert_eq!(filters.matches("test"), Some(true));
+    }
+
+    #[test]
+    fn test_multiple_filters_with_no_match() {
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Prefix, "--prefix", Some("test"), &mut [].iter())
+            .unwrap();
+        filters
+            .add(Filter::Suffix, "--suffix", Some("test"), &mut [].iter())
+            .unwrap();
+        filters
+            .add(Filter::Variable, "--variable", Some("test"), &mut [].iter())
+            .unwrap();
+        assert_eq!(filters.matches("hello_var"), Some(false));
+    }
+
+    #[test]
+    fn test_multiple_filters_with_match() {
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Prefix, "--prefix", Some("test"), &mut [].iter())
+            .unwrap();
+        filters
+            .add(Filter::Suffix, "--suffix", Some("test"), &mut [].iter())
+            .unwrap();
+        filters
+            .add(Filter::Variable, "--variable", Some("test"), &mut [].iter())
+            .unwrap();
+        assert_eq!(filters.matches("test_var"), Some(true));
+    }
+
+    #[test]
+    fn test_multiple_filters_with_match_and_no_match() {
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Prefix, "--prefix", Some("test"), &mut [].iter())
+            .unwrap();
+        filters
+            .add(Filter::Suffix, "--suffix", Some("test"), &mut [].iter())
+            .unwrap();
+        filters
+            .add(Filter::Variable, "--variable", Some("test"), &mut [].iter())
+            .unwrap();
+        assert_eq!(filters.matches("test_var"), Some(true));
+        assert_eq!(filters.matches("hello_var"), Some(false));
+    }
+
+    #[test]
+    fn test_multiple_filters_with_match_and_no_match_and_match() {
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Prefix, "--prefix", Some("test"), &mut [].iter())
+            .unwrap();
+        filters
+            .add(Filter::Suffix, "--suffix", Some("test"), &mut [].iter())
+            .unwrap();
+        filters
+            .add(Filter::Variable, "--variable", Some("test"), &mut [].iter())
+            .unwrap();
+        assert_eq!(filters.matches("test_var"), Some(true));
+        assert_eq!(filters.matches("hello_var"), Some(false));
+        assert_eq!(filters.matches("test_var"), Some(true));
     }
 }
