@@ -98,12 +98,22 @@ mod tests {
         let input_file = NamedTempFile::new().unwrap();
         let input_file_path = input_file.path().to_str().unwrap().to_string();
 
-        // add some text
-        let mut file = File::create(&input_file_path).unwrap();
+        // add some text to input file
+        let mut input = File::create(&input_file_path).unwrap();
         let buf = b"Hello, world!";
-        file.write(buf).unwrap();
+        input.write(buf).unwrap();
 
-        let args = vec![String::from("--input"), String::from(input_file_path)];
+        // create a temp file for output
+        let output_file = NamedTempFile::new().unwrap();
+        let output_file_path = output_file.path().to_str().unwrap().to_string();
+
+        let args = vec![
+            String::from("--input"),
+            String::from(input_file_path),
+            String::from("--output"),
+            String::from(output_file_path.clone()),
+        ];
+
         let result = run(&args);
         assert!(result.is_ok());
     }
