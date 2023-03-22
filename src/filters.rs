@@ -22,9 +22,9 @@ pub struct Filters {
 /// available for filtering environment variable replacements.
 ///
 /// The available filter types are:
-/// - `Prefix`: Filters based on string prefixes.
-/// - `Suffix`: Filters based on string suffixes.
-/// - `Variable`: Filters based on the complete variable name.
+/// * `Prefix`: Filters based on string prefixes.
+/// * `Suffix`: Filters based on string suffixes.
+/// * `Variable`: Filters based on the complete variable name.
 ///
 /// The enum derives the following traits: `Debug`, `PartialEq`, `Eq`, `Hash`, `Copy`, and `Clone`.
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
@@ -37,10 +37,10 @@ pub enum Filter {
 impl Filters {
     /// Adds a new filter with the specified `Filter` type, argument name, and value.
     ///
-    /// - `filter`: The type of filter to add (Prefix, Suffix, or Variable).
-    /// - `arg`: The argument name (e.g. "--prefix").
-    /// - `value`: An optional value for the filter. If `None`, the next item in `iter` will be used as the value.
-    /// - `iter`: A mutable iterator over command-line arguments.
+    /// * `filter`: The type of filter to add (Prefix, Suffix, or Variable).
+    /// * `arg`: The argument name (e.g. "--prefix").
+    /// * `value`: An optional value for the filter. If `None`, the next item in `iter` will be used as the value.
+    /// * `iter`: A mutable iterator over command-line arguments.
     ///
     /// Returns a `Result<(), ParseArgsError>` indicating success or the specific error that occurred.
     ///
@@ -99,12 +99,12 @@ impl Filters {
 
     /// Determines if the given `var_name` matches any of the filters defined in the `Filters` struct.
     ///
-    /// - `var_name`: The variable name to check against the filters.
+    /// * `var_name`: The variable name to check against the filters.
     ///
     /// Returns an `Option<bool>` which is:
-    /// - `None` if no filters are set.
-    /// - `Some(true)` if the `var_name` matches any of the filters (prefixes, suffixes, or variables).
-    /// - `Some(false)` if the `var_name` does not match any of the filters.
+    /// * `None` if no filters are set.
+    /// * `Some(true)` if the `var_name` matches any of the filters (prefixes, suffixes, or variables).
+    /// * `Some(false)` if the `var_name` does not match any of the filters.
     ///
     /// # Examples
     ///

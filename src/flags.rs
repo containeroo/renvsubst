@@ -63,16 +63,16 @@ pub enum Flag {
 impl Flags {
     /// Sets the value of a flag, ensuring no conflicts or duplicates with other flags.
     ///
-    /// - `flag_type`: The type of flag to set (e.g. `Flag::FailOnUnset`).
-    /// - `flag`: The argument name (e.g. "--fail-on-unset").
-    /// - `value`: The boolean value to set for the flag.
+    /// * `flag_type`: The type of flag to set (e.g. `Flag::FailOnUnset`).
+    /// * `flag`: The argument name (e.g. "--fail-on-unset").
+    /// * `value`: The boolean value to set for the flag.
     ///
     /// Returns a `Result<(), ParseArgsError>` indicating success or the specific error that occurred.
     ///
     /// # Errors
     ///
-    /// - `ParseArgsError::ConflictingFlags`: When attempting to set a flag that conflicts with a previously set flag.
-    /// - `ParseArgsError::DuplicateFlag`: When attempting to set a flag that was already set.
+    /// * `ParseArgsError::ConflictingFlags`: When attempting to set a flag that conflicts with a previously set flag.
+    /// * `ParseArgsError::DuplicateFlag`: When attempting to set a flag that was already set.
     ///
     /// # Examples
     ///
@@ -195,7 +195,7 @@ impl Flags {
     ///
     /// # Arguments
     ///
-    /// * `flag` - A `Flag` enum value representing the flag to check.
+    /// * `flag`: A `Flag` enum value representing the flag to check.
     ///
     /// # Returns
     ///

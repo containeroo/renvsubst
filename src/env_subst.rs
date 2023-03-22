@@ -170,12 +170,12 @@ fn get_env_value(
 // If an error occurs during the replacement, the function returns an error.
 //
 // Args:
-// - line: the line of text to process
-// - flags: a reference to the Flags struct
-// - filters: a reference to the Filters struct
+// * line: the line of text to process
+// * flags: a reference to the Flags struct
+// * filters: a reference to the Filters struct
 //
 // Returns:
-// - A Result containing the processed line with replaced variables or an error message
+// * A Result containing the processed line with replaced variables or an error message
 fn replace_vars_in_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, String> {
     let mut new_line: String = String::with_capacity(line.len());
     let mut iter = line.chars().peekable();
@@ -346,13 +346,13 @@ fn replace_vars_in_line(line: &str, flags: &Flags, filters: &Filters) -> Result<
 // or when writing to or flushing the output stream.
 //
 // Args:
-// - input: the input stream to read from (implements std::io::Read)
-// - output: the output stream to write to (implements std::io::Write)
-// - flags: a reference to the Flags struct
-// - filters: a reference to the Filters struct
+// * input: the input stream to read from (implements std::io::Read)
+// * output: the output stream to write to (implements std::io::Write)
+// * flags: a reference to the Flags struct
+// * filters: a reference to the Filters struct
 //
 // Returns:
-// - A Result indicating success or an error message
+// * A Result indicating success or an error message
 pub fn process_input<R: std::io::Read, W: std::io::Write>(
     input: R,
     mut output: W,

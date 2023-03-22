@@ -6,11 +6,11 @@ use crate::io::{InputOutput, IO};
 
 /// The `Args` struct represents the parsed command-line arguments for the application.
 ///
-/// - `io`: An `InputOutput` struct containing the input and output sources specified by the user.
-/// - `version`: An `Option<String>` containing the version information, if the `--version` flag was used.
-/// - `help`: An `Option<String>` containing the help information, if the `--help` flag was used.
-/// - `flags`: A `Flags` struct containing the parsed command-line flags and their values.
-/// - `filters`: A `Filters` struct containing the filters to be applied to the environment variables.
+/// * `io`: An `InputOutput` struct containing the input and output sources specified by the user.
+/// * `version`: An `Option<String>` containing the version information, if the `--version` flag was used.
+/// * `help`: An `Option<String>` containing the help information, if the `--help` flag was used.
+/// * `flags`: A `Flags` struct containing the parsed command-line flags and their values.
+/// * `filters`: A `Filters` struct containing the filters to be applied to the environment variables.
 #[derive(Debug, Default)]
 pub struct Args {
     pub io: InputOutput,
@@ -23,11 +23,11 @@ pub struct Args {
 impl Args {
     /// Creates a new instance of `Args` with default values.
     ///
-    /// - `io`: An empty `InputOutput` object with default values.
-    /// - `version`: Set to `None` by default, as the `--version` flag is not set.
-    /// - `help`: Set to `None` by default, as the `--help` flag is not set.
-    /// - `flags`: A `Flags` object with default values.
-    /// - `filters`: A `Filters` object with default values.
+    /// * `io`: An empty `InputOutput` object with default values.
+    /// * `version`: Set to `None` by default, as the `--version` flag is not set.
+    /// * `help`: Set to `None` by default, as the `--help` flag is not set.
+    /// * `flags`: A `Flags` object with default values.
+    /// * `filters`: A `Filters` object with default values.
     ///
     /// Returns a new `Args` instance with the default configuration.
     fn new() -> Self {
@@ -48,7 +48,7 @@ impl Args {
     ///
     /// # Arguments
     ///
-    /// * `arg` - A string slice that represents the input flag.
+    /// * `arg`: A string slice that represents the input flag.
     ///
     /// # Returns
     ///

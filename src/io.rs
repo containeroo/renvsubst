@@ -20,8 +20,8 @@ pub struct InputOutput {
 /// IO is an enumeration representing the different types of input and output.
 ///
 /// The available types are:
-/// - `Input`: Represents the input type.
-/// - `Output`: Represents the output type.
+/// * `Input`: Represents the input type.
+/// * `Output`: Represents the output type.
 ///
 /// The enum derives the following traits: `Debug`, `PartialEq`, `Eq`, `Hash`, `Copy`, and `Clone`.
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
@@ -37,10 +37,10 @@ impl InputOutput {
     ///
     /// # Arguments
     ///
-    /// * `io` - The input or output type.
-    /// * `arg` - The command line argument name.
-    /// * `value` - The command line argument value, if provided.
-    /// * `iter` - A mutable iterator over the command line arguments.
+    /// * `io`: The input or output type.
+    /// * `arg`: The command line argument name.
+    /// * `value`: The command line argument value, if provided.
+    /// * `iter`: A mutable iterator over the command line arguments.
     ///
     /// # Errors
     ///
@@ -79,7 +79,7 @@ impl InputOutput {
     ///
     /// # Arguments
     ///
-    /// * `io` - An `IO` variant specifying whether to retrieve the input or output value.
+    /// * `io`: An `IO` variant specifying whether to retrieve the input or output value.
     ///
     /// # Returns
     ///
@@ -98,7 +98,7 @@ impl InputOutput {
 ///
 /// # Arguments
 ///
-/// * `input_file` - An optional `String` containing the path to the input file, or "-" to specify stdin.
+/// * `input_file`: An optional `String` containing the path to the input file, or "-" to specify stdin.
 ///
 /// # Errors
 ///
