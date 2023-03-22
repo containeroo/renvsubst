@@ -9,6 +9,7 @@ mod utils;
 
 use crate::args::Args;
 use crate::env_subst::process_input;
+use crate::flags::Flag;
 use crate::io::{open_input, open_output, IO};
 use crate::utils::print_error;
 
@@ -35,7 +36,7 @@ use crate::utils::print_error;
 /// assert!(result.is_ok());
 /// ```
 fn run(args: &[String]) -> Result<(), String> {
-    let parsed_args = Args::parse(args).map_err(|e| e.to_string())?;
+    let mut parsed_args = Args::parse(args).map_err(|e| e.to_string())?;
 
     if let Some(version) = &parsed_args.version {
         println!("{version}");
@@ -50,6 +51,17 @@ fn run(args: &[String]) -> Result<(), String> {
     // create input and output streams
     let input = open_input(parsed_args.io.get(IO::Input))?;
     let output = open_output(parsed_args.io.get(IO::Output))?;
+
+    // check if output is stdout and disable color if so
+    // otherwise, the content in the output file will be wrong
+    if parsed_args
+        .io
+        .get(IO::Output)
+        .map(|s| s != String::from("-"))
+        .unwrap_or(false)
+    {
+        parsed_args.flags.update(Flag::Color, false);
+    }
 
     process_input(input, output, &parsed_args.flags, &parsed_args.filters)
 }
@@ -170,4 +182,39 @@ mod tests {
         let result = run(&args);
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_run_colore_and_file() {
+        // create a temp file for input
+        let input_file = NamedTempFile::new().unwrap();
+        let input_file_path = input_file.path().to_str().unwrap().to_string();
+
+        // add some text to input file
+        let mut file = File::create(&input_file_path).unwrap();
+        let buf = b"Hello, ${NOT_FOUND_VAR:-world}!";
+        file.write_all(buf).unwrap();
+
+        // create a temp file for output
+        let output_file = NamedTempFile::new().unwrap();
+        let output_file_path = output_file.path().to_str().unwrap().to_string();
+
+        let args = vec![
+            String::from("--input"),
+            input_file_path,
+            String::from("--output"),
+            output_file_path.clone(),
+            String::from("--color"),
+        ];
+        let result = run(&args);
+
+        // read output file
+        let file = File::open(output_file_path).unwrap();
+        let mut reader = BufReader::new(file);
+        let mut contents = String::new();
+        reader.read_to_string(&mut contents).unwrap();
+
+        assert!(result.is_ok()); // check if run() was successful
+        assert_eq!(contents, "Hello, world!"); // check if output file contains the correct text
+    }
+
 }
