@@ -17,16 +17,17 @@ Short flags are available for many options and can be combined. For example, use
 
 When the same flag is provided multiple times, renvsubst will throw an error.
 
-| Parameter                  | Description                                                                    |
-| -------------------------- | ------------------------------------------------------------------------------ |
-| `-u`, `--fail-on-unset`    | Fails if an environment variable is not set.                                   |
-| `-e`, `--fail-on-empty`    | Fails if an environment variable is empty.                                     |
-| `-f`, `--fail`             | Alias for `--fail-on-unset` and `--fail-on-empty`.                             |
-| `-U`, `--no-replace-unset` | Does not replace variables that are not set in the environment.                |
-| `-E`, `--no-replace-empty` | Does not replace variables that are empty.                                     |
-| `-N`, `--no-replace`       | Alias for`--no-replace-unset` and `--no-replace-empty`.                        |
-| `-x`, `--no-escape`        | Disable escaping of variables.                                                 |
-| `-b`, `--unbuffer-lines`   | Do not buffer lines before printing. Saves memory, but may impact performance. |
+| Parameter                  | Description                                                                                                          |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `-u`, `--fail-on-unset`    | Fails if an environment variable is not set.                                                                         |
+| `-e`, `--fail-on-empty`    | Fails if an environment variable is empty.                                                                           |
+| `-f`, `--fail`             | Alias for `--fail-on-unset` and `--fail-on-empty`.                                                                   |
+| `-U`, `--no-replace-unset` | Does not replace variables that are not set in the environment.                                                      |
+| `-E`, `--no-replace-empty` | Does not replace variables that are empty.                                                                           |
+| `-N`, `--no-replace`       | Alias for`--no-replace-unset` and `--no-replace-empty`.                                                              |
+| `-x`, `--no-escape`        | Disable escaping of variables.                                                                                       |
+| `-b`, `--unbuffer-lines`   | Do not buffer lines before printing. Saves memory, but may impact performance.                                       |
+| `-c`, `--color`            | Colorize the output if stdout is a terminal.<br>Green for found variables, yellow for default values and red for not found variables.<br>Use '--no-replace-unset' to show not found variables; otherwise, they won't be displayed. |
 
 ## Filters
 

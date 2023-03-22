@@ -1,5 +1,6 @@
 use crate::filters::Filters;
 use crate::flags::{Flag, Flags};
+use colored::Colorize;
 use std::env;
 use std::io::{BufRead, BufReader};
 
@@ -98,15 +99,14 @@ fn get_env_value(
     original_variable: &str,
     flags: &Flags,
 ) -> Result<String, String> {
+    let colored = flags.is_flag_set(Flag::Color);
     match env::var(var_name) {
         // If the variable value is empty, and the default value is empty,
         // and the `fail_on_empty` flag is set, return an error.
         Ok(value)
             if value.is_empty()
                 && default_value.is_empty()
-                && flags
-                    .get(Flag::FailOnEmpty)
-                    .map_or(false, |f| f.value.unwrap_or(false)) =>
+                && (flags.is_flag_set(Flag::Fail) || flags.is_flag_set(Flag::FailOnEmpty)) =>
         {
             return Err(format!("environment variable '{var_name}' is empty"));
         }
@@ -114,45 +114,55 @@ fn get_env_value(
         // If the variable value is empty, and the default value is not empty,
         // return the default value.
         Ok(value) if value.is_empty() && !default_value.is_empty() => {
-            return Ok(default_value.to_owned())
+            if colored {
+                return Ok(default_value.to_owned().yellow().to_string());
+            }
+            return Ok(default_value.to_owned());
         }
 
         // If the variable value is empty, and the `no_replace_empty` flag is set,
         // return the original variable value.
         Ok(value)
             if value.is_empty()
-                && flags
-                    .get(Flag::NoReplaceEmpty)
-                    .map_or(false, |f| f.value.unwrap_or(false)) =>
+                && (flags.is_flag_set(Flag::NoReplace)
+                    || flags.is_flag_set(Flag::NoReplaceEmpty)) =>
         {
-            return Ok(original_variable.to_owned())
+            if colored {
+                return Ok(original_variable.to_owned().red().to_string());
+            }
+            return Ok(original_variable.to_owned());
         }
 
         // If the variable value is not empty, return the variable value.
-        Ok(value) => return Ok(value),
+        Ok(value) => {
+            if colored {
+                return Ok(value.green().to_string());
+            };
+            return Ok(value);
+        }
 
         // If the environment variable is not set, and the default value is not empty,
         // return the default value.
-        Err(_) if !default_value.is_empty() => return Ok(default_value.to_owned()),
+        Err(_) if !default_value.is_empty() => {
+            if colored {
+                return Ok(default_value.to_owned().yellow().to_string());
+            }
+            return Ok(default_value.to_owned());
+        }
 
         // If the environment variable is not set, and the `fail_on_unset` flag is set,
         // return an error.
-        Err(_)
-            if flags
-                .get(Flag::FailOnUnset)
-                .map_or(false, |f| f.value.unwrap_or(false)) =>
-        {
+        Err(_) if flags.is_flag_set(Flag::Fail) || flags.is_flag_set(Flag::FailOnUnset) => {
             return Err(format!("environment variable '{var_name}' is not set"))
         }
 
         // If the environment variable is not set, and the `no_replace_unset` flag is set,
         // return the original variable value.
-        Err(_)
-            if flags
-                .get(Flag::NoReplaceUnset)
-                .map_or(false, |f| f.value.unwrap_or(false)) =>
-        {
-            return Ok(original_variable.to_owned())
+        Err(_) if flags.is_flag_set(Flag::NoReplace) || flags.is_flag_set(Flag::NoReplaceUnset) => {
+            if colored {
+                return Ok(original_variable.to_owned().red().to_string());
+            }
+            return Ok(original_variable.to_owned());
         }
 
         // If none of the above conditions are met, return an empty string.
@@ -209,6 +219,7 @@ fn get_env_value(
 fn replace_vars_in_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, String> {
     let mut new_line: String = String::with_capacity(line.len());
     let mut iter = line.chars().peekable();
+    let colored = flags.is_flag_set(Flag::Color);
 
     while let Some(c) = iter.next() {
         if c != '$' {
@@ -343,7 +354,12 @@ fn replace_vars_in_line(line: &str, flags: &Flags, filters: &Filters) -> Result<
         }
 
         if filters.matches(&var_name) == Some(false) {
-            new_line.push_str(&original_variable);
+            if colored {
+                new_line.push_str(format!("{}", original_variable.red()).as_str());
+            } else {
+                new_line.push_str(&original_variable);
+            }
+
             continue;
         }
 
@@ -461,6 +477,7 @@ pub fn process_input<R: std::io::Read, W: std::io::Write>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::filters::Filter;
     use std::collections::HashSet;
     use std::io::Cursor;
 
@@ -520,6 +537,27 @@ mod tests {
         let line = "$REGULAR_VAR_FOUND".to_string();
         let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
         assert_eq!(result, Ok("value".to_string()));
+    }
+
+    #[test]
+    fn test_replace_vars_in_line_regular_var_found_colored() {
+        // description: regular variable found
+        // test: $REGULAR_VAR_FOUND
+        // env: REGULAR_VAR_FOUND=value
+        // result: value
+        env::set_var("REGULAR_VAR_FOUND", "value");
+        let line = "$REGULAR_VAR_FOUND".to_string();
+
+        let mut filters = Filters::default();
+        let f1 = filters.add(Filter::Prefix, "--prefix", Some("PREFIX"), &mut [].iter());
+        assert!(f1.is_ok());
+
+        let mut flags = Flags::default();
+        let f2 = flags.set(Flag::Color, "--color", true);
+        assert!(f2.is_ok());
+
+        let result = replace_vars_in_line(&line, &flags, &filters);
+        assert_eq!(result, Ok("$REGULAR_VAR_FOUND".red().to_string()));
     }
 
     #[test]
@@ -676,10 +714,7 @@ mod tests {
         // env: unset
         // result: "Hello, ${NAME:Worl:-d}!"
         let input = "Hello, ${NAME:Worl:-d}!";
-        let flags = Flags::default();
-        let filters = Filters::default();
-
-        let result = replace_vars_in_line(input, &flags, &filters);
+        let result = replace_vars_in_line(input, &Flags::default(), &Filters::default());
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Hello, ${NAME:Worl:-d}!");
     }
@@ -1775,6 +1810,91 @@ mod tests {
     }
 
     #[test]
+    fn test_get_env_value_use_default_colored() {
+        let var_name = "EMPTY_VAR_NAME";
+        let original_variable = "${EMPTY_VAR_NAME:-default}";
+        let default_value = "default";
+        let mut flags = Flags::default();
+
+        env::set_var(var_name, "");
+
+        let f = flags.set(Flag::Color, "--color", true);
+
+        assert!(f.is_ok());
+
+        let result = get_env_value(var_name, default_value, original_variable, &flags);
+
+        assert_eq!(result, Ok("default".yellow().to_string()));
+    }
+
+    #[test]
+    fn test_get_env_value_original_var_colored() {
+        let var_name = "EMPTY_VAR_NAME";
+        let original_variable = "${EMPTY_VAR_NAME}";
+        let default_value = "";
+        let mut flags = Flags::default();
+
+        env::set_var(var_name, "");
+
+        let f1 = flags.set(Flag::Color, "--color", true);
+        assert!(f1.is_ok());
+        let f2 = flags.set(Flag::NoReplaceEmpty, "-N", true);
+        assert!(f2.is_ok());
+
+        let result = get_env_value(var_name, default_value, original_variable, &flags);
+
+        assert_eq!(result, Ok("${EMPTY_VAR_NAME}".red().to_string()));
+    }
+
+    #[test]
+    fn test_get_env_value_found_var_colored() {
+        let var_name = "EMPTY_VAR_NAME";
+        let original_variable = "${EMPTY_VAR_NAME}";
+        let default_value = "";
+        let mut flags = Flags::default();
+
+        env::set_var(var_name, "some value");
+
+        let f = flags.set(Flag::Color, "--color", true);
+        assert!(f.is_ok());
+
+        let result = get_env_value(var_name, default_value, original_variable, &flags);
+
+        assert_eq!(result, Ok("some value".green().to_string()));
+    }
+
+    #[test]
+    fn test_get_env_value_default_colored() {
+        let var_name = "EMPTY_VAR_NAME";
+        let original_variable = "${EMPTY_VAR_NAME:-default}";
+        let default_value = "default";
+        let mut flags = Flags::default();
+
+        let f = flags.set(Flag::Color, "--color", true);
+        assert!(f.is_ok());
+
+        let result = get_env_value(var_name, default_value, original_variable, &flags);
+
+        assert_eq!(result, Ok("default".yellow().to_string()));
+    }
+
+    #[test]
+    fn test_get_env_value_default_no_replace_unset_colored() {
+        let var_name = "EMPTY_VAR_NAME";
+        let original_variable = "${EMPTY_VAR_NAME}";
+        let default_value = "";
+        let mut flags = Flags::default();
+
+        let f1 = flags.set(Flag::Color, "--color", true);
+        assert!(f1.is_ok());
+        let f2 = flags.set(Flag::NoReplaceUnset, "--no-replace-unset", true);
+        assert!(f2.is_ok());
+        let result = get_env_value(var_name, default_value, original_variable, &flags);
+
+        assert_eq!(result, Ok("${EMPTY_VAR_NAME}".red().to_string()));
+    }
+
+    #[test]
     fn test_read_lines() {
         let input = "Hello $WORLD!\nHello $WORLD!\nHello $WORLD!\n";
         let expected = vec!["Hello $WORLD!\n", "Hello $WORLD!\n", "Hello $WORLD!\n"];
@@ -1827,7 +1947,7 @@ mod tests {
     }
 
     #[test]
-    fn test_process_line_buffered_lines_write_error() {
+    fn test_process_input_buffered_lines_write_error() {
         let input = "Hello $WORLD!  \nHello $WORLD!  \nHello $WORLD!";
         let mut output = Cursor::new(Vec::new());
         let mut flags = Flags::default();

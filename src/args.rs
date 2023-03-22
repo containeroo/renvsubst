@@ -212,6 +212,9 @@ impl Args {
                             .flags
                             .set(Flag::UnbufferedLines, flag_name, true)?;
                     }
+                    "-c" | "--color" => {
+                        parsed_args.flags.set(Flag::Color, flag_name, true)?;
+                    }
 
                     // FILTERS
                     "-p" | "--prefix" => {
@@ -876,6 +879,16 @@ mod tests {
         assert_eq!(
             parsed_args.unwrap_err(),
             ParseArgsError::DuplicateFlag("--no-replace-unset".to_string())
+        );
+    }
+
+    #[test]
+    fn test_color() {
+        let args = vec!["--color"];
+        let parsed_args = Args::parse(args).unwrap();
+        assert_eq!(
+            parsed_args.flags.get(Flag::Color).and_then(|f| f.value),
+            Some(true)
         );
     }
 }

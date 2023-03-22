@@ -15,6 +15,10 @@ Flags:
   -x, --no-escape                  Disables escaping of variables with two dollar signs ($$).
   -b, --unbuffer-lines             Do not buffer lines before printing.
                                    Saves memory, but may impact performance.
+  -c, --color                      Colorize the output if stdout is a terminal.
+                                   Green for found variables, yellow for default values,
+                                   and red for not found variables. Use '--no-replace-unset'
+                                   to show not found variables; otherwise, they won't be displayed.
 
 When the same flag is provided multiple times, renvsubst will throw an error.
 

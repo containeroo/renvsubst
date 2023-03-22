@@ -38,4 +38,6 @@ pub const START_PARAMETERS: &[&str] = &[
     "--suffix",
     "-v",
     "--variable",
+    "-c",
+    "--color",
 ];

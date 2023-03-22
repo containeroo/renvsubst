@@ -68,6 +68,7 @@ pub enum Flag {
     NoReplace,
     NoEscape,
     UnbufferedLines,
+    Color,
 }
 
 impl Flags {
@@ -98,15 +99,28 @@ impl Flags {
         let conflicting_options = match flag_type {
             Flag::FailOnUnset => vec![Flag::Fail, Flag::NoReplaceUnset],
             Flag::FailOnEmpty => vec![Flag::Fail, Flag::NoReplaceEmpty],
-            Flag::Fail => vec![Flag::FailOnUnset, Flag::FailOnEmpty],
+            Flag::Fail => vec![
+                Flag::FailOnUnset,
+                Flag::FailOnEmpty,
+                Flag::NoReplace,
+                Flag::NoReplaceUnset,
+                Flag::NoReplaceEmpty,
+            ],
             Flag::NoReplaceUnset => vec![Flag::FailOnUnset, Flag::NoReplace],
             Flag::NoReplaceEmpty => vec![Flag::FailOnEmpty, Flag::NoReplace],
             Flag::NoReplace => {
-                vec![Flag::NoReplaceUnset, Flag::NoReplaceEmpty]
+                vec![
+                    Flag::NoReplaceUnset,
+                    Flag::NoReplaceEmpty,
+                    Flag::Fail,
+                    Flag::FailOnUnset,
+                    Flag::FailOnEmpty,
+                ]
             }
             _ => vec![],
         };
 
+        // Check for conflicting flags
         for conflicting_option in &conflicting_options {
             if let Some(conflicting_flag) = self.flags.get(conflicting_option) {
                 if let Some(true) = conflicting_flag.value {
@@ -117,6 +131,8 @@ impl Flags {
                 }
             }
         }
+
+        // Check for duplicate flags
         if let Some(existing_flag) = self.flags.get(&flag_type) {
             if let Some(true) = existing_flag.value {
                 return Err(ParseArgsError::DuplicateFlag(flag.to_string()));
@@ -157,6 +173,26 @@ impl Flags {
     /// ```
     pub fn get(&self, flag_option: Flag) -> Option<&FlagItem> {
         self.flags.get(&flag_option)
+    }
+
+    /// Returns `true` if the specified `flag` is set in the `flags` `HashMap`, and its value is `true`.
+    /// Returns `false` otherwise (i.e., if the flag is not set, or its value is `false`).
+    ///
+    /// # Arguments
+    ///
+    /// * `flag` - The `Flag` enum value to check if set and true in the `flags` `HashMap`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Assuming `parsed_args` is an instance of a struct containing a `Flags` instance.
+    /// let flag_set = parsed_args.flags.is_flag_set(Flag::Fail);
+    /// assert_eq!(flag_set, true);
+    /// ```
+    pub fn is_flag_set(&self, flag: Flag) -> bool {
+        self.flags
+            .get(&flag)
+            .map_or(false, |f| f.value.unwrap_or(false))
     }
 }
 
@@ -243,7 +279,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_default() {
+    fn test_get_defaults() {
         let flags = Flags::default();
 
         assert_eq!(flags.get(Flag::NoEscape).and_then(|f| f.value), None);
@@ -253,6 +289,7 @@ mod tests {
         assert_eq!(flags.get(Flag::FailOnUnset).and_then(|f| f.value), None);
         assert_eq!(flags.get(Flag::FailOnEmpty).and_then(|f| f.value), None);
         assert_eq!(flags.get(Flag::NoReplace).and_then(|f| f.value), None);
+        assert_eq!(flags.get(Flag::Color).and_then(|f| f.value), None);
     }
 
     #[test]
