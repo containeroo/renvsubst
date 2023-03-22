@@ -11,7 +11,7 @@ The primary objective of `renvsubst` is to serve as a lightweight and high-perfo
 Usage: renvsubst [FLAGS] [FILTERS] [INPUT] [OUTPUT] | [-h | --help | --version]
 ```
 
-Short flags are available for many options and can be combined. For example, use '-ue' instead of '-u -e' or '--fail-on-unset --fail-on-empty'. See the list of flags and filters below for the complete list of short flags and their combinations.
+Short flags are available for many options and can be combined. For example, use `-ue` instead of `-u -e` or `--fail-on-unset --fail-on-empty`. See the list of flags and filters below for the complete list of short flags and their combinations.
 
 ## Flags
 
