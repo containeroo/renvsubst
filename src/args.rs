@@ -764,6 +764,13 @@ mod tests {
     }
 
     #[test]
+    fn test_input_equal2() {
+        let args = vec!["--input=-"];
+        let parsed_args = Args::parse(args).unwrap();
+        assert_eq!(parsed_args.io.get(IO::Input), Some("-".to_string()));
+    }
+
+    #[test]
     fn test_input_equal_short() {
         let args = vec!["-i=input_file"];
         let parsed_args = Args::parse(args).unwrap();
