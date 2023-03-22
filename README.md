@@ -17,17 +17,17 @@ Short flags are available for many options and can be combined. For example, use
 
 When the same flag is provided multiple times, renvsubst will throw an error.
 
-| Parameter                  | Description                                                                                                          |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `-u`, `--fail-on-unset`    | Fails if an environment variable is not set.                                                                         |
-| `-e`, `--fail-on-empty`    | Fails if an environment variable is empty.                                                                           |
-| `-f`, `--fail`             | Alias for `--fail-on-unset` and `--fail-on-empty`.                                                                   |
-| `-U`, `--no-replace-unset` | Does not replace variables that are not set in the environment.                                                      |
-| `-E`, `--no-replace-empty` | Does not replace variables that are empty.                                                                           |
-| `-N`, `--no-replace`       | Alias for`--no-replace-unset` and `--no-replace-empty`.                                                              |
-| `-x`, `--no-escape`        | Disable escaping of variables.                                                                                       |
-| `-b`, `--unbuffer-lines`   | Do not buffer lines before printing. Saves memory, but may impact performance.                                       |
-| `-c`, `--color`            | Colorize the output if stdout is a terminal.<br>Green for found variables, yellow for default values and red for not found variables.<br>Use '--no-replace-unset' to show not found variables; otherwise, they won't be displayed. |
+| Parameter                  | Description                                                                                                                                                                                                                          |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `-u`, `--fail-on-unset`    | Fails if an environment variable is not set.                                                                                                                                                                                         |
+| `-e`, `--fail-on-empty`    | Fails if an environment variable is empty.                                                                                                                                                                                           |
+| `-f`, `--fail`             | Alias for `--fail-on-unset` and `--fail-on-empty`.                                                                                                                                                                                   |
+| `-U`, `--no-replace-unset` | Does not replace variables that are not set in the environment.                                                                                                                                                                      |
+| `-E`, `--no-replace-empty` | Does not replace variables that are empty.                                                                                                                                                                                           |
+| `-N`, `--no-replace`       | Alias for`--no-replace-unset` and `--no-replace-empty`.                                                                                                                                                                              |
+| `-x`, `--no-escape`        | Disable escaping of variables.                                                                                                                                                                                                       |
+| `-b`, `--unbuffer-lines`   | Do not buffer lines before printing. Saves memory, but may impact performance.                                                                                                                                                       |
+| `-c`, `--color`            | Colorize the output if `stdout` is a terminal.<br>Green for found variables, yellow for default values and red for not found variables.<br>Use `--no-replace-unset` to show not found variables; otherwise, they won't be displayed. |
 
 ## Filters
 
@@ -91,7 +91,8 @@ You can also use "\${UNSET_VARIABLE:-default}" values inside variables like "\${
 Here are more variable like "\${PREFIXED_VARIABLE_1}" and "\${VARIABLE_1_SUFFIXED}".
 Here are more "\$PREFIXED_VARIABLE_2" and "\$VARIABLE_2_SUFFIXED" variables!
 Here are other prefixed "\$prefixed_VARIABLE_3" and suffixed "\$VARIABLE_3_suffixed" variables!
-Or you can escape Text with two dollar signs (\$\$) like fi\$\$h => fi\$h.
+Or you can escape Text with two dollar signs (\$\$) like fi\$\$h => fi\$\$h.
+And here a "\${NOT_EXISTING_VARIABLE}" which was not set!
 """
 
 Create a test file:
@@ -104,7 +105,8 @@ You can also use "\${UNSET_VARIABLE:-default}" values inside variables like "\${
 Here are more variable like "\${PREFIXED_VARIABLE_1}" and "\${VARIABLE_1_SUFFIXED}".
 Here are more "\$PREFIXED_VARIABLE_2" and "\$VARIABLE_2_SUFFIXED" variables!
 Here are other prefixed "\$prefixed_VARIABLE_3" and suffixed "\$VARIABLE_3_suffixed" variables!
-Or you can escape Text with two dollar signs (\$\$) like fi\$\$h => fi\$h.
+Or you can escape Text with two dollar signs (\$\$) like fi\$\$h => fi\$\$h.
+And here a "\${NOT_EXISTING_VARIABLE}" which was not set!
 EOF
 ```
 
@@ -131,13 +133,14 @@ Replace all variables inside `input.txt` and output the result to `output.txt`:
 renvsubst --input input.txt --output output.txt
 
 # output.txt:
-This is a "test.txt" file.
+This is a "input.txt" file.
 It has more than "1" different variables.
 You can also use "default" values inside variables like "default".
 Here are more variable like "variable with a prefix" and "variable with a suffix".
 Here are more "another variable with a prefix" and "another variable with a suffix" variables!
 Here are other prefixed "small letters prefix" and suffixed "small letters suffix" variables!
-Or you can escape Text with two dollar signs ($$) like fi$h => fi.
+Or you can escape Text with two dollar signs ($$) like fi$h => fi$h.
+And here a "" which was not set!
 ```
 
 #### filter variables
@@ -155,6 +158,7 @@ Here are more variable like "${PREFIXED_VARIABLE_1}" and "${VARIABLE_1_SUFFIXED}
 Here are more "$PREFIXED_VARIABLE_2" and "$VARIABLE_2_SUFFIXED" variables!
 Here are other prefixed "$prefixed_VARIABLE_3" and suffixed "$VARIABLE_3_suffixed" variables!
 Or you can escape Text with two dollar signs ($$) like fi$h => fi$h.
+And here a "${NOT_EXISTING_VARIABLE}" which was not set!
 ```
 
 #### filter with prefix
@@ -165,13 +169,14 @@ Replace only variables with the prefix `PREFIXED` from the variable `INPUT` and 
 renvsubst --prefix PREFIXED --input - <<< $INPUT > output.txt
 
 # output.txt:
-This is a "$FILE_NAME" file.
-It has more than "${AMOUNT}" different variables.
-You can also use "${UNSET_VARIABLE:-default}" values inside variables like "${UNSET_VARIABLE:-default}".
-Here are more variable like "variable with a prefix" and "${VARIABLE_1_SUFFIXED}".
-Here are more "another variable with a prefix" and "$VARIABLE_2_SUFFIXED" variables!
-Here are other prefixed "$prefixed_VARIABLE_3" and suffixed "$VARIABLE_3_suffixed" variables!
+This is a $FILE_NAME file.
+It has more than ${AMOUNT} different variables.
+You can also use ${UNSET_VARIABLE:-default} values inside variables like ${UNSET_VARIABLE:-default}.
+Here are more variable like variable with a prefix and ${VARIABLE_1_SUFFIXED}.
+Here are more another variable with a prefix and $VARIABLE_2_SUFFIXED variables!
+Here are other prefixed $prefixed_VARIABLE_3 and suffixed $VARIABLE_3_suffixed variables!
 Or you can escape Text with two dollar signs ($$) like fi$h => fi$h.
+And here a ${NOT_EXISTING_VARIABLE} which was not set!
 ```
 
 #### filter with suffix
@@ -189,6 +194,7 @@ Here are more variable like "${PREFIXED_VARIABLE_1}" and "variable with a suffix
 Here are more "$PREFIXED_VARIABLE_2" and "another variable with a suffix" variables!
 Here are other prefixed "$prefixed_VARIABLE_3" and suffixed "$VARIABLE_3_suffixed" variables!
 Or you can escape Text with two dollar signs ($$) like fi$h => fi$h.
+And here a "${NOT_EXISTING_VARIABLE}" which was not set!
 ```
 
 #### multiple filter
@@ -199,25 +205,35 @@ Replace only variables with the prefixes `PREFIXED` or `prefixed` or suffix `SUF
 renvsubst --prefix PREFIXED --prefix=prefixed --suffix=SUFFIXED <<< $INPUT
 
 # stdout:
-This is a "$FILE_NAME" file.
-It has more than "${AMOUNT}" different variables.
-You can also use "${UNSET_VARIABLE:-default}" values inside variables like "$${UNSET_VARIABLE:-default}".
-Here are more variable like "variable with a prefix" and "variable with a suffix".
-Here are more "another variable with a prefix" and "another variable with a suffix" variables!
-Here are other prefixed "" and suffixed "$VARIABLE_3_suffixed" variables!
+This is a $FILE_NAME file.
+It has more than ${AMOUNT} different variables.
+You can also use ${UNSET_VARIABLE:-default} values inside variables like ${UNSET_VARIABLE:-default}.
+Here are more variable like variable with a prefix and variable with a suffix.
+Here are more another variable with a prefix and another variable with a suffix variables!
+Here are other prefixed small letters prefix and suffixed $VARIABLE_3_suffixed variables!
+Or you can escape Text with two dollar signs ($$) like fi$h => fi$h.
+And here a ${NOT_EXISTING_VARIABLE} which was not set!
 ```
+
+#### colored output
+
+```sh
+renvsubst -cU --input input.txt
+```
+
+![colored_output](./.github/assets/colored_output.png)
 
 ## container
 
-Furthermore, there is a `renvsubst` container available in a minimal form. In the `deploy` directory, you can find Kubernetes manifests as examples. Please note that as the container uses `scratch` as the "base image," it lacks a shell within the container. Consequently, input/output redirection will __NOT__ work at all. Instead, it is necessary to use the `-i|--input` and `-o|--output` options to pass data to `renvsubst`. Please refrain from using the `<` and `>` symbols to redirect input/output, as illustrated in the "bad" example. Instead, use the "good" example, which employs the `--input` and `--output` options to pass data.
+Furthermore, there is a `renvsubst` container available in a minimal form. In the `deploy` directory, you can find Kubernetes manifests as examples. Please note that as the container uses `scratch` as the "base image," it lacks a shell within the container. Consequently, input/output redirection will **NOT** work at all. Instead, it is necessary to use the `-i|--input` and `-o|--output` options to pass data to `renvsubst`. Please refrain from using the `<` and `>` symbols to redirect input/output, as illustrated in the "bad" example. Instead, use the "good" example, which employs the `--input` and `--output` options to pass data.
 
-__bad:__
+**bad:**
 
 ```sh
 renvsubst < input.txt > output.txt
 ```
 
-__good:__
+**good:**
 
 ```sh
 renvsubst --input input.txt --output output.txt
