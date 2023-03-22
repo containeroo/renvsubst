@@ -142,9 +142,15 @@ impl Args {
     {
         // collect the arguments into a vector of strings
         let args: Vec<String> = args
-            .into_iter()
-            .map(|arg| arg.into().into_string())
-            .filter_map(Result::ok)
+            .into_iter() // create an iterator over the arguments
+            .map(
+                // convert the arguments into OsStrings and then into strings
+                |arg| arg.into().into_string(),
+            )
+            .filter_map(
+                // filter out any arguments that could not be converted into strings
+                Result::ok,
+            )
             .collect();
 
         // create an iterator over the arguments
@@ -242,10 +248,14 @@ mod tests {
         let args = vec!["--no-replace-empty", "--prefix", "prefix-"];
         let parsed_args = Args::parse(args).unwrap();
 
-        assert!(parsed_args
-            .flags
-            .get(Flag::NoReplaceEmpty)
-            .map_or(false, |f| f.value.unwrap_or(false)));
+        assert_eq!(
+            parsed_args
+                .flags
+                .get(Flag::NoReplaceEmpty)
+                .and_then(|f| f.value),
+            Some(true)
+        );
+
         assert!(parsed_args.filters.prefixes.unwrap().contains("prefix-"),);
     }
 
@@ -304,10 +314,13 @@ mod tests {
         let args = vec!["--unbuffer-lines"];
         let parsed_args = Args::parse(args).unwrap();
 
-        assert!(parsed_args
-            .flags
-            .get(Flag::UnbufferedLines)
-            .map_or(false, |f| f.value.unwrap_or(false)));
+        assert_eq!(
+            parsed_args
+                .flags
+                .get(Flag::UnbufferedLines)
+                .and_then(|f| f.value),
+            Some(true)
+        );
     }
 
     #[test]
@@ -478,11 +491,14 @@ mod tests {
         let args = vec!["--no-escape"];
         let parsed_args = Args::parse(args);
         assert!(parsed_args.is_ok());
-        assert!(parsed_args
-            .unwrap()
-            .flags
-            .get(Flag::NoEscape)
-            .map_or(false, |f| f.value.unwrap_or(false)));
+        assert_eq!(
+            parsed_args
+                .unwrap()
+                .flags
+                .get(Flag::NoEscape)
+                .and_then(|f| f.value),
+            Some(true)
+        );
     }
 
     #[test]
@@ -644,22 +660,25 @@ mod tests {
         let args = vec!["-uexb"];
         let parsed_args = Args::parse(args);
         let result = parsed_args.unwrap();
-        assert!(result
-            .flags
-            .get(Flag::FailOnUnset)
-            .map_or(false, |f| f.value.unwrap_or(false)));
-        assert!(result
-            .flags
-            .get(Flag::FailOnEmpty)
-            .map_or(false, |f| f.value.unwrap_or(false)));
-        assert!(result
-            .flags
-            .get(Flag::UnbufferedLines)
-            .map_or(false, |f| f.value.unwrap_or(false)));
-        assert!(result
-            .flags
-            .get(Flag::NoEscape)
-            .map_or(false, |f| f.value.unwrap_or(false)));
+        assert_eq!(
+            result.flags.get(Flag::FailOnUnset).and_then(|f| f.value),
+            Some(true)
+        );
+        assert_eq!(
+            result.flags.get(Flag::FailOnEmpty).and_then(|f| f.value),
+            Some(true)
+        );
+        assert_eq!(
+            result
+                .flags
+                .get(Flag::UnbufferedLines)
+                .and_then(|f| f.value),
+            Some(true)
+        );
+        assert_eq!(
+            result.flags.get(Flag::NoEscape).and_then(|f| f.value),
+            Some(true)
+        );
     }
 
     #[test]
@@ -667,22 +686,25 @@ mod tests {
         let args = vec!["-uex", "--unbuffer-lines"];
         let parsed_args = Args::parse(args);
         let result = parsed_args.unwrap();
-        assert!(result
-            .flags
-            .get(Flag::FailOnUnset)
-            .map_or(false, |f| f.value.unwrap_or(false)));
-        assert!(result
-            .flags
-            .get(Flag::FailOnEmpty)
-            .map_or(false, |f| f.value.unwrap_or(false)));
-        assert!(result
-            .flags
-            .get(Flag::UnbufferedLines)
-            .map_or(false, |f| f.value.unwrap_or(false)));
-        assert!(result
-            .flags
-            .get(Flag::NoEscape)
-            .map_or(false, |f| f.value.unwrap_or(false)));
+        assert_eq!(
+            result.flags.get(Flag::FailOnUnset).and_then(|f| f.value),
+            Some(true)
+        );
+        assert_eq!(
+            result.flags.get(Flag::FailOnEmpty).and_then(|f| f.value),
+            Some(true)
+        );
+        assert_eq!(
+            result
+                .flags
+                .get(Flag::UnbufferedLines)
+                .and_then(|f| f.value),
+            Some(true)
+        );
+        assert_eq!(
+            result.flags.get(Flag::NoEscape).and_then(|f| f.value),
+            Some(true)
+        );
     }
 
     #[test]

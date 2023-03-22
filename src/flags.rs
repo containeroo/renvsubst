@@ -169,28 +169,21 @@ mod tests {
         let mut flags = Flags::default();
 
         assert!(flags.set(Flag::NoEscape, "--no-escape", true).is_ok());
-        assert!(flags
-            .get(Flag::NoEscape)
-            .map_or(false, |f| f.value.unwrap_or(false)));
-
+        assert_eq!(flags.get(Flag::NoEscape).and_then(|f| f.value), Some(true));
         assert!(flags
             .set(Flag::NoReplaceUnset, "--no-replace-unset", true)
             .is_ok());
         assert_eq!(
-            flags
-                .get(Flag::NoReplaceUnset)
-                .map_or(false, |f| f.value.unwrap_or(false)),
-            true
+            flags.get(Flag::NoReplaceUnset).and_then(|f| f.value),
+            Some(true)
         );
 
         assert!(flags
             .set(Flag::NoReplaceEmpty, "--no-replace-empty", true)
             .is_ok());
         assert_eq!(
-            flags
-                .get(Flag::NoReplaceEmpty)
-                .map_or(false, |f| f.value.unwrap_or(false)),
-            true
+            flags.get(Flag::NoReplaceEmpty).and_then(|f| f.value),
+            Some(true)
         );
     }
 
@@ -253,19 +246,13 @@ mod tests {
     fn test_get_default() {
         let flags = Flags::default();
 
-        assert_eq!(flags.get(Flag::NoEscape).map_or(None, |f| f.value), None);
-        assert_eq!(
-            flags.get(Flag::NoReplaceUnset).map_or(None, |f| f.value),
-            None
-        );
-        assert_eq!(
-            flags.get(Flag::NoReplaceEmpty).map_or(None, |f| f.value),
-            None
-        );
-        assert_eq!(flags.get(Flag::Fail).map_or(None, |f| f.value), None);
-        assert_eq!(flags.get(Flag::FailOnUnset).map_or(None, |f| f.value), None);
-        assert_eq!(flags.get(Flag::FailOnEmpty).map_or(None, |f| f.value), None);
-        assert_eq!(flags.get(Flag::NoReplace).map_or(None, |f| f.value), None);
+        assert_eq!(flags.get(Flag::NoEscape).and_then(|f| f.value), None);
+        assert_eq!(flags.get(Flag::NoReplaceUnset).and_then(|f| f.value), None);
+        assert_eq!(flags.get(Flag::NoReplaceEmpty).and_then(|f| f.value), None);
+        assert_eq!(flags.get(Flag::Fail).and_then(|f| f.value), None);
+        assert_eq!(flags.get(Flag::FailOnUnset).and_then(|f| f.value), None);
+        assert_eq!(flags.get(Flag::FailOnEmpty).and_then(|f| f.value), None);
+        assert_eq!(flags.get(Flag::NoReplace).and_then(|f| f.value), None);
     }
 
     #[test]

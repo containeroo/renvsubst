@@ -150,18 +150,36 @@ impl Filters {
         }
 
         // check if the variable name matches the filters
+
+        // Check if there's a prefix list in the `self.prefixes` field
         let match_prefix: bool = self
             .prefixes
-            .as_ref()
-            .map_or(false, |p| p.iter().any(|item| var_name.starts_with(item)));
+            .as_ref() // Convert the Option<&Vec<String>> to an Option<&[String]>
+            .map_or(false, |p| {
+                // If there is a prefix list, iterate over it and check if any prefix
+                // is found at the start of `var_name`. If any is found, return `true`.
+                p.iter().any(|item| var_name.starts_with(item))
+            }); // If there is no prefix list, return `false`.
+                // Check if there's a suffix list in the `self.suffixes` field
+
         let match_suffix: bool = self
             .suffixes
-            .as_ref()
-            .map_or(false, |s| s.iter().any(|item| var_name.ends_with(item)));
+            .as_ref() // Convert the Option<&Vec<String>> to an Option<&[String]>
+            .map_or(false, |s| {
+                // If there is a suffix list, iterate over it and check if any suffix
+                // is found at the end of `var_name`. If any is found, return `true`.
+                s.iter().any(|item| var_name.ends_with(item))
+            }); // If there is no suffix list, return `false`.
+
+        // Check if there's a variable list in the `self.variables` field
         let match_variable: bool = self
             .variables
-            .as_ref()
-            .map_or(false, |v| v.contains(&var_name.to_string()));
+            .as_ref() // Convert the Option<&HashSet<String>> to an Option<&HashSet<String>>
+            .map_or(false, |v| {
+                // If there is a variable list, check if it contains `var_name`.
+                // If `var_name` is found, return `true`.
+                v.contains(&var_name.to_string())
+            }); // If there is no variable list, return `false`.
 
         return Some(match_prefix || match_suffix || match_variable);
     }

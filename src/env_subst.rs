@@ -1915,7 +1915,7 @@ mod tests {
         }
         //println!("input size in MB: {}", input.len() / 1024 / 1024);
 
-        let mut filter: Filters = Default::default();
+        let mut filter: Filters = Filters::default();
 
         let mut prefixes = HashSet::new();
         for i in 0..1000 {

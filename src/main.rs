@@ -101,7 +101,7 @@ mod tests {
         // add some text to input file
         let mut input = File::create(&input_file_path).unwrap();
         let buf = b"Hello, world!";
-        input.write(buf).unwrap();
+        input.write_all(buf).unwrap();
 
         // create a temp file for output
         let output_file = NamedTempFile::new().unwrap();
@@ -137,7 +137,7 @@ mod tests {
         // add some text to input file
         let mut file = File::create(&input_file_path).unwrap();
         let buf = b"Hello, ${NOT_FOUND_VAR:-world}!";
-        file.write(buf).unwrap();
+        file.write_all(buf).unwrap();
 
         // create a temp file for output
         let output_file = NamedTempFile::new().unwrap();
