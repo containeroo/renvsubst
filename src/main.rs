@@ -57,8 +57,7 @@ fn run(args: &[String]) -> Result<(), String> {
     if parsed_args
         .io
         .get(IO::Output)
-        .map(|s| s != String::from("-"))
-        .unwrap_or(false)
+        .map_or(false, |s| s != *"-")
     {
         parsed_args.flags.update(Flag::Color, false);
     }
@@ -216,5 +215,4 @@ mod tests {
         assert!(result.is_ok()); // check if run() was successful
         assert_eq!(contents, "Hello, world!"); // check if output file contains the correct text
     }
-
 }

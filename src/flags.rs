@@ -178,7 +178,7 @@ impl Flags {
     /// Update the value of a specific flag in the `Flags` struct.
     ///
     /// This method takes a `Flag` and a new boolean value as arguments and updates
-    /// the `value` field of the corresponding `FlagItem` in the `flags` HashMap.
+    /// the `value` field of the corresponding `FlagItem` in the `flags` `HashMap`.
     ///
     /// # Examples
     ///
