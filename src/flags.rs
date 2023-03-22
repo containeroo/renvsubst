@@ -175,6 +175,32 @@ impl Flags {
         self.flags.get(&flag_option)
     }
 
+    /// Update the value of a specific flag in the `Flags` struct.
+    ///
+    /// This method takes a `Flag` and a new boolean value as arguments and updates
+    /// the `value` field of the corresponding `FlagItem` in the `flags` HashMap.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use your_module::{Flags, Flag};
+    ///
+    /// let mut flags = Flags::default();
+    /// flags.update_flag_value(Flag::Color, false);
+    ///
+    /// assert_eq!(flags.get(Flag::Color).unwrap().value, Some(false));
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `flag` - A `Flag` enum variant to identify the flag to update.
+    /// * `new_value` - The new boolean value to set for the specified flag.
+    pub fn update(&mut self, flag: Flag, new_value: bool) {
+        if let Some(flag_item) = self.flags.get_mut(&flag) {
+            flag_item.value = Some(new_value);
+        }
+    }
+
     /// Returns `true` if the specified `flag` is set in the `flags` `HashMap`, and its value is `true`.
     /// Returns `false` otherwise (i.e., if the flag is not set, or its value is `false`).
     ///
