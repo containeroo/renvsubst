@@ -50,47 +50,34 @@ fn read_lines(mut input: impl BufRead) -> impl Iterator<Item = std::io::Result<S
     })
 }
 
-/// Retrieves the value of the environment variable specified by `var_name`, and returns it as a `String`.
-/// If the variable is not set, the function checks if `default_value` is set, and returns it if it is.
-/// If `default_value` is not set, the function returns the value of `original_variable`.
+/// Retrieves the value of an environment variable or a default value, considering the provided flags.
 ///
-/// The function also supports additional configuration options through the `flags` argument.
+/// This function takes into account various flags to control its behavior when handling environment
+/// variables, including failure conditions, replacement options, and colorization of the output.
 ///
 /// # Arguments
 ///
-/// * `var_name`: A string slice that represents the name of the environment variable to retrieve.
-/// * `default_value`: A string slice that represents the default value to be used if the environment variable is not set.
-/// * `original_variable`: A string slice that represents the original value of the variable, to be used as a fallback.
-/// * `flags`: A reference to a `Flags` struct that contains various configuration options.
-///
-/// # Configuration Options
-///
-/// The `flags` struct has the following fields:
-///
-/// * `fail_on_empty`: If `true`, the function returns an error if the environment variable is set to an empty string.
-/// * `fail_on_unset`: If `true`, the function returns an error if the environment variable is not set.
-/// * `no_replace_empty`: If `true`, the function returns the value of `original_variable` if the environment variable is set to an empty string.
-/// * `no_replace_unset`: If `true`, the function returns the value of `original_variable` if the environment variable is not set.
+/// * `var_name` - The name of the environment variable to retrieve.
+/// * `default_value` - The default value to return if the environment variable is not set or empty.
+/// * `original_variable` - The original variable value (before substitution).
+/// * `flags` - A reference to a `Flags` struct containing the command-line flags passed to the program.
 ///
 /// # Returns
 ///
-/// Returns a `Result` that contains either the variable value as a `String`, or an error message as a `String`.
+/// * `Ok(String)` - The resulting value after considering the environment variable, default value, and flags.
+/// * `Err(String)` - An error message if a failure condition (e.g., `--fail` or `--fail-on-unset`) is triggered.
 ///
 /// # Examples
 ///
 /// ```
-/// use my_crate::get_env_value;
+/// let var_name = "MY_VAR";
+/// let default_value = "default";
+/// let original_variable = "${MY_VAR}";
+/// let flags = Flags::default();
 ///
-/// let var_value = get_env_value(
-///   "MY_VAR",
-///   "default_value",
-///   "${MY_VAR}",
-///   &Flags::default(),
-/// );
-///
-/// match var_value {
-///   Ok(value) => println!("The value of MY_VAR is {}", value),
-///   Err(err) => eprintln!("Error: {}", err),
+/// match get_env_value(var_name, default_value, original_variable, &flags) {
+///     Ok(value) => println!("Value: {}", value),
+///     Err(err) => eprintln!("Error: {}", err),
 /// }
 /// ```
 fn get_env_value(
@@ -171,50 +158,30 @@ fn get_env_value(
     }
 }
 
-/// Processes a single line of text and replaces all instances of environment variables with their values.
+/// Replaces variables in the given `line` with their corresponding values from the environment
+/// while considering the provided `flags` and `filters`. Returns a `Result<String, String>` containing
+/// the modified line or an error message.
+///
+/// This function processes the input `line` character by character, looking for variables to replace.
+/// It handles different formats for variables, such as `$VAR`, `${VAR}`, and `${VAR:-DEFAULT}`.
+/// It also handles escaping of `$` by using `$$` and supports flags to modify its behavior,
+/// such as ignoring variables that do not match the given filters or adding color to the output.
 ///
 /// # Arguments
 ///
-/// * `line`: A string slice that represents the line of text to process.
-/// * `flags`: A reference to a `Flags` struct that contains various configuration options.
-/// * `filters`: A reference to a `Filters` struct that contains the filter criteria for which variables to replace.
+/// * `line` - The input line containing variables to be replaced.
+/// * `flags` - A set of flags that modify the function's behavior.
+/// * `filters` - A set of filters that determine whether a variable should be replaced.
 ///
-/// # Returns
-///
-/// Returns a `Result` that contains the processed line of text as a `String`, or an error message as a `String`.
-///
-/// # Environment Variables
-///
-/// Environment variables are specified in the text using the `$VAR` or `${VAR}` syntax, where `VAR` is the name of the variable.
-/// The `${VAR}` syntax can also include a default value, such as `${VAR:-DEFAULT}`, which specifies that if the `VAR` variable is not set, the default value `DEFAULT` should be used instead.
-///
-/// # Configuration Options
-///
-/// The `flags` struct has the following fields:
-///
-/// * `fail_on_empty`: If `true`, the function returns an error if an environment variable is set to an empty string.
-/// * `fail_on_unset`: If `true`, the function returns an error if an environment variable is not set.
-/// * `no_replace_empty`: If `true`, the function does not replace variables that are set to an empty string.
-/// * `no_replace_unset`: If `true`, the function does not replace variables that are not set.
-/// * `no_escape`: If `true`, the function does not treat `$$` as an escape sequence for a literal `$`.
-///
-/// The `filters` struct has the following fields:
-///
-/// * `prefix`: A string slice that represents the prefix that variable names must have in order to be replaced.
-/// * `suffix`: A string slice that represents the suffix that variable names must have in order to be replaced.
-/// * `variables`: A vector of string slices that represents the variable names that must be replaced.
-///
-/// If none of these fields are set, all variables are replaced.
-///
-/// # Examples
+/// # Example
 ///
 /// ```
-/// let line = "Hello, ${NAME:-User}! How are you, ${NAME}?";
-///
-/// let result = replace_vars_in_line(line, &Flags::default(), &Filters::default());
-///
-/// assert!(result.is_ok());
-/// assert_eq!(result.unwrap(), "Hello, User! How are you, ?");
+/// let line = "Hello, $USER!";
+/// let flags = Flags::default();
+/// let filters = Filters::default();
+/// env::set_var("USER", "John");
+/// let result = replace_vars_in_line(line, &flags, &filters);
+/// assert_eq!(result, Ok("Hello, John!".to_owned()));
 /// ```
 fn replace_vars_in_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, String> {
     let mut new_line: String = String::with_capacity(line.len());
@@ -2068,5 +2035,15 @@ mod tests {
         assert!(result.is_ok());
 
         // add more assertions here to test the expected behavior of `process_input` given the large input and filters
+    }
+
+    #[test]
+    fn test_get_env_value_example() {
+        let line = "Hello, $USER!";
+        let flags = Flags::default();
+        let filters = Filters::default();
+        env::set_var("USER", "John");
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert_eq!(result, Ok("Hello, John!".to_owned()));
     }
 }
