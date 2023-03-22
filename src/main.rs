@@ -54,11 +54,7 @@ fn run(args: &[String]) -> Result<(), String> {
 
     // check if output is stdout and disable color if so
     // otherwise, the content in the output file will be wrong
-    if parsed_args
-        .io
-        .get(IO::Output)
-        .map_or(false, |s| s != *"-")
-    {
+    if parsed_args.io.get(IO::Output).map_or(false, |s| s != *"-") {
         parsed_args.flags.update(Flag::Color, false);
     }
 
