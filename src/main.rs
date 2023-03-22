@@ -52,8 +52,8 @@ fn run(args: &[String]) -> Result<(), String> {
     let input = open_input(parsed_args.io.get(IO::Input))?;
     let output = open_output(parsed_args.io.get(IO::Output))?;
 
-    // Check if the output is not stdout. If the output is a file or a pipe, disable color.
-    // This is necessary because otherwise, the content in the output file or pipe will include unwanted color escape codes.
+    // Check if the output is not stdout. If the output is a file, disable color.
+    // This is necessary because otherwise, the content in the output file will include unwanted color escape codes.
     if parsed_args.io.get(IO::Output).map_or(false, |s| s != *"-") {
         parsed_args.flags.update(Flag::Color, false);
     }
