@@ -3,6 +3,8 @@ pub const HELP_TEXT: &str = "Usage: renvsubst [FLAGS] [FILTERS] [INPUT] [OUTPUT]
 renvsubst will substitute all (bash-like) environment variables in the format of $VAR_NAME, ${VAR_NAME} or ${VAR_NAME:-DEFAULT_VALUE} with their corresponding values from the environment or the default value if provided. If the variable is not valid, it remains as is.
 A valid variable name starts with a letter or underscore, followed by any combination of letters, numbers, or underscores.
 
+Short flags are available for many options and can be combined. For example, use '-ue' instead of '-u -e' or '--fail-on-unset --fail-on-empty'. See the list of flags and filters below for the complete list of short flags and their combinations.
+
 Flags:
   -u, --fail-on-unset              Fails if an environment variable is not set.
   -e, --fail-on-empty              Fails if an environment variable is empty.
@@ -26,7 +28,7 @@ Filters:
                                    Variables can be specified multiple times.
 
 The variables will be substituted according to the specified prefix, suffix, or variable name. If none of these options are provided, all variables will be substituted. When one or more options are specified, only variables that match the given prefix, suffix, or variable name will be replaced, while all others will remain unchanged.
-If multiple identical prefixes, suffixes or variables are provided, only one copy of each will be used.
+If multiple identical prefixes, suffixes, or variables are provided, only one copy of each will be used.
 
 Input:
   -i, --input[=FILE]               Input file path. Use '-' to read from stdin.
@@ -37,8 +39,8 @@ Output:
                                    Defaults to stdout if omitted.
 
 General:
--h, --help                         Show this help text.
-    --version                      Show the version of the program.
+  -h, --help                       Show this help text.
+      --version                    Show the version of the program.
 
 Escaping:
 To retain a variable's original value and prevent it from being substituted by an environment variable, add a second dollar sign ($). The second dollar sign will be removed during substitution. Only valid variables must be escaped.

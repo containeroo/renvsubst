@@ -11,20 +11,22 @@ The primary objective of `renvsubst` is to serve as a lightweight and high-perfo
 Usage: renvsubst [FLAGS] [FILTERS] [INPUT] [OUTPUT] | [-h | --help | --version]
 ```
 
+Short flags are available for many options and can be combined. For example, use '-ue' instead of '-u -e' or '--fail-on-unset --fail-on-empty'. See the list of flags and filters below for the complete list of short flags and their combinations.
+
 ## Flags
 
 When the same flag is provided multiple times, renvsubst will throw an error.
 
-| Parameter            | Description                                                                    |
-| -------------------- | ------------------------------------------------------------------------------ |
-| `--fail-on-unset`    | Fails if an environment variable is not set.                                   |
-| `--fail-on-empty`    | Fails if an environment variable is empty.                                     |
-| `--fail`             | Alias for `--fail-on-unset` and `--fail-on-empty`.                             |
-| `--no-replace-unset` | Does not replace variables that are not set in the environment.                |
-| `--no-replace-empty` | Does not replace variables that are empty.                                     |
-| `--no-replace`       | Alias for`--no-replace-unset` and `--no-replace-empty`.                        |
-| `--no-escape`        | Disable escaping of variables.                                                 |
-| `--unbuffer-lines`   | Do not buffer lines before printing. Saves memory, but may impact performance. |
+| Parameter                  | Description                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------ |
+| `-u`, `--fail-on-unset`    | Fails if an environment variable is not set.                                   |
+| `-e`, `--fail-on-empty`    | Fails if an environment variable is empty.                                     |
+| `-f`, `--fail`             | Alias for `--fail-on-unset` and `--fail-on-empty`.                             |
+| `-U`, `--no-replace-unset` | Does not replace variables that are not set in the environment.                |
+| `-E`, `--no-replace-empty` | Does not replace variables that are empty.                                     |
+| `-N`, `--no-replace`       | Alias for`--no-replace-unset` and `--no-replace-empty`.                        |
+| `-x`, `--no-escape`        | Disable escaping of variables.                                                 |
+| `-b`, `--unbuffer-lines`   | Do not buffer lines before printing. Saves memory, but may impact performance. |
 
 ## Filters
 
