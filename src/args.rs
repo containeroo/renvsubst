@@ -4,15 +4,13 @@ use crate::flags::{Flag, Flags};
 use crate::help::HELP_TEXT;
 use crate::io::{InputOutput, IO};
 
-/// A struct representing the command-line arguments for a program.
+/// The `Args` struct represents the parsed command-line arguments for the application.
 ///
-/// The `version` field is an optional `String` that can be used to display the version of the program.
-///
-/// The `help` field is an optional `String` that can be used to display help text for the program.
-///
-/// The `flags` field is a `Flags` struct that contains boolean flags that can be set by the user. The `Flags` struct is defined in the `flags` module.
-///
-/// The `filters` field is a `Filters` struct that contains optional filters for matching strings. The `Filters` struct is defined in the `filters` module.
+/// - `io`: An `InputOutput` struct containing the input and output sources specified by the user.
+/// - `version`: An `Option<String>` containing the version information, if the `--version` flag was used.
+/// - `help`: An `Option<String>` containing the help information, if the `--help` flag was used.
+/// - `flags`: A `Flags` struct containing the parsed command-line flags and their values.
+/// - `filters`: A `Filters` struct containing the filters to be applied to the environment variables.
 #[derive(Debug, Default)]
 pub struct Args {
     pub io: InputOutput,
@@ -23,7 +21,15 @@ pub struct Args {
 }
 
 impl Args {
-    /// Creates a new instance of Args with all fields set to their default values.
+    /// Creates a new instance of `Args` with default values.
+    ///
+    /// - `io`: An empty `InputOutput` object with default values.
+    /// - `version`: Set to `None` by default, as the `--version` flag is not set.
+    /// - `help`: Set to `None` by default, as the `--help` flag is not set.
+    /// - `flags`: A `Flags` object with default values.
+    /// - `filters`: A `Filters` object with default values.
+    ///
+    /// Returns a new `Args` instance with the default configuration.
     fn new() -> Self {
         Args {
             io: InputOutput::default(),
@@ -33,23 +39,28 @@ impl Args {
             filters: Filters::default(),
         }
     }
-    /// Expands combined single-hyphen flags into separate flag-value pairs.
+
+    /// Expands combined short flags (e.g., `-abc`) into separate flags (e.g., `-a -b -c`).
     ///
-    /// This function takes an input argument and returns a vector of tuples,
-    /// where each tuple contains a flag and its associated value (if any).
-    /// The function handles different flag formats, such as:
-    /// - `-abc` expands to `-a`, `-b`, `-c`
-    /// - `-a=value` expands to `-a` with value `value`
-    /// - `--long-flag` does not expand
-    /// - `--long-flag=value` does not expand, but associates the value with the flag
+    /// Takes a flag string `arg` and checks if it has a single hyphen prefix with multiple characters.
+    /// If it does and there's no value assigned (e.g., `-a=value`), it expands the combined flag into
+    /// separate flags. Otherwise, it returns the original flag with its value (if any).
     ///
     /// # Arguments
     ///
-    /// * `arg` - The input argument as a string slice
+    /// * `arg` - A string slice that represents the input flag.
     ///
     /// # Returns
     ///
-    /// A vector of tuples containing flags and their associated values (if any)
+    /// A `Vec<(String, Option<&str>)>` containing the expanded flags (or the original flag) with their values.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let combined_flag = "-abc";
+    /// let expanded_flags = expand_combined_flags(combined_flag);
+    /// assert_eq!(expanded_flags, vec![("-a", None), ("-b", None), ("-c", None)]);
+    /// ```
     fn expand_combined_flags(arg: &str) -> Vec<(String, Option<&str>)> {
         let mut expanded_flags = Vec::new();
 
@@ -94,47 +105,35 @@ impl Args {
         return expanded_flags;
     }
 
-    /// Parses command line arguments and returns an `Args` struct with the parsed values.
+    /// Parses the command-line arguments and returns an `Args` struct with the parsed values.
+    ///
+    /// The function takes an iterable of arguments, converts them to strings, and iterates over them.
+    /// It expands combined short flags (e.g., `-abc`), and then matches each flag with its
+    /// corresponding action (setting a value, enabling a flag, or adding a filter). If an unknown
+    /// flag is encountered, a `ParseArgsError` is returned.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `I`: An iterable that can be converted into an iterator of type `T`.
+    /// * `T`: A type that can be converted into `std::ffi::OsString` and cloned.
     ///
     /// # Arguments
     ///
-    /// `args` - An iterator over the command line arguments.
+    /// * `args`: An iterable of command-line arguments.
+    ///
+    /// # Returns
+    ///
+    /// A `Result<Args, ParseArgsError>` containing the parsed command-line arguments in an `Args`
+    /// struct, or a `ParseArgsError` if there was an issue during parsing.
     ///
     /// # Examples
     ///
     /// ```
-    /// use crate::args::Args;
-    ///
-    /// let args = vec!["--prefix", "VAR_", "--suffix", "_SUFFIX"];
-    /// let parsed_args = Args::parse(args.iter()).unwrap();
-    /// assert_eq!(Args::parsed_args.filters.prefixes.unwrap().len(), 1);
-    /// assert_eq!(Args::parsed_args.filters.suffixes.unwrap().len(), 1);
+    /// let args = vec!["--input", "file.txt", "--output", "out.txt"];
+    /// let parsed_args = Args::parse(args).unwrap();
+    /// assert_eq!(parsed_args.io.get(IO::Input), Some("file.txt"));
+    /// assert_eq!(parsed_args.io.get(IO::Output), Some("out.txt"));
     /// ```
-    ///
-    /// # Flags
-    ///
-    /// - `--fail-on-unset` - Fail if an environment variable is not set.
-    /// - `--fail-on-empty` - Fail if an environment variable is empty.
-    /// - `--fail` - Alias for `--fail-on-unset` and `--fail-on-empty`. Fails if an environment variable is either not set or empty.
-    /// - `--no-replace-unset` - Do not replace variables that are not set in the environment.
-    /// - `--no-replace-empty` - Do not replace variables that are set but empty in the environment.
-    /// - `--no-replace` - Alias for `--no-replace-unset` and `--no-replace-empty`. Does not replace variables that are either not set or empty in the environment.
-    /// - `--no-escape` - Disable escaping of variables with two dollar signs (`$$`).
-    ///  - `--unbuffer-lines` - Do not buffer lines. This is useful when using `renvsubst` in a pipeline.
-    /// - `-h`, `--help` - Show the help text.
-    /// - `-v`, `--version` - Show the version of the program.
-    ///
-    /// # Filters
-    ///
-    /// - `-p`, `--prefix [PREFIX]...` - Only replace variables with the specified prefix. Prefixes can be specified multiple times.
-    /// - `-s`, `--suffix [SUFFIX]...` - Only replace variables with the specified suffix. Suffixes can be specified multiple times.
-    /// - `-v`, `--variable [VARIABLE]...` - Specify the variables to replace. If not provided, all variables will be replaced. Variables can be specified multiple times.
-    ///
-    /// The variables will be substituted according to the specified prefix, suffix, or variable name. If none of these options are provided, all variables will be substituted. When one or more options are specified, only variables that match the given prefix, suffix, or variable name will be replaced, while all others will remain unchanged.
-    ///
-    /// # Errors
-    ///
-    /// This function returns a `ParseArgsError` if an error occurs during parsing.
     pub fn parse<I, T>(args: I) -> Result<Args, ParseArgsError>
     where
         I: IntoIterator<Item = T>,

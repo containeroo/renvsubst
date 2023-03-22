@@ -3,14 +3,27 @@ use crate::utils::START_PARAMETERS;
 use std::fs::File;
 use std::io::{Read, Write};
 
-/// A struct representing input and output streams.
+/// A struct representing input/output file paths.
+///
+/// The `InputOutput` struct contains two fields, `input` and `output`, which are
+/// both of type `Option<String>`. If a value is set for `input`, it represents the path
+/// to an input file. If a value is set for `output`, it represents the path to an output file.
+///
+/// If either of these fields is `None`, it means that there is no input or output file
+/// associated with the struct.
 #[derive(Debug, Default)]
 pub struct InputOutput {
     input: Option<String>,
     output: Option<String>,
 }
 
-/// An enum representing input and output types.
+/// IO is an enumeration representing the different types of input and output.
+///
+/// The available types are:
+/// - `Input`: Represents the input type.
+/// - `Output`: Represents the output type.
+///
+/// The enum derives the following traits: `Debug`, `PartialEq`, `Eq`, `Hash`, `Copy`, and `Clone`.
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum IO {
     /// Input type
@@ -62,11 +75,16 @@ impl InputOutput {
         Ok(())
     }
 
-    /// Gets the input or output value.
+    /// Returns the corresponding input or output value for a given `IO` variant.
     ///
     /// # Arguments
     ///
-    /// * `io` - The input or output type.
+    /// * `io` - An `IO` variant specifying whether to retrieve the input or output value.
+    ///
+    /// # Returns
+    ///
+    /// An `Option<String>` containing the corresponding input or output value. If the input/output
+    /// value is not set, `None` is returned.
     pub fn get(&self, io: IO) -> Option<String> {
         match io {
             IO::Input => self.input.clone(),

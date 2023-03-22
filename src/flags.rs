@@ -1,31 +1,20 @@
 use crate::errors::ParseArgsError;
 use std::collections::HashMap;
 
-/// `Flags` is a container that holds command line flags and their values.
-/// It stores the flags in a `HashMap`, where the keys are of `Flag` and the values are of `FlagItem`.
+/// A collection of command-line flags, represented as a mapping of `Flag` enums to their corresponding `FlagItem`.
 ///
-/// # Example
-///
-/// ```
-/// use std::collections::HashMap;
-/// use your_crate_name::{Flags, Flag, FlagItem};
-///
-/// let mut flags = Flags::default();
-/// flags.set(Flag::FailOnUnset, "--fail-on-unset", true).unwrap();
-///
-/// let flag_value = flags.get(Flag::FailOnUnset).value.unwrap_or(false);
-/// assert_eq!(flag_value, true);
-/// ```
+/// This struct keeps track of the flags that have been set during argument parsing, and ensures that conflicting
+/// or duplicate flags are not allowed. Provides methods for setting and retrieving flags.
 #[derive(Debug, Default)]
 pub struct Flags {
     flags: HashMap<Flag, FlagItem>,
 }
 
-/// A `FlagItem` represents a command line flag and its associated value.
+/// A command-line flag item, containing both the flag name and its associated value.
 ///
-/// Each flag has a name and an optional boolean value. The `flag` field
-/// stores the name of the flag as it appears on the command line, while the `value`
-/// field stores the boolean value that is associated with the flag.
+/// This struct is used to represent individual flag instances in the `Flags` collection, holding
+/// information about each flag's name and boolean value. The `value` field is optional, set to `None`
+/// if the flag doesn't have an associated value.
 #[derive(Debug, Default, Clone)]
 pub struct FlagItem {
     /// The name of the flag as passed on the command line (e.g., "--fail", "-f").
@@ -37,28 +26,28 @@ pub struct FlagItem {
     pub value: Option<bool>,
 }
 
-/// The `Flag` enum represents the various command-line flags that can be used to modify
-/// the behavior of `renvsubst`. Each flag corresponds to a specific behavior that can be
-/// enabled or disabled using a command-line flag.
+/// An enumeration of possible command-line flags supported by the application.
 ///
-/// The available flags are:
+/// This enum lists all the supported flags that can be used to configure the application's behavior.
+/// It's used in conjunction with the `Flags` struct to store and manage the flags and their
+/// associated values (if any). The `#[non_exhaustive]` attribute indicates that this enumeration
+/// may be extended with new flags in the future without breaking existing code.
 ///
-/// - `FailOnUnset`: Fails if an environment variable is not set.
+/// # Variants
 ///
-/// - `FailOnEmpty`: Fails if an environment variable is empty.
+/// * `FailOnUnset`: Enables the fail-on-unset behavior.
+/// * `FailOnEmpty`: Enables the fail-on-empty behavior.
+/// * `Fail`: Enables the fail behavior.
+/// * `NoReplaceUnset`: Disables replacing unset variables.
+/// * `NoReplaceEmpty`: Disables replacing empty variables.
+/// * `NoReplace`: Disables replacing both unset and empty variables.
+/// * `NoEscape`: Disables escape character interpretation.
+/// * `UnbufferedLines`: Enables unbuffered lines mode.
+/// * `Color`: Enables colored output.
 ///
-/// - `NoReplaceUnset`: Does not replace variables that are not set in the environment.
-///
-/// - `NoReplaceEmpty`: Does not replace variables that are set but empty in the environment.
-///
-/// - `NoEscape`: Disables escaping of variables with two dollar signs ($$).
-///
-/// - `UnbufferedLines`: Do not buffer lines. This will print each line as soon as it is processed in chunks of 4096 bytes.
-///
-/// This enum implements the `Copy` and `Clone` traits, allowing it to be easily copied and
-/// cloned as needed. It also implements the `Debug`, `PartialEq`, `Eq`, and `Hash` traits for
-/// easy debugging and comparison.
+/// The enum derives the following traits: `Debug`, `PartialEq`, `Eq`, `Hash`, `Copy`, and `Clone`.
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+#[non_exhaustive]
 pub enum Flag {
     FailOnUnset,
     FailOnEmpty,
@@ -72,28 +61,25 @@ pub enum Flag {
 }
 
 impl Flags {
-    /// Sets a flag with the given `flag_type`, `flag`, and `value` in the `Flags` struct.
-    /// This method also checks for conflicting and duplicate flags before updating the `HashMap`.
+    /// Sets the value of a flag, ensuring no conflicts or duplicates with other flags.
     ///
-    /// # Arguments
+    /// - `flag_type`: The type of flag to set (e.g. `Flag::FailOnUnset`).
+    /// - `flag`: The argument name (e.g. "--fail-on-unset").
+    /// - `value`: The boolean value to set for the flag.
     ///
-    /// * `flag_type`: The type of the flag, which is an enum `Flag`.
-    /// * `flag`: The flag name as a string (e.g., "--fail-on-unset").
-    /// * `value`: The boolean value associated with the flag.
+    /// Returns a `Result<(), ParseArgsError>` indicating success or the specific error that occurred.
     ///
     /// # Errors
     ///
-    /// Returns a `ParseArgsError` if there is a conflict or duplication among the flags.
+    /// - `ParseArgsError::ConflictingFlags`: When attempting to set a flag that conflicts with a previously set flag.
+    /// - `ParseArgsError::DuplicateFlag`: When attempting to set a flag that was already set.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
-    /// use your_crate_name::{Flags, Flag};
-    ///
     /// let mut flags = Flags::default();
-    /// let flag_result = flags.set(Flag::FailOnUnset, "--fail-on-unset", true);
     ///
-    /// assert!(flag_result.is_ok());
+    /// flags.set(Flag::FailOnUnset, "--fail-on-unset", true).unwrap();
     /// ```
     pub fn set(&mut self, flag_type: Flag, flag: &str, value: bool) -> Result<(), ParseArgsError> {
         let conflicting_options = match flag_type {
@@ -150,70 +136,81 @@ impl Flags {
         return Ok(());
     }
 
-    /// Retrieves a reference to a `FlagItem` from the `Flags` struct based on the specified `flag_option`.
+    /// Retrieves the `FlagItem` associated with the given `Flag` variant, if it is set.
+    ///
+    /// This method looks up the `FlagItem` associated with the provided `flag_option` in the
+    /// `Flags` struct's internal `flags` `HashMap`. If the flag is set, it returns a reference to
+    /// the corresponding `FlagItem`; otherwise, it returns `None`.
     ///
     /// # Arguments
     ///
-    /// * `flag_option`: The type of the flag, which is an enum `Flag`.
+    /// * `flag_option`: A `Flag` variant representing the desired command-line flag.
     ///
     /// # Returns
     ///
-    /// An `Option<&FlagItem>` containing a reference to the `FlagItem` if it exists, or `None` if it doesn't.
+    /// An `Option<&FlagItem>` that contains a reference to the `FlagItem` if the flag is set,
+    /// or `None` if the flag is not set.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
-    /// use your_crate_name::{Flags, Flag};
-    ///
     /// let mut flags = Flags::default();
-    /// flags.set(Flag::FailOnUnset, "--fail-on-unset", true).unwrap();
+    /// flags.set(Flag::Fail, "--fail", true).unwrap();
     ///
-    /// let flag_item = flags.get(Flag::FailOnUnset);
-    /// assert!(flag_item.is_some());
+    /// let fail_flag = flags.get(Flag::Fail);
+    /// assert!(fail_flag.is_some());
+    /// assert_eq!(flags.get(Flag::Fail).and_then(|f| f.value), None);
     /// ```
     pub fn get(&self, flag_option: Flag) -> Option<&FlagItem> {
         self.flags.get(&flag_option)
     }
 
-    /// Update the value of a specific flag in the `Flags` struct.
+    /// Updates the value of an existing flag in the `Flags` struct.
     ///
-    /// This method takes a `Flag` and a new boolean value as arguments and updates
-    /// the `value` field of the corresponding `FlagItem` in the `flags` `HashMap`.
+    /// This method sets the `value` field of the `FlagItem` associated with the given `Flag`
+    /// variant to the specified `new_value`. If the `Flag` is not set in the `flags` `HashMap`,
+    /// the method does nothing.
+    ///
+    /// # Arguments
+    ///
+    /// * `flag`: A `Flag` variant representing the command-line flag to update.
+    /// * `new_value`: A `bool` value to update the `FlagItem`'s `value` field with.
     ///
     /// # Examples
     ///
     /// ```
-    /// use your_module::{Flags, Flag};
-    ///
     /// let mut flags = Flags::default();
-    /// flags.update_flag_value(Flag::Color, false);
+    /// flags.set(Flag::Fail, "--fail", true).unwrap();
     ///
-    /// assert_eq!(flags.get(Flag::Color).unwrap().value, Some(false));
+    /// flags.update(Flag::Fail, false);
+    /// assert_eq!(flags.get(Flag::Fail).and_then(|f| f.value), None);
     /// ```
-    ///
-    /// # Arguments
-    ///
-    /// * `flag` - A `Flag` enum variant to identify the flag to update.
-    /// * `new_value` - The new boolean value to set for the specified flag.
     pub fn update(&mut self, flag: Flag, new_value: bool) {
         if let Some(flag_item) = self.flags.get_mut(&flag) {
             flag_item.value = Some(new_value);
         }
     }
 
-    /// Returns `true` if the specified `flag` is set in the `flags` `HashMap`, and its value is `true`.
-    /// Returns `false` otherwise (i.e., if the flag is not set, or its value is `false`).
+    /// Returns a boolean indicating whether the specified flag is set.
     ///
     /// # Arguments
     ///
-    /// * `flag` - The `Flag` enum value to check if set and true in the `flags` `HashMap`.
+    /// * `flag` - A `Flag` enum value representing the flag to check.
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the specified flag is set, otherwise returns `false`.
     ///
     /// # Examples
     ///
     /// ```
-    /// // Assuming `parsed_args` is an instance of a struct containing a `Flags` instance.
-    /// let flag_set = parsed_args.flags.is_flag_set(Flag::Fail);
-    /// assert_eq!(flag_set, true);
+    /// use my_crate::{Flags, Flag};
+    ///
+    /// let mut flags = Flags::default();
+    /// flags.set(Flag::FailOnEmpty, "--fail-on-empty", true);
+    ///
+    /// assert_eq!(flags.is_flag_set(Flag::FailOnEmpty), true);
+    /// assert_eq!(flags.is_flag_set(Flag::NoReplace), false);
     /// ```
     pub fn is_flag_set(&self, flag: Flag) -> bool {
         self.flags

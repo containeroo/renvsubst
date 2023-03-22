@@ -2,13 +2,12 @@ use crate::errors::ParseArgsError;
 use crate::utils::START_PARAMETERS;
 use std::collections::HashSet;
 
-/// A struct that contains optional filters for matching strings.
+/// `Filters` is a struct that holds optional sets of string prefixes, suffixes, and variables
+/// for filtering environment variable replacements. Each field contains an `Option<HashSet<String>>`,
+/// allowing for the possibility of an empty or uninitialized set.
 ///
-/// The `prefixes` field is a set of string prefixes. When matching a string, the `starts_with` method is used to check if the string starts with any of the prefixes in the set. If multiple identical prefixes are added to the set, only one copy of each prefix will be stored.
-///
-/// The `suffixes` field is a set of string suffixes. When matching a string, the `ends_with` method is used to check if the string ends with any of the suffixes in the set. If multiple identical suffixes are added to the set, only one copy of each suffix will be stored.
-///
-/// The `variables` field is a set of string variables. When matching a string, the `contains` method is used to check if the string contains any of the variables in the set. If multiple identical variables are added to the set, only one copy of each variable will be stored.
+/// The `Debug` and `Default` traits are derived for the `Filters` struct, enabling easy debugging
+/// and the creation of default instances.
 #[derive(Debug, Default)]
 pub struct Filters {
     /// A set of string prefixes.
@@ -19,13 +18,15 @@ pub struct Filters {
     pub variables: Option<HashSet<String>>,
 }
 
-/// An enum that represents the type of filter to be added to the `Filters` struct.
+/// `Filter` is an enumeration representing the different types of filters
+/// available for filtering environment variable replacements.
 ///
-/// The `Prefix` variant indicates that the filter is a string prefix. When matching a string, the `starts_with` method is used to check if the string starts with any of the prefixes in the set. If multiple identical prefixes are added to the set, only one copy of each prefix will be stored.
+/// The available filter types are:
+/// - `Prefix`: Filters based on string prefixes.
+/// - `Suffix`: Filters based on string suffixes.
+/// - `Variable`: Filters based on the complete variable name.
 ///
-/// The `Suffix` variant indicates that the filter is a string suffix. When matching a string, the `ends_with` method is used to check if the string ends with any of the suffixes in the set. If multiple identical suffixes are added to the set, only one copy of each suffix will be stored.
-///
-/// The `Variable` variant indicates that the filter is a string variable. When matching a string, the `contains` method is used to check if the string contains any of the variables in the set. If multiple identical variables are added to the set, only one copy of each variable will be stored.
+/// The enum derives the following traits: `Debug`, `PartialEq`, `Eq`, `Hash`, `Copy`, and `Clone`.
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum Filter {
     Prefix,
@@ -34,32 +35,23 @@ pub enum Filter {
 }
 
 impl Filters {
-    /// Adds a new filter criterion to the `Filters` struct.
+    /// Adds a new filter with the specified `Filter` type, argument name, and value.
     ///
-    /// This function adds a new filter criterion (prefix, suffix, or specific variable name)
-    /// to the `Filters` struct. If an invalid filter value is provided, a `ParseArgsError` is returned.
+    /// - `filter`: The type of filter to add (Prefix, Suffix, or Variable).
+    /// - `arg`: The argument name (e.g. "--prefix").
+    /// - `value`: An optional value for the filter. If `None`, the next item in `iter` will be used as the value.
+    /// - `iter`: A mutable iterator over command-line arguments.
     ///
-    /// # Arguments
-    ///
-    /// * `filter` - A `Filter` enum value representing the type of filter (prefix, suffix, or variable).
-    /// * `arg` - A string slice that holds the argument name associated with the filter (e.g., "--prefix").
-    /// * `value` - An `Option<&str>` containing the filter value. If `None`, the value will be extracted from the `iter`.
-    /// * `iter` - A mutable iterator over a slice of strings, used to extract the filter value if it is not provided in `value`.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `ParseArgsError` if the filter value is missing or if it matches a reserved start parameter.
+    /// Returns a `Result<(), ParseArgsError>` indicating success or the specific error that occurred.
     ///
     /// # Examples
     ///
     /// ```
-    /// use filters::{Filter, Filters};
-    ///
     /// let mut filters = Filters::default();
-    /// let mut args: Vec<String> = vec!["--prefix".to_string(), "prefix_".to_string()];
-    /// filters.add(Filter::Prefix, "--prefix", None, &mut args.iter()).unwrap();
+    /// let mut args_iter = ["--prefix", "TEST_", "--suffix", "_CONFIG"].iter();
     ///
-    /// assert_eq!(filters.matches("prefix_test_var"), Some(true));
+    /// filters.add(Filter::Prefix, "--prefix", None, &mut args_iter).unwrap();
+    /// filters.add(Filter::Suffix, "--suffix", None, &mut args_iter).unwrap();
     /// ```
     pub fn add(
         &mut self,
@@ -105,44 +97,28 @@ impl Filters {
         return Ok(());
     }
 
-    /// Determines if a given variable name matches the specified filter criteria.
+    /// Determines if the given `var_name` matches any of the filters defined in the `Filters` struct.
     ///
-    /// This function checks if the given `var_name` matches any of the filters
-    /// set in the `Filters` struct (i.e., prefixes, suffixes, and specific variable names).
-    /// If there are no filters set, it returns `None`. Otherwise, it returns `Some(bool)`,
-    /// where the boolean value indicates whether the variable name matches any filter.
+    /// - `var_name`: The variable name to check against the filters.
     ///
-    /// # Arguments
-    ///
-    /// * `var_name` - A string slice that holds the variable name to be tested against the filters.
+    /// Returns an `Option<bool>` which is:
+    /// - `None` if no filters are set.
+    /// - `Some(true)` if the `var_name` matches any of the filters (prefixes, suffixes, or variables).
+    /// - `Some(false)` if the `var_name` does not match any of the filters.
     ///
     /// # Examples
     ///
     /// ```
-    /// use filters::{Filter, Filters};
-    ///
     /// let mut filters = Filters::default();
-    /// filters
-    ///     .add(Filter::Prefix, "--prefix", Some("test"), &mut [].iter())
-    ///     .unwrap();
-    /// filters
-    ///     .add(Filter::Suffix, "--suffix", Some("test"), &mut [].iter())
-    ///     .unwrap();
-    /// filters
-    ///     .add(Filter::Variable, "--variable", Some("test"), &mut [].iter())
-    ///     .unwrap();
-    /// assert_eq!(filters.matches("test_var"), Some(true));
-    /// assert_eq!(filters.matches("var_test"), Some(true));
-    /// assert_eq!(filters.matches("test"), Some(true));
+    /// filters.add(Filter::Prefix, "--prefix", Some("TEST_"), &mut [].iter());
+    /// filters.add(Filter::Suffix, "--suffix", Some("_CONFIG"), &mut [].iter());
+    /// filters.add(Filter::Variable, "--variable", Some("SPECIAL_VAR"), &mut [].iter());
+    ///
+    /// assert_eq!(filters.matches("TEST_VAR"), Some(true));
+    /// assert_eq!(filters.matches("VAR_CONFIG"), Some(true));
+    /// assert_eq!(filters.matches("SPECIAL_VAR"), Some(true));
+    /// assert_eq!(filters.matches("OTHER_VAR"), Some(false));
     /// ```
-    ///
-    /// # Returns
-    ///
-    /// An `Option<bool>` value:
-    ///
-    /// * `None` if there are no filters set
-    /// * `Some(true)` if the given variable name matches any filter
-    /// * `Some(false)` if the given variable name does not match any filter
     pub fn matches(&self, var_name: &str) -> Option<bool> {
         // return None if no filters are set
         if !(self.prefixes.is_some() || self.suffixes.is_some() || self.variables.is_some()) {

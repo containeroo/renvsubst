@@ -1,4 +1,14 @@
-/// An error that occurs while parsing command-line arguments.
+/// `ParseArgsError` is an enumeration of possible errors that can occur while parsing
+/// command-line arguments. Each variant of this enum represents a specific error case.
+///
+/// Variants:
+/// - `UnknownFlag`: Indicates that an unknown flag was provided in the arguments.
+/// - `MissingValue`: Indicates that a required value is missing for a given flag.
+/// - `ConflictingFlags`: Indicates that two or more conflicting flags were specified.
+/// - `DuplicateFlag`: Indicates that a flag was specified multiple times.
+///
+/// This enum is marked as `non_exhaustive`, which means that additional error variants
+/// may be added in the future without breaking existing code.
 #[derive(Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ParseArgsError {
