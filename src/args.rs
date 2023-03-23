@@ -748,7 +748,7 @@ mod tests {
         let parsed_args = Args::parse(args).unwrap();
         assert_eq!(
             parsed_args.io.get(IO::Input),
-            Some("input_file".to_string())
+            Some(&String::from("input_file")),
         );
     }
 
@@ -758,7 +758,7 @@ mod tests {
         let parsed_args = Args::parse(args).unwrap();
         assert_eq!(
             parsed_args.io.get(IO::Input),
-            Some("input_file".to_string())
+            Some(&String::from("input_file")),
         );
     }
 
@@ -766,7 +766,7 @@ mod tests {
     fn test_input_equal2() {
         let args = vec!["--input=-"];
         let parsed_args = Args::parse(args).unwrap();
-        assert_eq!(parsed_args.io.get(IO::Input), Some("-".to_string()));
+        assert_eq!(parsed_args.io.get(IO::Input), Some(&String::from("-")),);
     }
 
     #[test]
@@ -775,7 +775,7 @@ mod tests {
         let parsed_args = Args::parse(args).unwrap();
         assert_eq!(
             parsed_args.io.get(IO::Input),
-            Some("input_file".to_string())
+            Some(&String::from("input_file")),
         );
     }
 
@@ -785,7 +785,7 @@ mod tests {
         let parsed_args = Args::parse(args).unwrap();
         assert_eq!(
             parsed_args.io.get(IO::Input),
-            Some("input=file.txt".to_string())
+            Some(&String::from("input=file.txt")),
         );
     }
 
@@ -806,7 +806,7 @@ mod tests {
         let parsed_args = Args::parse(args).unwrap();
         assert_eq!(
             parsed_args.io.get(IO::Output),
-            Some("output_file".to_string())
+            Some(&String::from("output_file")),
         );
     }
 
@@ -816,7 +816,7 @@ mod tests {
         let parsed_args = Args::parse(args).unwrap();
         assert_eq!(
             parsed_args.io.get(IO::Output),
-            Some("output_file".to_string())
+            Some(&String::from("output_file")),
         );
     }
 
@@ -826,7 +826,7 @@ mod tests {
         let parsed_args = Args::parse(args).unwrap();
         assert_eq!(
             parsed_args.io.get(IO::Output),
-            Some("output_file".to_string())
+            Some(&String::from("output_file")),
         );
     }
 

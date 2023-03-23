@@ -49,12 +49,16 @@ fn run(args: &[String]) -> Result<(), String> {
     }
 
     // create input and output streams
-    let input = open_input(parsed_args.io.get(IO::Input))?;
-    let output = open_output(parsed_args.io.get(IO::Output))?;
+    let input = open_input(parsed_args.io.get(IO::Input).cloned())?;
+    let output = open_output(parsed_args.io.get(IO::Output).cloned())?;
 
     // Check if the output is not stdout. If the output is a file, disable color.
     // This is necessary because otherwise, the content in the output file will include unwanted color escape codes.
-    if parsed_args.io.get(IO::Output).map_or(false, |s| s != *"-") {
+    if parsed_args
+        .io
+        .get(IO::Output)
+        .map_or(false, |s| s.as_str() != "-")
+    {
         parsed_args.flags.update(Flag::Color, false);
     }
 

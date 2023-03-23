@@ -85,10 +85,10 @@ impl InputOutput {
     ///
     /// An `Option<String>` containing the corresponding input or output value. If the input/output
     /// value is not set, `None` is returned.
-    pub fn get(&self, io: IO) -> Option<String> {
+    pub fn get(&self, io: IO) -> Option<&String> {
         match io {
-            IO::Input => self.input.clone(),
-            IO::Output => self.output.clone(),
+            IO::Input => self.input.as_ref(),
+            IO::Output => self.output.as_ref(),
         }
     }
 }
