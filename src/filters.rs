@@ -35,24 +35,49 @@ pub enum Filter {
 }
 
 impl Filters {
-    /// Adds a new filter with the specified `Filter` type, argument name, and value.
+    /// Adds a filter to the `Filters` struct based on a command-line argument and its value.
     ///
-    /// * `filter`: The type of filter to add (Prefix, Suffix, or Variable).
-    /// * `arg`: The argument name (e.g. "--prefix").
-    /// * `value`: An optional value for the filter. If `None`, the next item in `iter` will be used as the value.
-    /// * `iter`: A mutable iterator over command-line arguments.
+    /// # Arguments
     ///
-    /// Returns a `Result<(), ParseArgsError>` indicating success or the specific error that occurred.
+    /// * `filter`: A `Filter` enum variant specifying the type of filter to add.
+    /// * `arg`: A string slice containing the command-line argument to parse.
+    /// * `value`: An optional string slice containing the value of the argument.
+    /// * `iter`: A mutable reference to an iterator over the remaining command-line arguments.
+    ///
+    /// # Returns
+    ///
+    /// A `Result<(), ParseArgsError>` indicating whether the operation was successful, or an
+    /// error if there was an issue with parsing the arguments.
+    ///
+    /// # Errors
+    ///
+    /// This function can return the following errors:
+    ///
+    /// * `ParseArgsError::MissingValue(arg)` - When a value is missing for the specified argument.
     ///
     /// # Examples
     ///
     /// ```
-    /// let mut filters = Filters::default();
-    /// let mut args_iter = ["--prefix", "TEST_", "--suffix", "_CONFIG"].iter();
-    ///
-    /// filters.add(Filter::Prefix, "--prefix", None, &mut args_iter).unwrap();
-    /// filters.add(Filter::Suffix, "--suffix", None, &mut args_iter).unwrap();
+    /// let mut filters = Filters::new();
+    /// filters.add(Filter::Prefix, "--prefix", Some("prefix_"), &mut ["-v".to_string()].iter())
+    ///     .unwrap();
+    /// assert_eq!(filters.prefixes.unwrap().contains("prefix_"), true);
     /// ```
+    ///
+    /// # Notes
+    ///
+    /// This function is used to add filters to the `Filters` struct based on command-line arguments
+    /// and their values. The `filter` parameter specifies the type of filter to add, and the `arg`
+    /// and `value` parameters provide the command-line argument and its value, respectively.
+    ///
+    /// If `value` is `None`, the function will attempt to get the value from the next argument in
+    /// the command-line arguments iterator `iter`. If the value is not found, the function will
+    /// return a `ParseArgsError::MissingValue` error.
+    ///
+    /// If the value of the argument is in the `START_PARAMETERS` list, the function will return a
+    /// `ParseArgsError::MissingValue` error, since the value is expected to be a filter value and
+    /// not another parameter. Otherwise, the function will add the value to the appropriate filter
+    /// in the `Filters` struct, based on the value of the `filter` parameter.
     pub fn add(
         &mut self,
         filter: Filter,

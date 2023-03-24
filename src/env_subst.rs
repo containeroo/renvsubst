@@ -332,27 +332,51 @@ fn replace_vars_in_line(line: &str, flags: &Flags, filters: &Filters) -> Result<
     return Ok(new_line);
 }
 
-// This function processes the input stream, replacing environment variable placeholders
-// with their corresponding values, and writes the result to the output stream.
-// It takes into account the provided flags and filters during the replacement process.
-// The function supports both buffered and unbuffered line modes for writing to the output.
-//
-// In buffered mode, the function stores the processed lines in a buffer and writes
-// the entire buffer to the output stream once all lines have been processed.
-// In unbuffered mode, the function writes each processed line to the output stream
-// as soon as it's ready, without storing it in a buffer.
-//
-// The function returns an error if there's an issue during variable replacement,
-// or when writing to or flushing the output stream.
-//
-// Args:
-// * input: the input stream to read from (implements std::io::Read)
-// * output: the output stream to write to (implements std::io::Write)
-// * flags: a reference to the Flags struct
-// * filters: a reference to the Filters struct
-//
-// Returns:
-// * A Result indicating success or an error message
+/// Processes input from a `std::io::Read` object, replaces variables in each line, and writes the
+/// output to a `std::io::Write` object.
+///
+/// # Type Parameters
+///
+/// * `R`: A type that implements the `std::io::Read` trait.
+/// * `W`: A type that implements the `std::io::Write` trait.
+///
+/// # Arguments
+///
+/// * `input`: An object that implements the `std::io::Read` trait, from which the input is read.
+/// * `output`: An object that implements the `std::io::Write` trait, to which the output is written.
+/// * `flags`: A reference to a `Flags` struct containing the command-line flags and their values.
+/// * `filters`: A reference to a `Filters` struct containing the command-line filters and their values.
+///
+/// # Returns
+///
+/// A `Result<(), String>` containing `Ok(())` if the input was processed successfully, or a
+/// `String` error message if there was an issue during processing.
+///
+/// # Errors
+///
+/// This function can return the following errors:
+///
+/// * `--failed to replace variables: {error_message}` - When an error occurs while replacing variables in a line of input.
+/// * `--failed to write to output: {e}` - When an error occurs while writing to the output object.
+/// * `--failed to replace variables: {e}` - When an error occurs while replacing variables in a line.
+/// * `--failed to flush output: {e}` - When an error occurs while flushing the output object.
+///
+/// # Examples
+///
+/// ```
+/// use std::io::Cursor;
+/// use your_crate::{Flags, Filters, process_input};
+///
+/// let input = "Hello, ${name}!\n".repeat(3);
+/// let mut output = Cursor::new(Vec::new());
+/// let flags = Flags::default();
+/// let filters = Filters::default();
+///
+/// process_input(input.as_bytes(), &mut output, &flags, &filters).unwrap();
+///
+/// let expected_output = "Hello, ${name}!\n".repeat(3);
+/// assert_eq!(String::from_utf8(output.into_inner()).unwrap(), expected_output);
+/// ```
 pub fn process_input<R: std::io::Read, W: std::io::Write>(
     input: R,
     mut output: W,
@@ -365,8 +389,8 @@ pub fn process_input<R: std::io::Read, W: std::io::Write>(
         .get(Flag::UnbufferedLines)
         .map_or(false, |f| f.value.unwrap_or(false));
 
-    for line in read_lines(reader) {
-        let line: String = line.unwrap();
+    for line_res in read_lines(reader) {
+        let line = line_res.map_err(|e| e.to_string())?;
         let replaced: Result<String, String> = replace_vars_in_line(&line, flags, filters);
         match replaced {
             Ok(out) => {

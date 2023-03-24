@@ -64,9 +64,8 @@ impl Args {
     fn expand_combined_flags(arg: &str) -> Vec<(String, Option<&str>)> {
         let mut expanded_flags = Vec::new();
 
-        let prefixes = ["--", "-"];
         // Extract flag prefix and flag body
-        let (flag_prefix, flag_body) = prefixes
+        let (flag_prefix, flag_body) = ["--", "-"]
             .iter() // iterate over the prefixes
             .find_map(
                 // find the first prefix that matches the start of the arg
@@ -125,6 +124,14 @@ impl Args {
     ///
     /// A `Result<Args, ParseArgsError>` containing the parsed command-line arguments in an `Args`
     /// struct, or a `ParseArgsError` if there was an issue during parsing.
+    ///
+    /// # Errors
+    ///
+    /// This function can return the following errors:
+    ///
+    /// * `ParseArgsError::UnknownFlag(flag)` - When an unknown flag is encountered.
+    /// * `ParseArgsError::MissingValue(flag)` - When a flag requires a value, but it is not provided.
+    /// * `ParseArgsError::InvalidValue(flag, value)` - When a flag requires a specific value format, but the provided value is invalid.
     ///
     /// # Examples
     ///

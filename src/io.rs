@@ -33,18 +33,59 @@ pub enum IO {
 }
 
 impl InputOutput {
-    /// Sets the input or output stream.
+    /// Sets the value of the input or output path based on the provided `IO` parameter and
+    /// command-line arguments.
     ///
     /// # Arguments
     ///
-    /// * `io`: The input or output type.
-    /// * `arg`: The command line argument name.
-    /// * `value`: The command line argument value, if provided.
-    /// * `iter`: A mutable iterator over the command line arguments.
+    /// * `io`: An `IO` enum variant that specifies whether the input or output path should be
+    ///   set.
+    /// * `arg`: A `&str` representing the command-line flag argument that was used to set the
+    ///   input or output path.
+    /// * `value`: An optional `&str` representing the value that was provided for the command-line
+    ///   flag. If no value is provided, the function tries to get the next argument from the
+    ///   provided `iter`.
+    /// * `iter`: A mutable reference to an iterator over the command-line arguments.
+    ///
+    /// # Returns
+    ///
+    /// A `Result<(), ParseArgsError>` that is `Ok(())` if the input or output path was successfully
+    /// set, or an error message as a `ParseArgsError` if the value is missing or invalid.
     ///
     /// # Errors
     ///
-    /// Returns a `ParseArgsError` if the value is missing or if the argument is already set.
+    /// This function can return the following error messages:
+    ///
+    /// * `ParseArgsError::MissingValue(arg)` - When a value is missing for a command-line flag that
+    ///   requires one.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut io = IOStruct::new();
+    /// io.set(IO::Input, "--input", Some("input.txt"), &mut "".split_whitespace().into_iter())
+    ///     .unwrap();
+    /// assert_eq!(io.input.as_ref().unwrap(), "input.txt");
+    /// ```
+    ///
+    /// # Notes
+    ///
+    /// This function is used to set the value of the input or output path based on the provided
+    /// `IO` parameter and command-line arguments. It takes an `io` parameter that specifies whether
+    /// the input or output path should be set, an `arg` parameter that represents the command-line
+    /// flag argument that was used to set the input or output path, a `value` parameter that
+    /// represents the value that was provided for the command-line flag, and an `iter` parameter
+    /// that is a mutable reference to an iterator over the command-line arguments.
+    ///
+    /// If no `value` is provided for the `arg`, the function tries to get the next argument from
+    /// the provided `iter`. If the `value` or next argument is missing, the function returns a
+    /// `ParseArgsError::MissingValue` error message. If the `value` or next argument is one of the
+    /// start parameters (defined in the `START_PARAMETERS` constant), the function returns a
+    /// `ParseArgsError::MissingValue` error message.
+    ///
+    /// If the `IO` parameter is `IO::Input`, the function sets the `input` field of the struct to
+    /// the provided `value` or next argument. If the `IO` parameter is `IO::Output`, the function
+    /// sets the `output` field of the struct to the provided `value` or next argument.
     pub fn set(
         &mut self,
         io: IO,
@@ -75,16 +116,23 @@ impl InputOutput {
         Ok(())
     }
 
-    /// Returns the corresponding input or output value for a given `IO` variant.
+    /// Returns a reference to the value of the specified input/output `IO` option, if it has been set.
     ///
     /// # Arguments
     ///
-    /// * `io`: An `IO` variant specifying whether to retrieve the input or output value.
+    /// * `io`: An `IO` value indicating which input/output option to retrieve.
     ///
     /// # Returns
     ///
-    /// An `Option<String>` containing the corresponding input or output value. If the input/output
-    /// value is not set, `None` is returned.
+    /// An `Option<&String>` containing a reference to the value of the specified input/output option, if it has been set.
+    /// If the specified option has not been set, the function returns `None`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let args = Args::default();
+    /// assert_eq!(args.io.get(IO::Input), None);
+    /// ```
     pub fn get(&self, io: IO) -> Option<&String> {
         match io {
             IO::Input => self.input.as_ref(),
@@ -93,17 +141,48 @@ impl InputOutput {
     }
 }
 
-/// Opens an input file, or returns stdin if no input file is provided or "-" is specified.
-/// Returns a boxed `dyn Read` instance on success, or an error message on failure.
+/// Opens the input file for reading and returns a boxed trait object that implements the
+/// `Read` trait.
 ///
 /// # Arguments
 ///
-/// * `input_file`: An optional `String` containing the path to the input file, or "-" to specify stdin.
+/// * `input_file`: An optional string containing the name of the input file to open. If
+///   `None`, the function returns a boxed `std::io::Stdin` object.
+///
+/// # Returns
+///
+/// A `Result<Box<dyn Read>, String>` containing a boxed trait object that implements the
+/// `Read` trait and is connected to the input file, or an error message as a string if the
+/// file could not be opened.
 ///
 /// # Errors
 ///
-/// Returns an error message as a `String` if the input file cannot be opened.
+/// This function can return the following error message:
 ///
+/// * `Failed to open input file: {error_message}` - When an error occurs while opening the
+///   input file. The `{error_message}` placeholder is replaced with a string describing the
+///   error that occurred.
+///
+/// # Examples
+///
+/// ```
+/// let input = open_input(Some("input.txt".to_string())).unwrap();
+/// assert_eq!(input.is_read_vectored(), false);
+/// ```
+///
+/// # Notes
+///
+/// This function is used to open the input file for reading and return a boxed trait object
+/// that implements the `Read` trait. If the `input_file` argument is `None`, the function
+/// returns a boxed `std::io::Stdin` object, which can be used to read from the standard input
+/// stream.
+///
+/// If `input_file` is a `Some` variant containing a string, the function attempts to open the
+/// file with the given name and returns a boxed object that implements the `Read` trait and is
+/// connected to the input file. If there is an error during file opening, the function returns
+/// a `String` containing an error message describing the issue. If the `input_file` argument
+/// is `-`, the function returns a boxed `std::io::Stdin` object, regardless of the system's
+/// default input file handle.
 pub fn open_input(input_file: Option<String>) -> Result<Box<dyn Read>, String> {
     let input: Box<dyn Read> = match input_file {
         Some(file) if file == "-" => Box::new(std::io::stdin()),
@@ -122,16 +201,48 @@ pub fn open_input(input_file: Option<String>) -> Result<Box<dyn Read>, String> {
     return Ok(input);
 }
 
-/// Opens the output file specified in the command-line arguments, or returns `stdout` if none was specified.
+/// Opens the output file for writing and returns a boxed trait object that implements the
+/// `Write` trait.
 ///
 /// # Arguments
 ///
-/// * `output_file`: An optional `String` that contains the path to the output file. If this is `None` or `"-"`, the function returns `stdout`.
+/// * `output_file`: An optional string containing the name of the output file to open. If
+///   `None`, the function returns a boxed `std::io::Stdout` object.
 ///
 /// # Returns
 ///
-/// * `Result<Box<dyn Write>, String>`: A `Result` that contains a boxed `Write` trait object representing the opened file, or an error message as a `String` if the file couldn't be opened or created.
+/// A `Result<Box<dyn Write>, String>` containing a boxed trait object that implements the
+/// `Write` trait and is connected to the output file, or an error message as a string if the
+/// file could not be opened.
 ///
+/// # Errors
+///
+/// This function can return the following error message:
+///
+/// * `Failed to create output file: {error_message}` - When an error occurs while creating the
+///   output file. The `{error_message}` placeholder is replaced with a string describing the
+///   error that occurred.
+///
+/// # Examples
+///
+/// ```
+/// let output = open_output(Some("out.txt".to_string())).unwrap();
+/// assert_eq!(output.is_write_vectored(), false);
+/// ```
+///
+/// # Notes
+///
+/// This function is used to open the output file for writing and return a boxed trait object
+/// that implements the `Write` trait. If the `output_file` argument is `None`, the function
+/// returns a boxed `std::io::Stdout` object, which can be used to write to the standard output
+/// stream.
+///
+/// If `output_file` is a `Some` variant containing a string, the function attempts to create
+/// a new file with the given name and returns a boxed object that implements the `Write` trait
+/// and is connected to the output file. If there is an error during file creation, the function
+/// returns a `String` containing an error message describing the issue. If the `output_file`
+/// argument is `-`, the function returns a boxed `std::io::Stdout` object, regardless of the
+/// system's default output file handle.
 pub fn open_output(output_file: Option<String>) -> Result<Box<dyn Write>, String> {
     let output: Box<dyn Write> = match output_file {
         Some(file) if file == "-" => Box::new(std::io::stdout()),
