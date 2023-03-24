@@ -144,6 +144,7 @@ impl Filters {
     /// assert_eq!(filters.matches("SPECIAL_VAR"), Some(true));
     /// assert_eq!(filters.matches("OTHER_VAR"), Some(false));
     /// ```
+    #[must_use]
     pub fn matches(&self, var_name: &str) -> Option<bool> {
         // return None if no filters are set
         if !(self.prefixes.is_some() || self.suffixes.is_some() || self.variables.is_some()) {

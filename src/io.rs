@@ -133,6 +133,7 @@ impl InputOutput {
     /// let args = Args::default();
     /// assert_eq!(args.io.get(IO::Input), None);
     /// ```
+    #[must_use]
     pub fn get(&self, io: IO) -> Option<&String> {
         match io {
             IO::Input => self.input.as_ref(),

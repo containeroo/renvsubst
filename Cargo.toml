@@ -8,6 +8,10 @@ description = "Envsubst with some extra features written in Rust"
 repository = "https://github.com/containeroo/renvsubst"
 license = "MIT"
 
+[lib]
+name = "renvsubst"
+path = "src/lib.rs"
+
 [dependencies]
 colored = "2.0"
 

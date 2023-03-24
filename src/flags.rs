@@ -138,13 +138,13 @@ impl Flags {
 
     /// Retrieves the `FlagItem` associated with the given `Flag` variant, if it is set.
     ///
-    /// This method looks up the `FlagItem` associated with the provided `flag_option` in the
+    /// This method looks up the `FlagItem` associated with the provided `flag_variant` in the
     /// `Flags` struct's internal `flags` `HashMap`. If the flag is set, it returns a reference to
     /// the corresponding `FlagItem`; otherwise, it returns `None`.
     ///
     /// # Arguments
     ///
-    /// * `flag_option`: A `Flag` variant representing the desired command-line flag.
+    /// * `flag_variant`: A `Flag` variant representing the desired command-line flag.
     ///
     /// # Returns
     ///
@@ -161,8 +161,9 @@ impl Flags {
     /// assert!(fail_flag.is_some());
     /// assert_eq!(flags.get(Flag::Fail).and_then(|f| f.value), None);
     /// ```
-    pub fn get(&self, flag_option: Flag) -> Option<&FlagItem> {
-        self.flags.get(&flag_option)
+    #[must_use]
+    pub fn get(&self, flag_variant: Flag) -> Option<&FlagItem> {
+        self.flags.get(&flag_variant)
     }
 
     /// Updates the value of an existing flag in the `Flags` struct.
@@ -212,6 +213,7 @@ impl Flags {
     /// assert_eq!(flags.is_flag_set(Flag::FailOnEmpty), true);
     /// assert_eq!(flags.is_flag_set(Flag::NoReplace), false);
     /// ```
+    #[must_use]
     pub fn is_flag_set(&self, flag: Flag) -> bool {
         self.flags
             .get(&flag)

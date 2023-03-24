@@ -1,17 +1,4 @@
-mod args;
-mod env_subst;
-mod errors;
-mod filters;
-mod flags;
-mod help;
-mod io;
-mod utils;
-
-use crate::args::Args;
-use crate::env_subst::process_input;
-use crate::flags::Flag;
-use crate::io::{open_input, open_output, IO};
-use crate::utils::print_error;
+use renvsubst::{open_input, open_output, print_error, process_input, Args, Flag, IO};
 
 /// Executes the main logic of the application based on the given command-line arguments.
 ///
