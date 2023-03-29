@@ -1,7 +1,9 @@
 pub const HELP_TEXT: &str = "Usage: renvsubst [FLAGS] [FILTERS] [INPUT] [OUTPUT] | [-h | --help | --version]
 
-renvsubst will substitute all (bash-like) environment variables in the format of $VAR_NAME, ${VAR_NAME} or ${VAR_NAME:-DEFAULT_VALUE} with their corresponding values from the environment or the default value if provided. If the variable is not valid, it remains as is.
+renvsubst will substitute all (bash-like) environment variables in the format of $VAR_NAME or ${VAR_NAME} with their corresponding values from the environment. If the variable is not valid, it remains as is.
 A valid variable name starts with a letter or underscore, followed by any combination of letters, numbers, or underscores.
+
+\"braced variables\" (${VAR}) support for bash string replacement functions.
 
 Short flags are available for many options and can be combined. For example, use '-ue' instead of '-u -e' or '--fail-on-unset --fail-on-empty'. See the list of flags and filters below for the complete list of short flags and their combinations.
 
@@ -48,5 +50,15 @@ General:
 
 Escaping:
 To retain a variable's original value and prevent it from being substituted by an environment variable, add a second dollar sign ($). The second dollar sign will be removed during substitution. Only valid variables must be escaped.
+
+Replacement functions:
+  ${VAR:-default}   If $VAR is unset, set VAR to default.
+  ${VAR,} Convert first character of $VAR to lowercase.
+  ${VAR,,}  Convert all characters of $VAR to lowercase.
+  ${VAR^}  Convert first character of $VAR to uppercase.
+  ${VAR^^}   Convert all characters of $VAR to uppercase.
+  ${VAR/pattern/replacement} Replace all match of pattern with replacement.
+  ${VAR:offset}  Start at offset n characters into $VAR.
+  ${VAR:offset:length} Start at offset n characters into $VAR until length characters.
 
 ";

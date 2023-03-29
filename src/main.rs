@@ -15,13 +15,6 @@ use renvsubst::{open_input, open_output, print_error, process_input, Args, Flag,
 /// * `Ok(())` - If the application successfully executes its tasks.
 /// * `Err(String)` - If there is an error during execution, containing a description of the error.
 ///
-/// # Examples
-///
-/// ```
-/// let args = vec![String::from("--version")];
-/// let result = run(&args);
-/// assert!(result.is_ok());
-/// ```
 fn run(args: &[String]) -> Result<(), String> {
     let mut parsed_args = Args::parse(args).map_err(|e| e.to_string())?;
 

@@ -1,37 +1,25 @@
 use crate::filters::Filters;
 use crate::flags::{Flag, Flags};
-use colored::Colorize;
+use crate::utils::colorize_text;
+use colored::Color;
 use std::env;
 use std::io::{BufRead, BufReader};
 
-/// Creates an iterator that reads lines from a buffered reader.
+/// Reads lines from a buffered reader and returns an iterator over the lines.
 ///
-/// The function takes a mutable buffered reader and returns an iterator that
-/// yields `std::io::Result<String>` items. Each item represents a line read from
-/// the input or an error that occurred while reading.
+/// This function takes a mutable reference to an object implementing the `BufRead` trait,
+/// and creates an iterator that yields lines as `std::io::Result<String>`.
 ///
 /// # Arguments
 ///
-/// * `input`: A mutable buffered reader (`impl BufRead`).
+/// * `input` - A mutable reference to an object implementing the `BufRead` trait.
 ///
 /// # Returns
 ///
-/// An iterator (`impl Iterator<Item = std::io::Result<String>>`) that yields lines
-/// read from the input or any errors that occur while reading.
+/// * `impl Iterator<Item = std::io::Result<String>>` - An iterator over the lines read from the input.
+///   Each item in the iterator is a `std::io::Result<String>`, where the `Ok` variant contains a line,
+///   and the `Err` variant contains an error that occurred while reading.
 ///
-/// # Examples
-///
-/// ```
-/// use std::io::Cursor;
-///
-/// let input = b"line1\nline2\nline3";
-/// let cursor = Cursor::new(input);
-/// let lines = read_lines(cursor);
-///
-/// for line in lines {
-///     println!("{}", line.unwrap());
-/// }
-/// ```
 fn read_lines(mut input: impl BufRead) -> impl Iterator<Item = std::io::Result<String>> {
     std::iter::from_fn(move || {
         let mut vec = String::new();
@@ -47,139 +35,396 @@ fn read_lines(mut input: impl BufRead) -> impl Iterator<Item = std::io::Result<S
     })
 }
 
-/// Retrieves the value of an environment variable and applies processing based on the provided flags.
+/// Processes pattern stripping operations for the given value and pattern.
 ///
-/// The function takes the variable name, a default value, the original variable, and a reference to flags.
-/// It returns the processed value or an error, depending on the flag settings and the state of the environment variable.
+/// This function takes an operation (`op`), a value, and an optional pattern to apply the pattern
+/// stripping operation. The supported operations are:
+/// * '#' - Remove the shortest matching prefix (if any) from the value.
+/// * '%' - Remove the shortest matching suffix (if any) from the value.
 ///
 /// # Arguments
 ///
-/// * `var_name`: The name of the environment variable to retrieve.
-/// * `default_value`: The default value to use if the environment variable is not set or empty.
-/// * `original_variable`: The original variable name, including the delimiters (e.g., `${VAR}`).
-/// * `flags`: A reference to the `Flags` struct, which contains settings that affect the processing of the environment variable.
+/// * `op` - A character representing the pattern stripping operation ('#' or '%').
+/// * `value` - A string slice containing the value on which the operation should be performed.
+/// * `operation_data` - An `Option<&String>` containing the pattern for the stripping operation.
+///   If the pattern is `None`, the value will be returned unchanged.
 ///
 /// # Returns
 ///
-/// A `Result<String, String>` that contains the processed value of the environment variable or an error message.
+/// * `Result<String, String>` - A `Result` containing either the processed value as a `String` on success
+///   or an error message as a `String` on failure.
 ///
-/// # Examples
+/// # Errors
 ///
-/// ```
-/// let var_name = "EMPTY_VAR_NAME";
-/// let original_variable = "${EMPTY_VAR_NAME:default}";
-/// let default_value = "default";
-/// let flags = Flags::default();
+/// This function will return an error if an invalid operation is provided.
 ///
-/// env::set_var("EMPTY_VAR_NAME", "");
-/// let result = get_env_value(var_name, default_value, original_variable, &flags);
-/// assert_eq!(result, Ok("default".to_string()));
-/// ```
-fn get_env_value(
+fn process_pattern_stripping(
+    op: char,
+    value: &str,
+    operation_data: Option<&String>,
+) -> Result<String, String> {
+    return operation_data.map_or_else(
+        // If operation_data is None, return the value unchanged
+        || Ok(value.to_string()),
+        |pattern| match op {
+            // If the operation is '#', remove the shortest matching prefix (if any) from the value
+            '#' => Ok(value.strip_prefix(pattern).unwrap_or(value).to_string()),
+            // If the operation is '%', remove the shortest matching suffix (if any) from the value
+            '%' => Ok(value.strip_suffix(pattern).unwrap_or(value).to_string()),
+            // If the operation is invalid, return an error
+            _ => Err(format!("Invalid operation: {op}")),
+        },
+    );
+}
+
+/// Processes pattern replacement operations for the given value and pattern.
+///
+/// This function takes a value and an optional pattern to apply the pattern replacement operation.
+/// If the pattern is provided, the function replaces the first occurrence of the pattern in the value
+/// with the replacement string, if provided. If no pattern or replacement is provided, the function
+/// returns the original value.
+///
+/// The pattern and replacement strings are separated by a forward slash '/' character.
+///
+/// # Arguments
+///
+/// * `value` - A string slice containing the value on which the operation should be performed.
+/// * `operation_data` - An `Option<&String>` containing the pattern and replacement for the replacement
+///   operation. If the pattern is `None`, the value will be returned unchanged.
+///
+/// # Returns
+///
+/// * `Result<String, String>` - A `Result` containing either the processed value as a `String` on success
+///   or an error message as a `String` on failure.
+///
+fn process_pattern_replacement(
+    value: &str,
+    operation_data: Option<&String>,
+) -> Result<String, String> {
+    return operation_data.map_or_else(
+        // If operation_data is None, return the value unchanged
+        || Ok(value.to_string()),
+        // Otherwise, replace the pattern with the replacement string
+        |replace_data| {
+            // Split the pattern and replacement using the '/' character as a separator
+            let mut parts = replace_data.splitn(2, '/');
+            let pattern = parts.next().unwrap();
+            let replacement = parts.next().unwrap_or("");
+
+            // Replace all occurrences of the pattern with the replacement string
+            Ok(value.replace(pattern, replacement))
+        },
+    );
+}
+
+/// Processes case conversion operations for the given value and conversion data.
+///
+/// This function takes an operation (`op`), a value, and an optional string for the case conversion
+/// operation. The supported operations are:
+/// * ',' - Convert the first character of the value to lowercase.
+/// * '^' - Convert the first character of the value to uppercase.
+///
+/// If no conversion data is provided, the first character of the value will be converted to uppercase
+/// by default.
+///
+/// # Arguments
+///
+/// * `op` - A character representing the case conversion operation (',' or '^').
+/// * `value` - A string slice containing the value on which the operation should be performed.
+/// * `operation_data` - An `Option<&String>` containing the conversion data for the operation.
+///   If the operation data is `None`, the function will return the original value.
+///
+/// # Returns
+///
+/// * `Result<String, String>` - A `Result` containing either the processed value as a `String` on success
+///   or an error message as a `String` on failure.
+///
+/// # Errors
+///
+/// This function will return an error if an invalid conversion is provided.
+///
+fn process_case_conversion(
+    op: char,
+    value: &str,
+    operation_data: Option<&String>,
+) -> Result<String, String> {
+    return operation_data.map_or_else(
+        // If operation_data is None, return the original value
+        || Ok(value.to_string()),
+        |conversion| match conversion.as_str() {
+            // If conversion is empty, convert the first character to uppercase or lowercase
+            "" => {
+                if op == ',' {
+                    Ok(value[..1].to_ascii_lowercase() + &value[1..])
+                } else {
+                    Ok(value[..1].to_ascii_uppercase() + &value[1..])
+                }
+            }
+            // If conversion is ',', convert the value to lowercase
+            "," => Ok(value.to_lowercase()),
+            // If conversion is '^', convert the value to uppercase
+            "^" => Ok(value.to_ascii_uppercase()),
+            // If the conversion is invalid, return an error
+            _ => Err(format!("Invalid conversion: {conversion}")),
+        },
+    );
+}
+
+/// Processes substring extraction operations for the given value and operation data.
+///
+/// This function takes a value, an optional string for the substring extraction operation data,
+/// and the inner expression that the operation data came from. The operation data should be in the
+/// format "start:len", where "start" is the starting index of the substring and "len" is the length
+/// of the substring to extract. If "len" is omitted, the function will extract the substring from
+/// "start" to the end of the value.
+///
+/// # Arguments
+///
+/// * `value` - A string slice containing the value on which the operation should be performed.
+/// * `operation_data` - An `Option<&String>` containing the operation data for the substring extraction.
+///   If the operation data is `None`, the function will return the original value.
+/// * `inner_expr` - A string slice containing the inner expression that the operation data came from.
+///
+/// # Returns
+///
+/// * `Result<String, String>` - A `Result` containing either the extracted substring as a `String` on success
+///   or an error message as a `String` on failure.
+///
+/// # Errors
+///
+/// This function will return an error if the start index or length is invalid.
+///
+fn process_substring_extraction(
+    value: &str,
+    operation_data: Option<&String>,
+    inner_expr: &str,
+) -> Result<String, String> {
+    // If operation_data is None, return the original value
+    if operation_data.is_none() {
+        return Ok(value.to_string());
+    }
+    let operation_data = operation_data.unwrap();
+
+    // Split operation_data using ':' to get start and len parts
+    let mut parts = operation_data.splitn(2, ':');
+
+    // Parse the first part (start) as a usize
+    let start = parts
+        .next()
+        .unwrap()
+        .parse::<usize>()
+        .map_err(|_| format!("\"${{{inner_expr}}}\" - invalid start offset"))?;
+
+    // Parse the second part (len) as an optional usize
+    let len = parts
+        .next()
+        .map(str::parse)
+        .transpose()
+        .map_err(|_| "Invalid length")?;
+
+    // Extract the substring from value, skipping 'start' characters and taking 'len' characters
+    return Ok(value
+        .chars()
+        .skip(start)
+        .take(len.unwrap_or(value.len() - start))
+        .collect());
+}
+
+/// This function handles the application of certain flags on the result of a variable replacement. These
+/// flags include `Fail`, `FailOnEmpty`, `FailOnUnset`, `NoReplaceUnset`, and `NoReplaceEmpty`. The function takes in
+/// the result of a variable replacement, the variable name, the original variable string, and the flags
+/// object. It then returns the modified result or an error message depending on the flag settings.
+///
+/// # Arguments
+///
+/// * `result` - A String containing the result of the variable replacement.
+/// * `var_name` - A string slice containing the name of the environment variable being replaced.
+/// * `original_variable` - A string slice containing the original variable string that was replaced.
+/// * `flags` - A &Flags object containing the flag settings for the program.
+///
+/// # Returns
+///
+/// * Result<String, String> - A Result containing either the modified result as a String on success
+/// or an error message as a String on failure.
+///
+/// # Errors
+///
+/// This function will return an error message if the `Fail` or `FailOnEmpty` flags are set and the result is empty,
+/// if the `FailOnUnset` flag is set and the environment variable is not set, or if the `NoReplaceUnset` or `NoReplaceEmpty`
+/// flags are set and the result is empty.
+fn handle_flags_on_result(
+    result: String,
     var_name: &str,
-    default_value: &str,
     original_variable: &str,
     flags: &Flags,
 ) -> Result<String, String> {
-    let colored = flags.is_flag_set(Flag::Color);
-    match env::var(var_name) {
-        // If the variable value is empty, and the default value is empty,
-        // and the `fail_on_empty` flag is set, return an error.
-        Ok(value)
-            if value.is_empty()
-                && default_value.is_empty()
-                && (flags.is_flag_set(Flag::Fail) || flags.is_flag_set(Flag::FailOnEmpty)) =>
-        {
-            return Err(format!("environment variable '{var_name}' is empty"));
-        }
-
-        // If the variable value is empty, and the default value is not empty,
-        // return the default value.
-        Ok(value) if value.is_empty() && !default_value.is_empty() => {
-            if colored {
-                return Ok(default_value.to_owned().yellow().to_string());
-            }
-            return Ok(default_value.to_owned());
-        }
-
-        // If the variable value is empty, and the `no_replace_empty` flag is set,
-        // return the original variable value.
-        Ok(value)
-            if value.is_empty()
-                && (flags.is_flag_set(Flag::NoReplace)
-                    || flags.is_flag_set(Flag::NoReplaceEmpty)) =>
-        {
-            if colored {
-                return Ok(original_variable.to_owned().red().to_string());
-            }
-            return Ok(original_variable.to_owned());
-        }
-
-        // If the variable value is not empty, return the variable value.
-        Ok(value) => {
-            if colored {
-                return Ok(value.green().to_string());
-            };
-            return Ok(value);
-        }
-
-        // If the environment variable is not set, and the default value is not empty,
-        // return the default value.
-        Err(_) if !default_value.is_empty() => {
-            if colored {
-                return Ok(default_value.to_owned().yellow().to_string());
-            }
-            return Ok(default_value.to_owned());
-        }
-
-        // If the environment variable is not set, and the `fail_on_unset` flag is set,
-        // return an error.
-        Err(_) if flags.is_flag_set(Flag::Fail) || flags.is_flag_set(Flag::FailOnUnset) => {
-            return Err(format!("environment variable '{var_name}' is not set"))
-        }
-
-        // If the environment variable is not set, and the `no_replace_unset` flag is set,
-        // return the original variable value.
-        Err(_) if flags.is_flag_set(Flag::NoReplace) || flags.is_flag_set(Flag::NoReplaceUnset) => {
-            if colored {
-                return Ok(original_variable.to_owned().red().to_string());
-            }
-            return Ok(original_variable.to_owned());
-        }
-
-        // If none of the above conditions are met, return an empty string.
-        // This is wanted behavior, as we don't want to replace the variable if it's not set.
-        Err(_) => return Ok(String::new()),
+    // Check for Fail and FailOnUnset flags
+    if result.is_empty() && (flags.is_flag_set(Flag::Fail) || flags.is_flag_set(Flag::FailOnUnset))
+    {
+        return Err(format!("environment variable '{var_name}' is not set"));
     }
+
+    // Check for FailOnEmpty flag
+    if result.is_empty() && (flags.is_flag_set(Flag::Fail) || flags.is_flag_set(Flag::FailOnEmpty))
+    {
+        return Err(format!("environment variable '{var_name}' is empty"));
+    }
+
+    // Check for NoReplaceUnset flag
+    if result.is_empty()
+        && (flags.is_flag_set(Flag::NoReplace) || flags.is_flag_set(Flag::NoReplaceUnset))
+    {
+        return Ok(original_variable.to_string());
+    }
+
+    // Check for NoReplaceEmpty flag
+    if result.is_empty()
+        && (flags.is_flag_set(Flag::NoReplace) || flags.is_flag_set(Flag::NoReplaceEmpty))
+    {
+        return Ok(original_variable.to_string());
+    }
+
+    // Return the modified result
+    return Ok(result);
 }
 
-// This function takes a line of text, a reference to the Flags struct, and a reference to the Filters struct.
-// It replaces environment variable placeholders in the line with their corresponding values.
-// If the variable is not set, it replaces the placeholder with its default value or an empty string.
-// If the variable is filtered out by the Filters struct, it leaves the placeholder as is.
-// If the 'Color' flag is set, it also colors the replaced values based on their state.
-//
-// The function iterates through the characters of the line, and when a '$' is encountered,
-// it checks the next character to determine the format of the variable placeholder.
-// It supports the following formats:
-// 1. ${VAR} - replace with the value of VAR, if set
-// 2. ${VAR:-DEFAULT} - replace with the value of VAR, if set, or DEFAULT if VAR is not set
-// 3. $VAR - replace with the value of VAR, if set
-//
-// The function also handles escape sequences (e.g., $$) and takes the 'NoEscape' flag into account.
-// If an error occurs during the replacement, the function returns an error.
-//
-// Args:
-// * line: the line of text to process
-// * flags: a reference to the Flags struct
-// * filters: a reference to the Filters struct
-//
-// Returns:
-// * A Result containing the processed line with replaced variables or an error message
+/// Processes an inner expression by parsing the variable name, any associated operation, and
+/// performing the specified operation on the corresponding environment variable. This function
+/// supports the following operations:
+///
+/// * `#` or `%` for pattern stripping
+/// * `/` for pattern replacement
+/// * `,` or `^` for case conversion
+/// * `:` for default value or substring extraction
+///
+/// # Arguments
+///
+/// * `inner_expr` - A string slice containing the inner expression to be processed.
+/// * `flags` - A `Flags` struct containing the flags to apply to the operation.
+/// * `filters` - A `Filters` struct containing the filters to apply to the variable name.
+///
+/// # Returns
+///
+/// * `Result<String, String>` - A `Result` containing either the result of the operation as a `String` on success
+///   or an error message as a `String` on failure.
+///
+/// # Errors
+///
+/// This function will return an error if the inner expression contains an invalid character, or if an
+/// operation is specified but the corresponding environment variable does not exist or is not valid.
+///
+fn process_inner_expression(
+    inner_expr: &str,
+    flags: &Flags,
+    filters: &Filters,
+) -> Result<String, String> {
+    let mut iter = inner_expr.chars().peekable();
+
+    let mut var_name: String = String::new();
+    let mut operation: Option<char> = None;
+    let mut operation_data: Option<String> = None;
+    let colored = flags.is_flag_set(Flag::Color);
+
+    // Iterate through the characters of the inner expression
+    while let Some(c) = iter.next() {
+        if c.is_ascii_alphanumeric() || c == '_' {
+            // If the character is alphanumeric or '_', add it to the var_name
+            var_name.push(c);
+            continue;
+        }
+
+        if c == '#' || c == '%' || c == '/' || c == ',' || c == ':' || c == '=' || c == '^' {
+            // If an operation hasn't been found yet, and the current character is a valid operation, set the operation
+            operation = Some(c);
+            let mut data = String::new();
+            for c in iter.by_ref() {
+                data.push(c);
+            }
+            operation_data = Some(data);
+            break;
+        }
+        return Err(format!("Invalid character in expression: {c}"));
+    }
+
+    // Get the environment variable value for the given var_name
+    let value = env::var(&var_name).unwrap_or_default();
+
+    // Perform the specified operation, if any, on the value
+    let result = if let Some(op) = operation {
+        match op {
+            // Process '#' and '%' operations for pattern stripping
+            '#' | '%' => process_pattern_stripping(op, &value, operation_data.as_ref()),
+            // Process '/' operation for pattern replacement
+            '/' => process_pattern_replacement(&value, operation_data.as_ref()),
+            // Process ',' and '^' operations for case conversion
+            ',' | '^' => process_case_conversion(op, &value, operation_data.as_ref()),
+            // Process ':' operation for default value or substring extraction
+            ':' => {
+                // check if next character is -
+                if operation_data.as_ref().unwrap().starts_with('-') {
+                    // extract default value
+                    let default_value = operation_data.as_ref().unwrap().get(1..).unwrap();
+                    // return default value if value is empty
+                    if value.is_empty() {
+                        Ok(colorize_text(
+                            colored,
+                            default_value.to_string(),
+                            Color::Yellow,
+                        ))
+                    } else {
+                        Ok(colorize_text(colored, value, Color::Green))
+                    }
+                } else {
+                    // otherwise, process substring extraction
+                    process_substring_extraction(&value, operation_data.as_ref(), inner_expr)
+                }
+            }
+            _ => return Err(format!("Invalid operation: {op}")),
+        }
+    } else {
+        Ok(value)
+    };
+
+    let original_variable = format!("${{{var_name}}}");
+
+    // Check if the variable name matches any filters
+    if filters.matches(&var_name) == Some(false) {
+        return Ok(colorize_text(colored, original_variable, Color::Magenta));
+    }
+
+    // Handle Fail, FailOnEmpty, FailOnUnset, NoReplace, NoReplaceUnset, and NoReplaceEmpty flags
+    let result = handle_flags_on_result(result?, &var_name, &original_variable, flags)?;
+
+    return Ok(colorize_text(colored, result, Color::Green));
+}
+
+/// Replaces variables in a given line of text.
+///
+/// This function replaces variables in a line of text with their corresponding values. Variables can be
+/// of the form $VAR, ${VAR}, or ${VAR:-DEFAULT}. The function supports several flags for controlling
+/// the behavior of variable replacement.
+///
+/// # Arguments
+///
+/// * line - A string slice containing the line of text to replace variables in.
+/// * flags - A reference to a Flags object containing the flags to use during variable replacement.
+/// * filters - A reference to a Filters object containing the filters to apply during variable replacement.
+///
+/// # Returns
+///
+/// * Result<String, String> - A Result containing the modified line of text as a String on success
+/// or an error message as a String on failure.
+///
+/// # Errors
+///
+/// This function will return an error if a variable name is invalid or if an invalid flag is encountered.
+///
 fn replace_vars_in_line(line: &str, flags: &Flags, filters: &Filters) -> Result<String, String> {
     let mut new_line: String = String::with_capacity(line.len());
     let mut iter = line.chars().peekable();
     let colored = flags.is_flag_set(Flag::Color);
+
+    let check_escape = !flags.is_flag_set(Flag::NoEscape);
 
     while let Some(c) = iter.next() {
         if c != '$' {
@@ -189,37 +434,29 @@ fn replace_vars_in_line(line: &str, flags: &Flags, filters: &Filters) -> Result<
 
         let next_char = iter.peek();
 
-        if !flags
-            .get(Flag::NoEscape)
-            .map_or(false, |f| f.value.unwrap_or(false))
-            && next_char == Some(&'$')
-        {
-            // if inside here, then we have a double $
-            iter.next(); // skip the second $
-            new_line.push(c);
+        // Check if the current character is an escaped '$' and the next character is also '$'
+        if check_escape && c == '$' && next_char == Some(&'$') {
+            // Consume the next character (the second '$') in the iterator
+            iter.next();
 
-            if iter.peek().is_none() {
-                // double $ at the end of the line
-                new_line.push(c);
-                continue;
+            // Add the escaped '$' to the new_line buffer
+            new_line.push('$');
+
+            // Check the character after the escaped '$'
+            match iter.peek() {
+                // If the next character doesn't match any of the specified cases and is not an alphabetic character
+                Some(next)
+                    if !matches!(*next, '_' | '$' | ' ' | '{') && !next.is_ascii_alphabetic() =>
+                {
+                    // Add the current character to the new_line buffer
+                    new_line.push(c);
+                }
+                // If there is no next character, add another '$' to the new_line buffer
+                None => new_line.push('$'),
+                _ => (), // In any other case, do nothing
             }
-
-            // if the next character is not a valid variable character, then push the second $
-            if !iter
-                .peek()
-                .map_or(false, |c| c.is_ascii_alphabetic() || c == &'_')
-            {
-                new_line.push(c);
-            }
-
             continue;
         }
-
-        let mut brace_ended = false;
-        let mut original_variable: String = String::new();
-        let mut var_name: String = String::new();
-        let mut default_value: String = String::new();
-
         // match next character after the $
         match next_char {
             // Handles ${VAR} and ${VAR:-DEFAULT}
@@ -235,65 +472,36 @@ fn replace_vars_in_line(line: &str, flags: &Flags, filters: &Filters) -> Result<
                     continue;
                 }
 
-                let mut default_value_found = false;
-                let mut default_error = false;
+                let mut brace_ended = false;
+                let mut inner_expr: String = String::new();
 
-                while let Some(c) = iter.next() {
-                    // check if possible default value => :
-                    if c == ':' && !default_value_found {
-                        // if next character is not '-', then the ':' is not part of the default value
-                        if iter.peek() != Some(&'-') {
-                            // if reached here, then the ':' is not part of the default value
-                            default_error = true;
-                            break;
-                        }
-                        default_value_found = true;
-                        iter.next(); // skip the '-'
-                        continue;
-                    }
-
+                // read until the next '}' or the end of the line
+                while let Some(&c) = iter.peek() {
                     if c == '}' {
+                        iter.next(); // Consume '}'
                         brace_ended = true;
                         break;
                     }
-
-                    if default_value_found {
-                        default_value.push(c);
-                        continue;
-                    }
-
-                    var_name.push(c); // append the "regular" character to the variable name
-                }
-
-                if default_error {
-                    // this only occurs if the ':' is not part of the default value
-
-                    // append everything that was iterated over
-                    new_line.push_str(&format!("${{{var_name}"));
-
-                    // append the "broken" :
-                    new_line.push(':');
-                    continue; // continue to the next character
+                    inner_expr.push(c);
+                    iter.next();
                 }
 
                 if !brace_ended {
-                    // append everything that was iterated over
-                    new_line.push_str(&format!("${{{var_name}"));
-                    if default_value_found {
-                        new_line.push_str(&format!(":-{default_value}"));
-                    }
+                    // if the brace hasn't ended, add the characters and continue
+                    new_line.push_str(&format!("${{{inner_expr}"));
                     continue;
                 }
 
-                original_variable.push_str(&format!("${{{var_name}"));
+                // Process inner expression here
+                let value = process_inner_expression(&inner_expr, flags, filters)?;
 
-                if default_value_found {
-                    original_variable.push_str(&format!(":-{default_value}"));
-                }
-                original_variable.push('}');
+                new_line.push_str(&value);
             }
+
             // Handles $VAR and $VAR
             Some(next) if next.is_ascii_alphabetic() || next == &'_' => {
+                let mut var_name: String = String::new();
+
                 // look ahead to see if the next character is valid
                 // peek does not consume the character
                 // if the character ahead is valid, it will be consumed with iter.next()
@@ -304,7 +512,17 @@ fn replace_vars_in_line(line: &str, flags: &Flags, filters: &Filters) -> Result<
                     var_name.push(*c);
                     iter.next(); // consume character
                 }
-                original_variable = format!("${var_name}");
+                let original_variable = format!("${var_name}");
+
+                if filters.matches(&var_name) == Some(false) {
+                    new_line.push_str(&colorize_text(colored, original_variable, Color::Yellow));
+                    continue;
+                }
+
+                let value: String = env::var(&var_name).unwrap_or_default();
+                let result = handle_flags_on_result(value, &var_name, &original_variable, flags)?;
+
+                new_line.push_str(&colorize_text(colored, result, Color::Green));
             }
             // Everything else
             _ => {
@@ -312,71 +530,31 @@ fn replace_vars_in_line(line: &str, flags: &Flags, filters: &Filters) -> Result<
                 continue;
             }
         }
-
-        if filters.matches(&var_name) == Some(false) {
-            if colored {
-                new_line.push_str(format!("{}", original_variable.red()).as_str());
-            } else {
-                new_line.push_str(&original_variable);
-            }
-
-            continue;
-        }
-
-        match get_env_value(&var_name, &default_value, &original_variable, flags) {
-            Ok(val) => new_line.push_str(&val),
-            Err(err) => return Err(err),
-        }
     }
 
     return Ok(new_line);
 }
-
-/// Processes input from a `std::io::Read` object, replaces variables in each line, and writes the
-/// output to a `std::io::Write` object.
+/// Processes the input from a given Read instance and writes the result to a given Write instance.
 ///
-/// # Type Parameters
-///
-/// * `R`: A type that implements the `std::io::Read` trait.
-/// * `W`: A type that implements the `std::io::Write` trait.
+/// This function reads input from a Read instance and replaces any variables found in the input
+/// with their corresponding environment variable values, according to the specified Flags and Filters.
+/// The resulting output is then written to a Write instance.
 ///
 /// # Arguments
 ///
-/// * `input`: An object that implements the `std::io::Read` trait, from which the input is read.
-/// * `output`: An object that implements the `std::io::Write` trait, to which the output is written.
-/// * `flags`: A reference to a `Flags` struct containing the command-line flags and their values.
-/// * `filters`: A reference to a `Filters` struct containing the command-line filters and their values.
+/// * input - A Read instance from which to read input data.
+/// * output - A Write instance to which to write the resulting output data.
+/// * flags - A reference to a Flags instance containing the flag settings for variable replacement.
+/// * filters - A reference to a Filters instance containing the variable name filters for variable replacement.
 ///
 /// # Returns
 ///
-/// A `Result<(), String>` containing `Ok(())` if the input was processed successfully, or a
-/// `String` error message if there was an issue during processing.
+/// * Result<(), String> - A Result containing either a () on success or an error message as a String on failure.
 ///
 /// # Errors
 ///
-/// This function can return the following errors:
+/// This function will return an error if any I/O operation fails, or if there is an error in replacing variables in the input data.
 ///
-/// * `--failed to replace variables: {error_message}` - When an error occurs while replacing variables in a line of input.
-/// * `--failed to write to output: {e}` - When an error occurs while writing to the output object.
-/// * `--failed to replace variables: {e}` - When an error occurs while replacing variables in a line.
-/// * `--failed to flush output: {e}` - When an error occurs while flushing the output object.
-///
-/// # Examples
-///
-/// ```
-/// use std::io::Cursor;
-/// use your_crate::{Flags, Filters, process_input};
-///
-/// let input = "Hello, ${name}!\n".repeat(3);
-/// let mut output = Cursor::new(Vec::new());
-/// let flags = Flags::default();
-/// let filters = Filters::default();
-///
-/// process_input(input.as_bytes(), &mut output, &flags, &filters).unwrap();
-///
-/// let expected_output = "Hello, ${name}!\n".repeat(3);
-/// assert_eq!(String::from_utf8(output.into_inner()).unwrap(), expected_output);
-/// ```
 pub fn process_input<R: std::io::Read, W: std::io::Write>(
     input: R,
     mut output: W,
@@ -397,27 +575,27 @@ pub fn process_input<R: std::io::Read, W: std::io::Write>(
                 // if unbuffered lines mode is enabled, write each line as soon as it's processed
                 if unbuffered_lines {
                     if let Err(e) = output.write(out.as_bytes()) {
-                        return Err(format!("--failed to write to output: {e}"));
+                        return Err(format!("failed to write to output: {e}"));
                     }
                     continue;
                 }
                 // if unbuffered lines mode is not enabled, append the line to the buffer
                 buffer.push_str(&out);
             }
-            Err(e) => return Err(format!("--failed to replace variables: {e}")),
+            Err(e) => return Err(format!("failed to replace variables: {e}")),
         }
     }
 
     // if unbuffered lines mode is not enabled, write the entire buffer to the output file at once
     if !unbuffered_lines {
         if let Err(e) = output.write_all(buffer.as_bytes()) {
-            return Err(format!("--failed to write to output: {e}"));
+            return Err(format!("failed to write to output: {e}"));
         }
     }
 
     // flush the output to ensure that all written data is actually written to the output stream
     if let Err(e) = output.flush() {
-        return Err(format!("--failed to flush output: {e}"));
+        return Err(format!("failed to flush output: {e}"));
     }
 
     return Ok(());
@@ -427,7 +605,6 @@ pub fn process_input<R: std::io::Read, W: std::io::Write>(
 mod tests {
     use super::*;
     use crate::filters::Filter;
-    use std::collections::HashSet;
     use std::io::Cursor;
 
     // A dummy implementation of a writer that always fails to write and flush
@@ -476,1219 +653,560 @@ mod tests {
             }
         }
     }
+
     #[test]
-    fn test_replace_vars_in_line_regular_var_found() {
-        // description: regular variable found
-        // test: $REGULAR_VAR_FOUND
-        // env: REGULAR_VAR_FOUND=value
-        // result: value
-        env::set_var("REGULAR_VAR_FOUND", "value");
-        let line = "$REGULAR_VAR_FOUND".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("value".to_string()));
+    fn test_read_lines() {
+        // Test Unix line endings
+        let input = "Hello $WORLD!\nHello $WORLD!\nHello $WORLD!\n";
+        let expected = vec!["Hello $WORLD!\n", "Hello $WORLD!\n", "Hello $WORLD!\n"];
+        let lines = read_lines(input.as_bytes());
+        for (i, line_result) in lines.enumerate() {
+            let line = line_result.unwrap();
+            assert_eq!(line, expected[i]);
+        }
+
+        // Test Windows line endings
+        let input = "Hello $WORLD!\r\nHello $WORLD!\r\nHello $WORLD!\r\n";
+        let expected = vec![
+            "Hello $WORLD!\r\n",
+            "Hello $WORLD!\r\n",
+            "Hello $WORLD!\r\n",
+        ];
+        let lines = read_lines(input.as_bytes());
+        for (i, line_result) in lines.enumerate() {
+            let line = line_result.unwrap();
+            assert_eq!(line, expected[i]);
+        }
+
+        // Test Emojis
+        let input = "Hello 😃 World!\nHello 😃 World!\nHello 😃 World!\n";
+        let expected = vec![
+            "Hello 😃 World!\n",
+            "Hello 😃 World!\n",
+            "Hello 😃 World!\n",
+        ];
+        let lines = read_lines(input.as_bytes());
+        for (i, line_result) in lines.enumerate() {
+            let line = line_result.unwrap();
+            assert_eq!(line, expected[i]);
+        }
     }
 
     #[test]
-    fn test_replace_vars_in_line_regular_var_found_colored() {
-        // description: regular variable found
-        // test: $REGULAR_VAR_FOUND
-        // env: REGULAR_VAR_FOUND=value
-        // result: value
-        env::set_var("REGULAR_VAR_FOUND", "value");
-        let line = "$REGULAR_VAR_FOUND".to_string();
+    fn test_read_lines_error() {
+        let input = b"Hello \xF0 World!";
+        let mut lines = read_lines(Cursor::new(&input[..]));
+        let result = lines.next();
+        assert!(result.is_some());
+        assert!(result.unwrap().is_err());
+    }
 
+    #[test]
+    fn test_process_pattern_stripping() {
+        // Test '#' operation with operation_data
+        let op = '#';
+        let value = "example_value";
+        let operation_data = Some("ex".to_string());
+        let result = process_pattern_stripping(op, value, operation_data.as_ref());
+        assert_eq!(result.unwrap(), "ample_value");
+
+        // Test '#' operation without operation_data
+        let op = '#';
+        let value = "example_value";
+        let operation_data = None;
+        let result = process_pattern_stripping(op, value, operation_data.as_ref());
+        assert_eq!(result.unwrap(), "example_value");
+
+        // Test '%' operation with operation_data
+        let op = '%';
+        let value = "example_value";
+        let operation_data = Some("_value".to_string());
+        let result = process_pattern_stripping(op, value, operation_data.as_ref());
+        assert_eq!(result.unwrap(), "example");
+
+        // Test '%' operation without operation_data
+        let op = '%';
+        let value = "example_value";
+        let operation_data = None;
+        let result = process_pattern_stripping(op, value, operation_data.as_ref());
+        assert_eq!(result.unwrap(), "example_value");
+
+        // Test unreachable operation
+        let op = '!';
+        let value = "example_value";
+        let operation_data = Some("ex".to_string());
+        let result = process_pattern_stripping(op, value, operation_data.as_ref());
+        assert!(result.is_err(), "Expected error from invalid operation");
+
+    }
+
+    #[test]
+    fn test_process_pattern_replacement() {
+        let value = "hello_world";
+
+        // Test pattern replacement with operation_data
+        let operation_data = Some("o/_".to_string());
+        let result = process_pattern_replacement(value, operation_data.as_ref());
+        assert_eq!(result.unwrap(), "hell__w_rld");
+
+        // Test pattern replacement with an empty replacement string
+        let operation_data = Some("o/".to_string());
+        let result = process_pattern_replacement(value, operation_data.as_ref());
+        assert_eq!(result.unwrap(), "hell_wrld");
+
+        // Test pattern replacement without operation_data
+        let operation_data = None;
+        let result = process_pattern_replacement(value, operation_data.as_ref());
+        assert_eq!(result.unwrap(), "hello_world");
+    }
+
+    #[test]
+    fn test_process_case_conversion() {
+        // Test ',' operation with empty conversion
+        let value = "HelloWorld";
+        let operation_data = Some(String::new());
+        let result = process_case_conversion(',', value, operation_data.as_ref());
+        assert_eq!(result.unwrap(), "helloWorld");
+
+        // Test '^' operation with empty conversion
+        let value = "helloWorld";
+        let operation_data = Some(String::new());
+        let result = process_case_conversion('^', value, operation_data.as_ref());
+        assert_eq!(result.unwrap(), "HelloWorld");
+
+        // Test ',' operation with "," conversion
+        let value = "HelloWorld";
+        let operation_data = Some(",".to_string());
+        let result = process_case_conversion(',', value, operation_data.as_ref());
+        assert_eq!(result.unwrap(), "helloworld");
+
+        // Test '^' operation with "^" conversion
+        let value = "HelloWorld";
+        let operation_data = Some("^".to_string());
+        let result = process_case_conversion('^', value, operation_data.as_ref());
+        assert_eq!(result.unwrap(), "HELLOWORLD");
+
+        // Test ',' operation with invalid conversion
+        let value = "HelloWorld";
+        let operation_data = Some("invalid".to_string());
+        let result = process_case_conversion(',', value, operation_data.as_ref());
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Invalid conversion: invalid"
+        );
+
+        // Test ',' operation without operation_data
+        let value = "HELLOWORLD";
+        let operation_data = None;
+        let result = process_case_conversion(',', value, operation_data.as_ref());
+        assert_eq!(result.unwrap(), "HELLOWORLD");
+
+        // Test '^' operation without operation_data
+        let value = "helloworld";
+        let operation_data = None;
+        let result = process_case_conversion('^', value, operation_data.as_ref());
+        assert_eq!(result.unwrap(), "helloworld");
+    }
+
+    #[test]
+    fn test_process_substring_extraction() {
+        // Test without operation_data
+        let value = "HelloWorld";
+        let inner_expr = "VAR:1:3";
+        let operation_data = None;
+        let result = process_substring_extraction(value, operation_data, inner_expr);
+        assert_eq!(result.unwrap(), "HelloWorld");
+
+        // Test substring extraction with start and len
+        let value = "HelloWorld";
+        let inner_expr = "VAR:1:3";
+        let operation_data = Some("1:3".to_string());
+        let result = process_substring_extraction(value, operation_data.as_ref(), inner_expr);
+        assert_eq!(result.unwrap(), "ell");
+
+        // Test substring extraction with start only
+        let value = "HelloWorld";
+        let inner_expr = "VAR:1:3";
+        let operation_data = Some("2".to_string());
+        let result = process_substring_extraction(value, operation_data.as_ref(), inner_expr);
+        assert_eq!(result.unwrap(), "lloWorld");
+
+        // Test substring extraction with invalid start
+        let value = "HelloWorld";
+        let inner_expr = "VAR:1:3";
+        let operation_data = Some("Worl".to_string());
+        let result = process_substring_extraction(value, operation_data.as_ref(), inner_expr);
+        assert!(result.is_err());
+
+        // Test substring extraction with invalid len
+        let value = "HelloWorld";
+        let inner_expr = "VAR:1:3";
+        let operation_data = Some("2:invalid".to_string());
+        let result = process_substring_extraction(value, operation_data.as_ref(), inner_expr);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_handle_flags_on_result() {
+        let var_name = "VAR";
+        let inner_expr = "VAR";
+        let mut flags = Flags::default();
+        let original_variable = "$VAR".to_string();
+
+        // Test without any flags
+        let result =
+            handle_flags_on_result("Hello".to_string(), var_name, &original_variable, &flags);
+        assert_eq!(result.unwrap(), "Hello");
+
+        // Test with Fail flag and non-empty result
+        flags
+            .set(Flag::Fail, "--fail", true)
+            .expect("Failed to set Fail flag");
+        let result =
+            handle_flags_on_result("Hello".to_string(), var_name, &original_variable, &flags);
+        assert_eq!(result.unwrap(), "Hello");
+
+        // Test with Fail flag and empty result
+        let result = handle_flags_on_result(String::new(), var_name, &original_variable, &flags);
+        assert!(result.is_err());
+
+        // Test with FailOnEmpty flag and empty result
+        flags = Flags::default();
+        flags
+            .set(Flag::FailOnEmpty, "--fail-on-empty", true)
+            .expect("Failed to set FailOnEmpty flag");
+
+        let result = handle_flags_on_result(String::new(), var_name, &original_variable, &flags);
+        assert!(result.is_err());
+
+        // Test with FailOnUnset flag and unset variable
+        flags = Flags::default();
+        flags
+            .set(Flag::FailOnUnset, "--fail-on-unset", true)
+            .expect("Failed to set FailOnUnset flag");
+        let result = handle_flags_on_result(String::new(), "UNSET_VAR", &original_variable, &flags);
+        assert!(result.is_err());
+
+        // Test with NoReplace flag
+        flags = Flags::default();
+        flags
+            .set(Flag::NoReplace, "--no-replace", true)
+            .expect("Failed to set NoReplace flag");
+        let result = handle_flags_on_result(String::new(), var_name, &original_variable, &flags);
+        assert_eq!(result.unwrap(), format!("${inner_expr}"));
+
+        // Test with NoReplaceEmpty flag and empty result
+        flags = Flags::default();
+        flags
+            .set(Flag::NoReplaceEmpty, "--no-replace-empty", true)
+            .expect("Failed to set NoReplaceEmpty flag");
+        let result = handle_flags_on_result(String::new(), var_name, &original_variable, &flags);
+        assert_eq!(result.unwrap(), format!("${inner_expr}"));
+
+        // Test with NoReplaceUnset flag and unset variable
+        flags = Flags::default();
+        flags
+            .set(Flag::NoReplaceUnset, "--no-replace-unset", true)
+            .expect("Failed to set NoReplaceUnset flag");
+        let result = handle_flags_on_result(String::new(), "UNSET_VAR", &original_variable, &flags);
+        assert_eq!(result.unwrap(), format!("${inner_expr}"));
+    }
+
+    #[test]
+    fn test_process_inner_expression() {
+        let flags = Flags::default();
         let mut filters = Filters::default();
-        let f1 = filters.add(Filter::Prefix, "--prefix", Some("PREFIX"), &mut [].iter());
-        assert!(f1.is_ok());
+        env::set_var("TEST_VAR", "Hello, world!");
 
-        let mut flags = Flags::default();
-        let f2 = flags.set(Flag::Color, "--color", true);
-        assert!(f2.is_ok());
+        // Test invalid operation
+        let result = process_inner_expression("TEST_VAR=", &flags, &filters);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Invalid operation: =");
 
-        let result = replace_vars_in_line(&line, &flags, &filters);
-        assert_eq!(result, Ok("$REGULAR_VAR_FOUND".red().to_string()));
-    }
+        // Test basic variable replacement
+        let result = process_inner_expression("TEST_VAR", &flags, &filters);
+        assert_eq!(result.unwrap(), "Hello, world!");
 
-    #[test]
-    fn test_replace_vars_in_line_one_new_line_at_end() {
-        // description: regular variable found
-        // test: $REGULAR_VAR_FOUND
-        // env: REGULAR_VAR_FOUND=value
-        // result: value
-        let line = "this is a line\n".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("this is a line\n".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_zwo_new_line_at_end() {
-        // description: regular variable found
-        // test: $REGULAR_VAR_FOUND
-        // env: REGULAR_VAR_FOUND=value
-        // result: value
-        let line = "this is a line\n\n".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("this is a line\n\n".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_regular_var_starting_dash() {
-        // description: regular variable with starting dash
-        // test: $_REGULAR_VAR_FOUND_WITH_DASH
-        // env: _REGULAR_VAR_FOUND_WITH_DASH=value
-        // result: value
-        env::set_var("_REGULAR_VAR_FOUND_WITH_DASH", "value");
-        let line = "$_REGULAR_VAR_FOUND_WITH_DASH".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("value".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_regular_var_not_found_fail_on_unset() {
-        // description: regular variable not found
-        // test: $REGULAR_VAR_NOT_FOUND
-        // env: -
-        // result: -
-        let line = "$REGULAR_VAR_NOT_FOUND".to_string();
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::FailOnUnset, "--fail-on-unset", true)
-            .unwrap();
-        let result = replace_vars_in_line(&line, &flags, &Filters::default());
+        // Test invalid character in expression
+        let result = process_inner_expression("TEST_VAR@", &flags, &filters);
         assert!(result.is_err());
         assert_eq!(
-            result.unwrap_err(),
-            "environment variable 'REGULAR_VAR_NOT_FOUND' is not set"
+            result.unwrap_err().to_string(),
+            "Invalid character in expression: @"
         );
-    }
 
-    #[test]
-    fn test_replace_vars_in_line_regular_var_not_found() {
-        // description: regular variable not found
-        // test: $REGULAR_VAR_NOT_FOUND
-        // env: -
-        // result: -
-        let line = "$REGULAR_VAR_NOT_FOUND".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok(String::new()));
-    }
+        // Test pattern stripping (prefix)
+        let result = process_inner_expression("TEST_VAR#H", &flags, &filters);
+        assert_eq!(result.unwrap(), "ello, world!");
 
-    #[test]
-    fn test_replace_vars_in_line_braces_var_found() {
-        // description: braces variable found
-        // test: ${BRACES_VAR_FOUND}
-        // env: BRACES_VAR_FOUND=value
-        // result: value
-        env::set_var("BRACES_VAR_FOUND", "value");
-        let line = "${BRACES_VAR_FOUND}".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("value".to_string()));
-    }
+        // Test pattern stripping (suffix)
+        let result = process_inner_expression("TEST_VAR%d!", &flags, &filters);
+        assert_eq!(result.unwrap(), "Hello, worl");
 
-    #[test]
-    fn test_replace_vars_in_line_braces_var_found_starting_dash() {
-        // description: braces variable found with starting dash
-        // test: ${_BRACES_VAR_WITH_DASH}
-        // env: _BRACES_VAR_WITH_DASH=value
-        // result: value
-        env::set_var("_BRACES_VAR_WITH_DASH", "value");
-        let line = "${_BRACES_VAR_WITH_DASH}".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("value".to_string()));
-    }
+        // Test pattern replacement
+        let result = process_inner_expression("TEST_VAR/world/moon", &flags, &filters);
+        assert_eq!(result.unwrap(), "Hello, moon!");
 
-    #[test]
-    fn test_replace_vars_in_line_regular_var_found_long_value() {
-        // description: regular variable found
-        // test: $REGULAR_VAR_FOUND
-        // env: REGULAR_VAR_FOUND=value
-        // result: value
-        env::set_var(
-            "REGULAR_VAR_LONG_FOUND",
-            "valuevaluevaluevaluevaluevaluevaluevaluevaluevaluevalue",
-        );
-        let line = "$REGULAR_VAR_LONG_FOUND".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(
-            result,
-            Ok("valuevaluevaluevaluevaluevaluevaluevaluevaluevaluevalue".to_string())
-        );
-    }
+        // Test case conversion (first character to lowercase)
+        let result = process_inner_expression("TEST_VAR,", &flags, &filters);
+        assert_eq!(result.unwrap(), "hello, world!");
 
-    #[test]
-    fn test_replace_vars_in_line_braces_var_not_found() {
-        // description: braces variable not found
-        // test: ${BRACES_VAR_NOT_FOUND}
-        // env: unset
-        // result: -
-        let line = "${BRACES_VAR_NOT_FOUND}".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok(String::new()));
-    }
+        // Test case conversion (first character to uppercase)
+        env::set_var("TEST_VAR", "hello, world!");
+        let result = process_inner_expression("TEST_VAR^", &flags, &filters);
+        assert_eq!(result.unwrap(), "Hello, world!");
 
-    #[test]
-    fn test_replace_vars_in_line_braces_var_not_found_fail_on_unset() {
-        // description: braces variable not found
-        // test: ${BRACES_VAR_NOT_FOUND}
-        // env: unset
-        // result: -
-        let line = "${BRACES_VAR_NOT_FOUND}".to_string();
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::FailOnUnset, "--fail-on-unset", true)
-            .unwrap();
-        let result = replace_vars_in_line(&line, &flags, &Filters::default());
+        // Test default value
+        let result = process_inner_expression("UNSET_VAR:-default", &flags, &filters);
+        assert_eq!(result.unwrap(), "default");
+
+        // Test default value - empty string
+        let result = process_inner_expression("UNSET_VAR:-", &flags, &filters);
+        assert_eq!(result.unwrap(), "");
+
+        // Test default value or substring extraction (substring extraction)
+        let result = process_inner_expression("TEST_VAR:7:5", &flags, &filters);
+        assert_eq!(result.unwrap(), "world");
+
+        // Test Fail flag with an empty result
+        let mut fail_flags = Flags::default();
+        fail_flags
+            .set(Flag::Fail, "--fail", true)
+            .expect("Failed to set Fail flag");
+        let result = process_inner_expression("UNSET_VAR", &fail_flags, &filters);
         assert!(result.is_err());
         assert_eq!(
-            result.unwrap_err(),
-            "environment variable 'BRACES_VAR_NOT_FOUND' is not set"
+            result.unwrap_err().to_string(),
+            "environment variable 'UNSET_VAR' is not set"
         );
-    }
 
-    #[test]
-    fn test_replace_vars_in_line_braces_var_default_use_default() {
-        // description: braces variable with default value, use default
-        // test: ${BRACES_VAR_DEFAULT_USE_DEFAULT:-default}
-        // env: unset
-        // result: default
-        let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT:-default}".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("default".to_string()));
-    }
+        // Test NoReplace flag
+        let mut no_replace_flags = Flags::default();
+        no_replace_flags
+            .set(Flag::NoReplace, "--no-replace", true)
+            .expect("Failed to set NoReplace flag");
+        let result = process_inner_expression("NOT_FOUND_VARIALBE", &no_replace_flags, &filters);
+        assert_eq!(result.unwrap(), "${NOT_FOUND_VARIALBE}");
 
-    #[test]
-    fn test_replace_vars_in_line_braces_var_broken_default() {
-        // description: braces variable with broken default value
-        // test: "Hello, ${NAME:Worl:-d}!"
-        // env: unset
-        // result: "Hello, ${NAME:Worl:-d}!"
-        let input = "Hello, ${NAME:Worl:-d}!";
-        let result = replace_vars_in_line(input, &Flags::default(), &Filters::default());
+        // Test _ => return Err(format!("Invalid operation: {op}")),
+        //let result = process_inner_expression("TEST_VAR?invalid", &flags, &filters);
+        //assert!(result.is_err());
+
+        // Test return Ok(format!("${{{inner_expr}}}"));
+        let filter_result = filters.add(Filter::Prefix, "--prefix", Some("PREFIX"), &mut [].iter());
+        assert!(filter_result.is_ok());
+        let result = process_inner_expression("TEST_VAR", &flags, &filters);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "Hello, ${NAME:Worl:-d}!");
+        assert_eq!(result.unwrap(), "${TEST_VAR}");
     }
 
     #[test]
-    fn test_replace_vars_in_line_braces_var_default_use_colon_in_default() {
-        // description: braces variable with colon inside default value, use default
-        // test: ${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa:ult}
-        // env: unset
-        // result: defa:ult
-        let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa:ult}".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("defa:ult".to_string()));
-    }
+    fn test_replace_vars_in_line() {
+        let flags = Flags::default();
+        let filters = Filters::default();
+        env::set_var("VAR", "value");
+        env::set_var("ANOTHER_VAR", "another_value");
 
-    #[test]
-    fn test_replace_vars_in_line_braces_var_default_use_dollar_in_default() {
-        // description: braces variable with default value, use default
-        // test: ${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa$ult}
-        // env: unset
-        // result: defa$ult
-        let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa$ult}".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("defa$ult".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_braces_var_default_use_braces_in_default() {
-        // description: braces variable with default value, use default
-        // test: ${BRACES_VAR_DEFAULT_USE_DEFAULT:-defa}ult}
-        // env: unset
-        // result: default}
-        let line = "${B:-defa}ult}".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("default}".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_braces_var_default_use_var() {
-        // description: braces variable with default value, use variable
-        // test: ${BRACES_VAR_DEFAULT_USE_VAR:-default}
-        // env: BRACES_VAR_DEFAULT_USE_VAR=value
-        // result: value
-        env::set_var("BRACES_VAR_DEFAULT_USE_VAR", "value");
-        let line = "${BRACES_VAR_DEFAULT_USE_VAR:-default}".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("value".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_braces_var_default_use_var_dash() {
-        // description: braces variable with default value, use variable
-        // test: ${_BRACES_VAR_DEFAULT_USE_VAR:-default}
-        // env: _BRACES_VAR_DEFAULT_USE_VAR=value
-        // result: value
-        env::set_var("_BRACES_VAR_DEFAULT_USE_VAR", "value");
-        let line = "${_BRACES_VAR_DEFAULT_USE_VAR:-default}".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("value".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_braces_var_default_use_default_dash() {
-        // description: braces variable with default value, use default
-        // test: ${BRACES_VAR_DEFAULT_USE_DEFAULT_DASH:-_default}
-        // env: BRACES_VAR_DEFAULT_USE_DEFAULT_DASH=value
-        // result: value
-        env::set_var("BRACES_VAR_DEFAULT_USE_DEFAULT_DASH", "value");
-        let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT_DASH:-default}".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("value".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_braces_var_default_use_default_empty() {
-        // description: braces variable with default value, use default
-        // test: ${BRACES_VAR_DEFAULT_USE_DEFAULT_EMPTY:-}
-        // env: unset
-        // result: -
-        let line = "${BRACES_VAR_DEFAULT_USE_DEFAULT_EMPTY:-}".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok(String::new()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_escape_text_double_dollar_invalid_var() {
-        // description: escape text, double dollar, invalid var
-        // test: i like cas$$ not so much!
-        // env: -
-        // result: i like cas$$ not so much!
-        let line = "i like cas$$ not so much!".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok(line));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_escape_text_double_dollar_invald_var_no_escape_true() {
-        // description: escape text, double dollar, no escape true
-        // test: i like cas$$ not so much!
-        // env: -
-        // result: i like cas$ not so much!
-        let line = "i like cas$$ not so much!".to_string();
-        let mut flags = Flags::default();
-        flags.set(Flag::NoEscape, "--no-escape", true).unwrap();
-        let result = replace_vars_in_line(&line, &flags, &Filters::default());
-        assert_eq!(result, Ok(line));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_escape_var_double_dollar_valid_var() {
-        // description: escape variable, double dollar, valid var
-        // test: I have a pa$$word
-        // env: -
-        // result: I have a pa$word
-        let line = "I have a pa$$word".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("I have a pa$word".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_escape_var_double_dollar_no_replace_unset() {
-        // description: escape variable, double dollar, no replace unset
-        // test: I have a pa$$word
-        // env: -
-        // result: I have a pa$word
-        let line = "I have a pa$$word".to_string();
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::NoReplaceUnset, "--no-replace-unset", true)
-            .unwrap();
-        let result = replace_vars_in_line(&line, &flags, &Filters::default());
-        assert_eq!(result, Ok("I have a pa$word".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_escape_text_single_dollar_no_escape_true() {
-        // description: escape text, single dollar, no escape
-        // test: this $ is a dollar sign
-        // env: -
-        // result: this $ is a dollar sign
-        let line = "this $ is a dollar sign".to_string();
-        let mut flags = Flags::default();
-        flags.set(Flag::NoEscape, "--no-escape", true).unwrap();
-        let result = replace_vars_in_line(&line, &flags, &Filters::default());
-        assert_eq!(result, Ok(line));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_escape_var_double_dollar_no_escape() {
-        // description: escape variable, double dollar, no escape
-        // test: I have a pa$$word
-        // env: -
-        // result: I have a pa$$word
-        let line = "I have a pa$$word".to_string();
-        let mut flags = Flags::default();
-        flags.set(Flag::NoEscape, "--no-escape", true).unwrap();
-        let result = replace_vars_in_line(&line, &flags, &Filters::default());
-        assert_eq!(result, Ok("I have a pa$".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_escape_text_single_dollar_no_escape_false() {
-        // description: escape text, single dollar, no escape
-        // test: this $ is a dollar sign
-        // env: -
-        // result: this $ is a dollar sign
-        let line = "this $ is a dollar sign".to_string();
-        let mut flags = Flags::default();
-        flags.set(Flag::NoEscape, "--no-escape", true).unwrap();
-        let result = replace_vars_in_line(&line, &flags, &Filters::default());
-        assert_eq!(result, Ok(line));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_broken_var_braces_end() {
-        // description: broken variable, braces end
-        // test: this variable $BROKEN_VAR_BRACES_END} is broken
-        // env: BROKEN_VAR_BRACES_END=value
-        // result: this variable value} is broken
-        env::set_var("BROKEN_VAR_BRACES_END", "value");
-        let line = "this variable $BROKEN_VAR_BRACES_END} is broken".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("this variable value} is broken".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_broken_var_braces_begin() {
-        // description: broken variable, braces begin
-        // test: this variable ${BROKEN_VAR_BRACES_BEGIN is broken
-        // env: BROKEN_VAR_BRACES_BEGIN=value
-        // result: this variable ${BROKEN_VAR_BRACES_BEGIN is broken
-        env::set_var("BROKEN_VAR_BRACES_BEGIN", "value");
-        let line = "this variable ${BROKEN_VAR_BRACES_END is broken".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
+        // Test character after dollar sign is invalid escaped
+        let line = "this is a test line with invalid character after dollar sign $$1";
+        let result = replace_vars_in_line(line, &flags, &filters);
         assert_eq!(
-            result,
-            Ok("this variable ${BROKEN_VAR_BRACES_END is broken".to_string())
+            result.unwrap(),
+            "this is a test line with invalid character after dollar sign $$1"
         );
-    }
 
-    #[test]
-    fn test_replace_vars_in_line_invalid_regular_var_digit_begin() {
-        // description: invalid regular variable, digit begin
-        // test: this $1INVALID_VAR_DIGIT_BEGIN is not valid
-        // env: -
-        // result: this $1INVALID_VAR_DIGIT_BEGIN is not valid
-        let line = "this $1INVALID_VAR_DIGIT_BEGIN is not valid".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
+        // Test character after dollar sign is invalid
+        let line = "this is a test line with invalid character after dollar sign $1";
+        let result = replace_vars_in_line(line, &flags, &filters);
         assert_eq!(
-            result,
-            Ok("this $1INVALID_VAR_DIGIT_BEGIN is not valid".to_string())
+            result.unwrap(),
+            "this is a test line with invalid character after dollar sign $1"
         );
-    }
 
-    #[test]
-    fn test_replace_vars_in_line_invalid_braces_var_digit_begin() {
-        // description: invalid braces variable, digit begin
-        // test: this ${1INVALID_VAR_DIGIT_BEGIN} is not valid
-        // env: -
-        // result: this ${1INVALID_VAR_DIGIT_BEGIN} is not valid
-        let line = "this ${1INVALID_VAR_DIGIT_BEGIN} is not valid".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
+        // Test variable with double dollar sign at the end
+        let line = "this is a test line with two dollar sign at the end of line $$";
+        let result = replace_vars_in_line(line, &flags, &filters);
         assert_eq!(
-            result,
-            Ok("this ${1INVALID_VAR_DIGIT_BEGIN} is not valid".to_string())
+            result.unwrap(),
+            "this is a test line with two dollar sign at the end of line $$"
         );
-    }
 
-    #[test]
-    fn test_replace_vars_in_line_valid_regular_var_digit_middle() {
-        // description: valid regular variable, digit middle
-        // test: this $VALID_REGULAR_VAR_1_DIGIT_MIDDLE is valid
-        // env: VALID_REGULAR_VAR_1_DIGIT_MIDDLE=value
-        // result: this value is valid
-        env::set_var("VALID_REGULAR_VAR_1_DIGIT_MIDDLE", "value");
-        let line = "this $VALID_REGULAR_VAR_1_DIGIT_MIDDLE is valid".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("this value is valid".to_string()));
-    }
+        // Test dollar sign at the end
+        let line = "This is a dollar sign at the end: $";
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert_eq!(result.unwrap(), "This is a dollar sign at the end: $");
 
-    #[test]
-    fn test_replace_vars_in_line_valid_regular_var_digit_end() {
-        // description: valid regular variable, digit end
-        // test: this $VALID_REGULAR_VAR_DIGIT_END_1 is valid
-        // env: VALID_REGULAR_VAR_DIGIT_END_1=value
-        // result: this value is valid
-        env::set_var("VALID_REGULAR_VAR_DIGIT_END_1", "value");
-        let line = "this $VALID_REGULAR_VAR_DIGIT_END_1 is valid".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("this value is valid".to_string()));
-    }
+        // Test basic variable replacement
+        let line = "This is a $VAR.";
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert_eq!(result.unwrap(), "This is a value.");
 
-    #[test]
-    fn test_replace_vars_in_line_valid_braces_var_digit_middle() {
-        // description: valid braces variable, digit middle
-        // test: this ${VALID_REGULAR_VAR_1_DIGIT_MIDDLE} is valid
-        // env: VALID_REGULAR_VAR_1_DIGIT_MIDDLE=value
-        // result: this value is valid
-        env::set_var("VALID_REGULAR_VAR_1_DIGIT_MIDDLE", "value");
-        let line = "this ${VALID_REGULAR_VAR_1_DIGIT_MIDDLE} is valid".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("this value is valid".to_string()));
-    }
+        // Test two variables in the same line
+        let line = "$VAR and $ANOTHER_VAR";
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert_eq!(result.unwrap(), "value and another_value");
 
-    #[test]
-    fn test_replace_vars_in_line_valid_braces_var_digit_end() {
-        // description: valid braces variable, digit end
-        // test: this ${VALID_REGULAR_VAR_DIGIT_END_1} is valid
-        // env: VALID_REGULAR_VAR_DIGIT_END_1=value
-        // result: this value is valid
-        env::set_var("VALID_REGULAR_VAR_DIGIT_END_1", "value");
-        let line = "this ${VALID_REGULAR_VAR_DIGIT_END_1} is valid".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("this value is valid".to_string()));
-    }
+        // Test escaped variable
+        let line = "This is an escaped variable: $$VAR";
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert_eq!(result.unwrap(), "This is an escaped variable: $VAR");
 
-    #[test]
-    fn test_replace_vars_in_line_valid_braces_var_end() {
-        // description: valid braces variable, end of line
-        // test: braces var at the end ${VALID_BRACES_VAR_END}
-        // env: VALID_BRACES_VAR_END=value
-        // result: braces var at the end value
-        env::set_var("VALID_BRACES_VAR_END", "value");
-        let line = "braces var at the end ${VALID_BRACES_VAR_END}".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("braces var at the end value".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_valid_braces_var_begin() {
-        // description: valid braces variable, begin of line
-        // test: ${VALID_BRACES_VAR_BEGIN} braces var at the begin
-        // env: VALID_BRACES_VAR_BEGIN=value
-        // result: value braces var at the begin
-        env::set_var("VALID_BRACES_VAR_BEGIN", "value");
-        let line = "${VALID_BRACES_VAR_BEGIN} braces var at the begin".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("value braces var at the begin".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_valid_regular_var_end() {
-        // description: valid regular variable, at end of line
-        // test: regular var at the end $VALID_REGULAR_VAR_END
-        // env: VALID_REGULAR_VAR_END=value
-        // result: regular var at the end value
-        env::set_var("VALID_REGULAR_VAR_END", "value");
-        let line = "regular var at the end $VALID_REGULAR_VAR_END".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("regular var at the end value".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_valid_regular_var_begin() {
-        // description: valid regular variable, at begin of line
-        // test: $VALID_REGULAR_VAR_BEGIN regular var at the begin
-        // env: VALID_REGULAR_VAR_BEGIN=value
-        // result: value regular var at the begin
-        env::set_var("VALID_REGULAR_VAR_BEGIN", "value");
-        let line = "$VALID_REGULAR_VAR_BEGIN regular var at the begin".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
-        assert_eq!(result, Ok("value regular var at the begin".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_valid_regular_var_fail_on_unset() {
-        // description: valid regular variable, fail on empty
-        // test: $VALID_REGULAR_VAR_FAIL_ON_UNSET
-        // env:
-        // result:
-        let line = "$VALID_REGULAR_VAR_FAIL_ON_UNSET".to_string();
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::FailOnUnset, "--fail-on-unset", true)
-            .unwrap();
-        let result = replace_vars_in_line(&line, &flags, &Filters::default());
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_valid_braces_var_fail_on_unset() {
-        // description: valid braces variable, fail on unset
-        // test: ${VALID_BRACES_VAR_FAIL_ON_UNSET}
-        // env:
-        // result:
-        let line = "${VALID_BRACES_VAR_FAIL_ON_UNSET}".to_string();
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::FailOnUnset, "--fail-on-unset", true)
-            .unwrap();
-        let result = replace_vars_in_line(&line, &flags, &Filters::default());
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_valid_regular_var_fail_on_empty() {
-        // description: valid regular variable, fail on empty
-        // test: $VALID_REGULAR_VAR_BEGIN
-        // env: VALID_REGULAR_VAR_BEGIN=""
-        // result: -
-        env::set_var("VALID_REGULAR_VAR_FAIL_ON_EMPTY", "");
-        let line = "$VALID_REGULAR_VAR_FAIL_ON_EMPTY".to_string();
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::FailOnEmpty, "--fail-on-empty", true)
-            .unwrap();
-        let result = replace_vars_in_line(&line, &flags, &Filters::default());
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_valid_braces_var_fail_on_empty() {
-        // description: valid braces variable, fail on empty
-        // test: $VALID_REGULAR_VAR_BEGIN regular var at the begin
-        // env: VALID_REGULAR_VAR_BEGIN=""
-        // result: -
-        env::set_var("VALID_REGULAR_VAR_FAIL_ON_EMPTY", "");
-        let line = "${VALID_REGULAR_VAR_FAIL_ON_EMPTY}".to_string();
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::FailOnEmpty, "--fail-on-empty", true)
-            .unwrap();
-        let result = replace_vars_in_line(&line, &flags, &Filters::default());
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_valid_regular_var_no_replace_unset() {
-        // description: valid regular variable, no replace on unset
-        // test: $VALID_REGULAR_VAR_NO_REPLACE_ON_UNSET
-        // env:
-        // result: $VALID_REGULAR_VAR_NO_REPLACE_ON_UNSET
-        let line = "$VALID_REGULAR_VAR_FAIL_ON_UNSET".to_string();
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::NoReplaceUnset, "--no-replace-unset", true)
-            .unwrap();
-        let result = replace_vars_in_line(&line, &flags, &Filters::default());
-        assert_eq!(result, Ok("$VALID_REGULAR_VAR_FAIL_ON_UNSET".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_valid_braces_var_no_replace_unset() {
-        // description: valid braces variable, no replace on unset
-        // test: ${VALID_BRACES_VAR_NO_REPLACE_ON_UNSET}
-        // env:
-        // result: ${VALID_BRACES_VAR_NO_REPLACE_ON_UNSET}
-        let line = "${VALID_REGULAR_VAR_FAIL_ON_UNSET}".to_string();
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::NoReplaceUnset, "--no-replace-unset", true)
-            .unwrap();
-        let result = replace_vars_in_line(&line, &flags, &Filters::default());
-        assert_eq!(result, Ok("${VALID_REGULAR_VAR_FAIL_ON_UNSET}".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_valid_regular_var_no_replace_empty() {
-        // description: valid regular variable, no replace on empty
-        // test: $VALID_REGULAR_VAR_NO_REPLACE_ON_EMPTY
-        // env: VALID_REGULAR_VAR_NO_REPLACE_ON_EMPTY=""
-        // result: $VALID_REGULAR_VAR_NO_REPLACE_ON_EMPTY
-        env::set_var("VALID_REGULAR_VAR_NO_REPLACE_ON_EMPTY", "");
-        let line = "$VALID_REGULAR_VAR_NO_REPLACE_ON_EMPTY".to_string();
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::NoReplaceEmpty, "--no-replace-empty", true)
-            .unwrap();
-        let result = replace_vars_in_line(&line, &flags, &Filters::default());
+        // Test escaped variable at the end of the line
+        let line = "This is an escaped variable at the end: $$VAR$";
+        let result = replace_vars_in_line(line, &flags, &filters);
         assert_eq!(
-            result,
-            Ok("$VALID_REGULAR_VAR_NO_REPLACE_ON_EMPTY".to_string())
+            result.unwrap(),
+            "This is an escaped variable at the end: $VAR$"
         );
-    }
 
-    #[test]
-    fn test_replace_vars_in_line_valid_braces_var_no_replace_empty() {
-        // description: valid braces variable, no replace on empty
-        // test: ${VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY}
-        // env: VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY=""
-        // result: ${VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY}
-        env::set_var("VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY", "");
-        let line = "${VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY}".to_string();
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::NoReplaceEmpty, "--no-replace-empty", true)
-            .unwrap();
-        let result = replace_vars_in_line(&line, &flags, &Filters::default());
+        // Test invalid variable
+        let line = "This is an invalid variable: $1VAR";
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert_eq!(result.unwrap(), "This is an invalid variable: $1VAR");
+
+        // Test incomplete brace variable
+        let line = "This is an incomplete brace variable: ${VAR";
+        let result = replace_vars_in_line(line, &flags, &filters);
         assert_eq!(
-            result,
-            Ok("${VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY}".to_string())
+            result.unwrap(),
+            "This is an incomplete brace variable: ${VAR"
         );
-    }
 
-    #[test]
-    fn test_replace_vars_in_line_invalid_braces_var_default_end() {
-        // description: invalid braces variable, default at the end
-        // test: ${IVALID_BRACES_VAR_DEFAULT_END:-
-        // env: -
-        // result: ${IVALID_BRACES_VAR_DEFAULT_END:-
-        let line = "${IVALID_BRACES_VAR_DEFAULT_END:-".to_string();
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::NoReplaceEmpty, "--no-replace-empty", true)
-            .unwrap();
-        let result = replace_vars_in_line(&line, &flags, &Filters::default());
-        assert_eq!(result, Ok("${IVALID_BRACES_VAR_DEFAULT_END:-".to_string()));
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_invalid_braces_var_broken_default_end() {
-        // description: invalid braces variable, default at the end
-        // test: ${VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY:
-        // env: -
-        // result: ${VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY:
-        let line = "${VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY:".to_string();
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::NoReplaceEmpty, "--no-replace-empty", true)
-            .unwrap();
-        let result = replace_vars_in_line(&line, &flags, &Filters::default());
+        // Test variable with default value
+        let line = "This is a variable with a default value: ${UNSET_VAR:-default}";
+        let result = replace_vars_in_line(line, &flags, &filters);
         assert_eq!(
-            result,
-            Ok("${VALID_BRACES_VAR_NO_REPLACE_ON_EMPTY:".to_string())
+            result.unwrap(),
+            "This is a variable with a default value: default"
         );
-    }
 
-    #[test]
-    fn test_replace_vars_in_line_dollar_end() {
-        // description: only one dollar sign at the end of line
-        // test: this is a test line with only one dollar sign at the end of line $
-        // env: -
-        // result: this is a test line with only one dollar sign at the end of line $
-        let line = "this is a test line with only one dollar sign at the end of line $".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
+        // Test variable with default but variable found
+        let line = "This is a variable with a default value: ${VAR:-default}";
+        let result = replace_vars_in_line(line, &flags, &filters);
         assert_eq!(
-            result,
-            Ok("this is a test line with only one dollar sign at the end of line $".to_string())
+            result.unwrap(),
+            "This is a variable with a default value: value"
         );
-    }
 
-    #[test]
-    fn test_replace_vars_in_line_double_dollar_end() {
-        // description: two dollar sign at the end of line
-        // test: this is a test line with two dollar sign at the end of line $$
-        // env: -
-        // result: this is a test line with two dollar sign at the end of line $$
-        let line = "this is a test line with two dollar sign at the end of line $$".to_string();
-        let result = replace_vars_in_line(&line, &Flags::default(), &Filters::default());
+        // Test variable with substring extraction
+        let line = "This is a variable with substring extraction: ${VAR:1:3}";
+        let result = replace_vars_in_line(line, &flags, &filters);
         assert_eq!(
-            result,
-            Ok("this is a test line with two dollar sign at the end of line $$".to_string())
+            result.unwrap(),
+            "This is a variable with substring extraction: alu"
         );
-    }
 
-    #[test]
-    fn test_replace_vars_in_line_double_dollar_end_escape_true() {
-        // description: double dollar sign at the end of line, no escape true
-        // test: this is a test line with two dollar sign at the end of line $$
-        // env: -
-        // result: this is a test line with two dollar sign at the end of line $$
-        let line = "this is a test line with two dollar sign at the end of line $$".to_string();
-        let mut flags = Flags::default();
-        flags.set(Flag::NoEscape, "--no-escape", true).unwrap();
-        let result = replace_vars_in_line(&line, &flags, &Filters::default());
+        // Test invalid variables like ${1VAR}
+        let line = "this is a test line with invalid variable ${1VAR}";
+        let result = replace_vars_in_line(line, &flags, &filters);
         assert_eq!(
-            result,
-            Ok("this is a test line with two dollar sign at the end of line $$".to_string())
+            result.unwrap(),
+            "this is a test line with invalid variable ${1VAR}"
         );
-    }
 
-    #[test]
-    fn test_replace_vars_in_line_regular_var_prefix() {
-        // description: regular variable with prefix
-        // test: this $ENV1 has a prefix. This $TEST_VAR1 has a prefix.
-        // env: ENV1=env1, TEST_VAR1=test_var1
-        // result:this $ENV1 has a prefix. This test_var1 has a prefix.
-        env::set_var("ENV1", "env1");
-        env::set_var("TEST_VAR1", "test_var1");
-        let line = "this $ENV1 has a prefix. This $TEST_VAR1 has a prefix.".to_string();
-        let result = replace_vars_in_line(
-            &line,
-            &Flags::default(),
-            &Filters {
-                // insert a prefix to test the prefix filter as HashSet
-                prefixes: Some(HashSet::from_iter(vec!["TEST".to_string()])),
-                ..Filters::default()
-            },
-        );
+        // Test invalid variables like ${1VAR:-DEFAULT}
+        let line = "this is a test line with invalid variable ${1VAR:-DEFAULT}";
+        let result = replace_vars_in_line(line, &flags, &filters);
         assert_eq!(
-            result,
-            Ok("this $ENV1 has a prefix. This test_var1 has a prefix.".to_string())
+            result.unwrap(),
+            "this is a test line with invalid variable ${1VAR:-DEFAULT}"
         );
-    }
 
-    #[test]
-    fn test_replace_vars_in_line_braces_var_prefix() {
-        // description: braces variable with prefix
-        // test: this $ENV1 has a prefix. This $TEST_VAR1 has a prefix.
-        // env: ENV1=env1, TEST_VAR1=test_var1
-        // result:this $ENV1 has a prefix. This test_var1 has a prefix.
-        env::set_var("ENV1", "env1");
-        env::set_var("TEST_VAR1", "test_var1");
-        let line = "this $ENV1 has a no prefix. This ${TEST_VAR1} has a valid prefix.".to_string();
-        let result = replace_vars_in_line(
-            &line,
-            &Flags::default(),
-            &Filters {
-                prefixes: Some(HashSet::from_iter(vec!["TEST".to_string()])),
-                ..Filters::default()
-            },
-        );
+        // Test braced var to upper
+        let line = "This is a braced variable to upper: ${VAR^^}";
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert_eq!(result.unwrap(), "This is a braced variable to upper: VALUE");
+
+        // Test braced var to lower
+        let line = "This is a braced variable to lower: ${VAR,,}";
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert_eq!(result.unwrap(), "This is a braced variable to lower: value");
+
+        // Test braced var first char to upper
+        let line = "This is a braced variable first char to upper: ${VAR^}";
+        let result = replace_vars_in_line(line, &flags, &filters);
         assert_eq!(
-            result,
-            Ok("this $ENV1 has a no prefix. This test_var1 has a valid prefix.".to_string())
+            result.unwrap(),
+            "This is a braced variable first char to upper: Value"
         );
-    }
 
-    #[test]
-    fn test_replace_vars_in_line_regular_var_suffix() {
-        // description: regular variable with suffix
-        // test: this $ENV1 has a prefix. This $VAR1_TEST has a suffix.
-        // env: ENV1=env1, VAR1_TEST=var1_var
-        // result:this $ENV1 has a prefix. This test_var1 has a suffix.
-        env::set_var("ENV1", "env1");
-        env::set_var("VAR1_TEST", "var1_test");
-        let line = "this $ENV1 has a prefix. This $VAR1_TEST has a suffix.".to_string();
-        let result = replace_vars_in_line(
-            &line,
-            &Flags::default(),
-            &Filters {
-                suffixes: Some(HashSet::from_iter(vec!["TEST".to_string()])),
-                ..Filters::default()
-            },
-        );
+        // Test braced var first char to lower
+        let line = "This is a braced variable first char to lower: ${VAR,}";
+        let result = replace_vars_in_line(line, &flags, &filters);
         assert_eq!(
-            result,
-            Ok("this $ENV1 has a prefix. This var1_test has a suffix.".to_string())
+            result.unwrap(),
+            "This is a braced variable first char to lower: value"
         );
     }
 
     #[test]
-    fn test_replace_vars_in_line_regular_var_multiple_suffix() {
-        // description: regular variable with multiple suffix
-        // test: this $ENV1 has no suffix. This "$VAR_FIRST" has a suffix. And this "${VAR_SECOND}" has another suffix.
-        // env: ENV1=env1, VAR_FIRST=first suffix, VAR_SECOND=second suffix
-        // result: this this $ENV1 has a prefix. This "first suffix" has a suffix. And this "second suffix" has another suffix.
-        env::set_var("ENV1", "env1");
-        env::set_var("VAR_FIRST", "first suffix");
-        env::set_var("VAR_SECOND", "second suffix");
-        let line = "this this $ENV1 has no suffix. This \"$VAR_FIRST\" has a suffix. And this \"${VAR_SECOND}\" has another suffix.".to_string();
-        let result = replace_vars_in_line(
-            &line,
-            &Flags::default(),
-            &Filters {
-                suffixes: Some(HashSet::from_iter(vec![
-                    "FIRST".to_string(),
-                    "SECOND".to_string(),
-                ])),
-                ..Filters::default()
-            },
-        );
-        assert_eq!(
-          result,
-          Ok("this this $ENV1 has no suffix. This \"first suffix\" has a suffix. And this \"second suffix\" has another suffix.".to_string())
-      );
+    fn test_process_input_basic() {
+        let input = "This is a $VAR.";
+        let mut output = Vec::new();
+        let flags = Flags::default();
+        let filters = Filters::default();
+        env::set_var("VAR", "value");
+
+        process_input(Cursor::new(input.as_bytes()), &mut output, &flags, &filters)
+            .expect("Failed to process input");
+        assert_eq!(String::from_utf8(output).unwrap(), "This is a value.");
     }
 
     #[test]
-    fn test_replace_vars_in_line_regular_var_multiple_prefix() {
-        // description: regular variable with multiple prefix
-        // test: this $ENV1 has no prefix. This "$FIRST_VAR" has a prefix. And this "${SECOND_VAR}" has another suffix.
-        // env: ENV1=env1, FIRST_VAR=first prefix, SECOND_VAR=second prefix
-        // result: this this $ENV1 has no prefix. This "first suffix" has a suffix. And this "second suffix" has another suffix.
-        env::set_var("ENV1", "env1");
-        env::set_var("FIRST_VAR", "first prefix");
-        env::set_var("SECOND_VAR", "second prefix");
-        let line = "this this $ENV1 has no prefix. This \"$FIRST_VAR\" has a prefix. And this \"${SECOND_VAR}\" has another prefix.".to_string();
-        let result = replace_vars_in_line(
-            &line,
-            &Flags::default(),
-            &Filters {
-                prefixes: Some(HashSet::from_iter(vec![
-                    "FIRST".to_string(),
-                    "SECOND".to_string(),
-                ])),
-                ..Filters::default()
-            },
-        );
-        assert_eq!(
-          result,
-          Ok("this this $ENV1 has no prefix. This \"first prefix\" has a prefix. And this \"second prefix\" has another prefix.".to_string())
-      );
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_braces_var_suffix() {
-        // description: braces variable with suffix
-        // test: this $ENV1 has a prefix. This $VAR1_TEST has a suffix.
-        // env: ENV1=env1, VAR1_TEST=var1_var
-        // result:this $ENV1 has a prefix. This test_var1 has a suffix.
-        env::set_var("ENV1", "env1");
-        env::set_var("VAR1_TEST", "var1_test");
-        let line = "this $ENV1 has a prefix. This ${VAR1_TEST} has a suffix.".to_string();
-        let result = replace_vars_in_line(
-            &line,
-            &Flags::default(),
-            &Filters {
-                suffixes: Some(HashSet::from_iter(vec!["TEST".to_string()])),
-                ..Filters::default()
-            },
-        );
-        assert_eq!(
-            result,
-            Ok("this $ENV1 has a prefix. This var1_test has a suffix.".to_string())
-        );
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_braces_var_no_prefix_valid_suffix() {
-        // description: braces variable with suffix
-        // test: this $ENV1 has a prefix. This $VAR1_TEST has a suffix.
-        // env: ENV1=env1, VAR1_TEST=var1_var
-        // result:this $ENV1 has a prefix. This test_var1 has a suffix.
-        env::set_var("ENV1", "env1");
-        env::set_var("TEST_VAR1", "test_var1");
-        env::set_var("VAR1_TEST", "var1_test");
-        let line = "this $TEST_VAR1 has a prefix. This ${VAR1_TEST} has a suffix.".to_string();
-        let result = replace_vars_in_line(
-            &line,
-            &Flags::default(),
-            &Filters {
-                suffixes: Some(HashSet::from_iter(vec!["TEST".to_string()])),
-                ..Filters::default()
-            },
-        );
-        assert_eq!(
-            result,
-            Ok("this $TEST_VAR1 has a prefix. This var1_test has a suffix.".to_string())
-        );
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_braces_var_valid_prefix_no_suffix() {
-        // description: braces variable with suffix
-        // test: this $ENV1 has a prefix. This $VAR1_TEST has a suffix.
-        // env: ENV1=env1, VAR1_TEST=var1_var
-        // result:this $ENV1 has a prefix. This test_var1 has a suffix.
-        env::set_var("ENV1", "env1");
-        env::set_var("TEST_VAR1", "test_var1");
-        env::set_var("VAR1_TEST", "var1_test");
-        let line = "this $TEST_VAR1 has a prefix. This ${VAR1_TEST} has a suffix.".to_string();
-        let result = replace_vars_in_line(
-            &line,
-            &Flags::default(),
-            &Filters {
-                prefixes: Some(HashSet::from_iter(vec!["TEST".to_string()])),
-                ..Filters::default()
-            },
-        );
-        assert_eq!(
-            result,
-            Ok("this test_var1 has a prefix. This ${VAR1_TEST} has a suffix.".to_string())
-        );
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_braces_var_valid_no_prefix_valid_suffix() {
-        // description: braces variable with suffix
-        // test: this var $ENV1 should not be touched. this $TEST_VAR1 has a prefix. This ${VAR1_TEST} has a suffix.
-        // env: ENV1=env1, VAR1_TEST=var1_var
-        // result:this $ENV1 has a prefix. This test_var1 has a suffix. This var1_test has a suffix.
-        env::set_var("ENV1", "env1");
-        env::set_var("TEST_VAR1", "test_var1");
-        env::set_var("VAR1_TEST", "var1_test");
-        let line = "this var $ENV1 should not be touched. this $TEST_VAR1 has a prefix. This ${VAR1_TEST} has a suffix.".to_string();
-        let result = replace_vars_in_line(
-            &line,
-            &Flags::default(),
-            &Filters {
-                suffixes: Some(HashSet::from_iter(vec!["TEST".to_string()])),
-                ..Filters::default()
-            },
-        );
-        assert_eq!(
-            result,
-            Ok("this var $ENV1 should not be touched. this $TEST_VAR1 has a prefix. This var1_test has a suffix.".to_string())
-        );
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_regular_var_list_variables() {
-        // description: regular variable with a list of variables
-        // test: Only ENV1 and ENV2 should be replaced. ENV3 should not be replaced.
-        // env: ENV1=env1, ENV2=env2
-        // result: Only env1 and env2 should be replaced. ENV2 should not be replaced.
-        env::set_var("ENV1", "env1");
-        env::set_var("ENV2", "env2");
-        env::set_var("ENV3", "env4");
-        let line =
-            "Only $ENV1 and $ENV2 should be replaced. $ENV3 should not be replaced.".to_string();
-        let result = replace_vars_in_line(
-            &line,
-            &Flags::default(),
-            &Filters {
-                variables: Some(HashSet::from_iter(vec![
-                    "ENV1".to_string(),
-                    "ENV2".to_string(),
-                ])),
-                ..Filters::default()
-            },
-        );
-        assert_eq!(
-            result,
-            Ok("Only env1 and env2 should be replaced. $ENV3 should not be replaced.".to_string())
-        );
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_regular_var_list_variables_prefix_suffix_not_found() {
-        // description: all filter set, non matches
-        // test: $PREFIX_ENV1 and $ENV2_SUFFIX and $VAR should not be replaced.
-        // env: -
-        // result: $PREFIX_ENV1 and $ENV2_SUFFIX and $VAR should not be replaced.
-        let line = "$PREFIX_ENV1 and $ENV2_SUFFIX and $VAR should not be replaced.".to_string();
-        let result = replace_vars_in_line(
-            &line,
-            &Flags::default(),
-            &Filters {
-                variables: Some(HashSet::from_iter(vec![
-                    "ENV1".to_string(),
-                    "ENV2".to_string(),
-                ])),
-                prefixes: Some(HashSet::from_iter(vec!["BAD_PREFIX".to_string()])),
-                suffixes: Some(HashSet::from_iter(vec!["BAD_SUFFIX".to_string()])),
-            },
-        );
-        assert_eq!(
-            result,
-            Ok("$PREFIX_ENV1 and $ENV2_SUFFIX and $VAR should not be replaced.".to_string())
-        );
-    }
-
-    #[test]
-    fn test_replace_vars_in_line_regular_var_all_filter_match() {
-        // description: all filter set, all match
-        // test: ${PREFIX_VAR_SUFFIX}
-        // env: -
-        // result: prefix var suffix
-        env::set_var("PREFIX_VAR_SUFFIX", "prefix var suffix");
-        let line = "${PREFIX_VAR_SUFFIX}".to_string();
-        let result = replace_vars_in_line(
-            &line,
-            &Flags::default(),
-            &Filters {
-                variables: Some(HashSet::from_iter(vec!["PREFIX_VAR_SUFFIX".to_string()])),
-                prefixes: Some(HashSet::from_iter(vec!["PREFIX".to_string()])),
-                suffixes: Some(HashSet::from_iter(vec!["SUFFIX".to_string()])),
-            },
-        );
-        assert_eq!(result, Ok("prefix var suffix".to_string()));
-    }
-
-    #[test]
-    fn test_evaluate_variable_regular_var() {
-        // description: regular variable
-        // test: ${VAR}
-        // env: VAR=var
-        // result: var
-        env::set_var("REGULAR_VAR", "var");
-        let var_name = "REGULAR_VAR";
-        let original_var = "${REGULAR_VAR}";
-        let default_value = "";
-        let result = get_env_value(var_name, default_value, original_var, &Flags::default());
-        assert_eq!(result, Ok("var".to_string()));
-    }
-
-    #[test]
-    fn test_evaluate_variable_regular_var_with_default() {
-        // description: regular variable with default value
-        // test: ${VAR:-default}
-        // env: VAR=var
-        // result: var
-        env::set_var("REGULAR_VAR_WITH_DEFAULT", "var");
-        let var_name = "REGULAR_VAR_WITH_DEFAULT";
-        let original_var = "${REGULAR_VAR_WITH_DEFAULT:-default}";
-        let default_value = "default";
-        let result = get_env_value(var_name, default_value, original_var, &Flags::default());
-        assert_eq!(result, Ok("var".to_string()));
-    }
-
-    #[test]
-    fn test_evaluate_variable_regular_var_no_replace_empty_true() {
-        // description: regular variable with no replace empty true
-        // test: ${VAR}
-        // env: VAR=
-        // result: ""
-        env::set_var("REGULAR_VAR_NO_REPLACE_EMTPY_TRUE", "");
-        let var_name = "REGULAR_VAR_NO_REPLACE_EMTPY_TRUE";
-        let original_var = "${REGULAR_VAR_NO_REPLACE_EMTPY_TRUE}";
-        let default_value = "";
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::NoReplaceEmpty, "--no-replace-empty", true)
-            .unwrap();
-        let result = get_env_value(var_name, default_value, original_var, &flags);
-        assert_eq!(
-            result,
-            Ok("${REGULAR_VAR_NO_REPLACE_EMTPY_TRUE}".to_string())
-        );
-    }
-
-    #[test]
-    fn test_evaluate_variable_regular_var_no_replace_unset() {
-        // description: regular variable with no replace unset
-        // test: ${VAR}
-        // env: -
-        // result: ""
-        let var_name = "REGULAR_VAR_NO_REPLACE_UNSET";
-        let original_var = "${REGULAR_VAR_NO_REPLACE_UNSET}";
-        let default_value = "";
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::NoReplaceUnset, "--no-replace-unset", true)
-            .unwrap();
-        let result = get_env_value(var_name, default_value, original_var, &flags);
-        assert_eq!(result, Ok("${REGULAR_VAR_NO_REPLACE_UNSET}".to_string()));
-    }
-
-    #[test]
-    fn test_evaluate_variable_regular_var_no_replace_unset_empty_true() {
-        // description: regular variable with no replace unset and empty true
-        // test: ${VAR}
-        // env: -
-        // result: ""
-        let var_name = "REGULAR_VAR_NO_REPLACE_UNSET_EMPTY_TRUE";
-        let original_var = "${REGULAR_VAR_NO_REPLACE_UNSET_EMPTY_TRUE}";
-        let default_value = "";
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::NoReplaceUnset, "--no-replace-unset", true)
-            .unwrap();
-        flags
-            .set(Flag::NoReplaceEmpty, "--no-replace-empty", true)
-            .unwrap();
-        let result = get_env_value(var_name, default_value, original_var, &flags);
-        assert_eq!(
-            result,
-            Ok("${REGULAR_VAR_NO_REPLACE_UNSET_EMPTY_TRUE}".to_string())
-        );
-    }
-
-    #[test]
-    fn test_evaluate_variable_regular_fail_on_empty() {
-        // description: regular variable with fail on empty
-        // test: ${VAR}
-        // env: VAR=
-        // result: error
-        env::set_var("REGULAR_FAIL_ON_EMPTY", "");
-        let var_name = "REGULAR_FAIL_ON_EMPTY";
-        let original_var = "${REGULAR_FAIL_ON_EMPTY}";
-        let default_value = "";
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::FailOnEmpty, "--fail-on-empty", true)
-            .unwrap();
-        let result = get_env_value(var_name, default_value, original_var, &flags);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_evaluate_variable_regular_fail_on_unset() {
-        // description: regular variable with fail on unset
-        // test: ${VAR}
-        // env: -
-        // result: error
-        let var_name = "REGULAR_FAIL_ON_UNSET";
-        let original_var = "${REGULAR_FAIL_ON_UNSET}";
-        let default_value = "";
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::FailOnUnset, "--fail-on-unset", true)
-            .unwrap();
-
-        let result = get_env_value(var_name, default_value, original_var, &flags);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_evaluate_variable_regular_fail_on_unset_empty_true() {
-        // description: regular variable with fail on unset and empty true
-        // test: ${VAR}
-        // env: -
-        // result: error
-        let var_name = "REGULAR_FAIL_ON_UNSET_EMTPY_TRUE";
-        let original_var = "${REGULAR_FAIL_ON_UNSET_EMTPY_TRUE}";
-        let default_value = "";
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::FailOnUnset, "--fail-on-unset", true)
-            .unwrap();
-        flags
-            .set(Flag::NoReplaceEmpty, "--fail-on-empty", true)
-            .unwrap();
-
-        let result = get_env_value(var_name, default_value, original_var, &flags);
-        // check if the result is an error
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_evaluate_brace_variable_default_no_replace_empty_false() {
-        // description: brace variable with default an no-replace-empty not set
-        // test: ${VAR:-default}
-        // env: -
-        // result: default
-        let var_name = "BRACE_VARIABLE_DEFAULT_NO_REPLACE_EMPTY_FALSE";
-        let original_var = "${BRACE_VARIABLE_DEFAULT_NO_REPLACE_EMPTY_FALSE:-default}";
-        let default_value = "default";
-        let result = get_env_value(var_name, default_value, original_var, &Flags::default());
-
-        assert_eq!(result, Ok("default".to_string()));
-    }
-
-    #[test]
-    fn test_example_replace_vars_in_line() {
-        // description: replace variables in line
-        // test: Hello, ${NAME:-User}! How are you, ${NAME}?
-        // env: unset
-        // result: Hello, User! How are you, ?
-        let line = "Hello, ${NAME:-User}! How are you, ${NAME}?";
-        let result = replace_vars_in_line(line, &Flags::default(), &Filters::default());
-
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "Hello, User! How are you, ?");
-    }
-
-    #[test]
-    fn test_example_get_env_value() {
-        // description: get environment variable value
-        // test: unset
-        // env: unset
-        // result: The value of MY_VAR is default_value
-        let var_value = get_env_value("MY_VAR", "default_value", "${MY_VAR}", &Flags::default());
-
-        //match var_value {
-        //    Ok(value) => println!("The value of MY_VAR is {value}"),
-        //    Err(err) => eprintln!("Error: {err}"),
-        //}
-        assert!(var_value.is_ok());
-        assert_eq!(var_value.unwrap(), "default_value");
-    }
-
-    #[test]
-    fn test_example_process_input() {
-        use std::io::Cursor;
-
-        let input = Cursor::new("Hello $WORLD!");
-        let mut output = Cursor::new(Vec::new());
+    fn test_process_input_error() {
+        let input = "This is a $VAR.";
+        let mut output = Vec::new();
         let flags = Flags::default();
         let filters = Filters::default();
 
-        process_input(Box::new(input), Box::new(&mut output), &flags, &filters).unwrap();
+        // Test write error
+        let mut failing_writer = FailingWriter::new(&mut output, true, false);
+        let result = process_input(
+            Cursor::new(input.as_bytes()),
+            &mut failing_writer,
+            &flags,
+            &filters,
+        );
+        assert!(result.is_err());
 
-        assert_eq!(String::from_utf8(output.into_inner()).unwrap(), "Hello !");
+        // Test error (caused by replace_vars_in_line)
+        let input = Cursor::new("${HelloWorld,-}");
+        let output = Cursor::new(Vec::new());
+
+        let result = process_input(input, output, &flags, &filters);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_process_input_unbuffered_lines() {
+        let input = "Line 1 $VAR1\nLine 2 $VAR2";
+        let mut output = Vec::new();
+        let mut flags = Flags::default();
+        flags
+            .set(Flag::UnbufferedLines, "--unbuffered-lines", true)
+            .expect("Failed to set unbuffered lines flag");
+        let filters = Filters::default();
+        env::set_var("VAR1", "value1");
+        env::set_var("VAR2", "value2");
+
+        let result = process_input(Cursor::new(input.as_bytes()), &mut output, &flags, &filters);
+        assert!(result.is_ok());
+
+        // Test unbuffered_lines write error
+        let mut failing_writer = FailingWriter::new(&mut output, true, false);
+
+        let result = process_input(
+            Cursor::new(input.as_bytes()),
+            &mut failing_writer,
+            &flags,
+            &filters,
+        );
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "failed to write to output: Simulated write error"
+        );
     }
 
     #[test]
@@ -1709,325 +1227,380 @@ mod tests {
     }
 
     #[test]
-    fn test_example_process_input_multiline_unbuffered() {
-        use std::io::Cursor;
-
-        let input = Cursor::new("Hello $WORLD! 🙃 \t \nHello $WORLD! 🎂 \n\t❤️Hello $WORLD!");
-        let mut output = Cursor::new(Vec::new());
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::UnbufferedLines, "--unbuffered-lines", true)
-            .unwrap();
-        let filters = Filters::default();
-
-        process_input(Box::new(input), Box::new(&mut output), &flags, &filters).unwrap();
-
-        assert_eq!(
-            String::from_utf8(output.into_inner()).unwrap(),
-            "Hello ! 🙃 \t \nHello ! 🎂 \n\t❤️Hello !"
-        );
-    }
-
-    #[test]
-    fn test_example_process_input_error() {
-        use std::io::Cursor;
-
-        let input = Cursor::new("Hello $WORLD!");
-        let mut output = Cursor::new(Vec::new());
-        let mut flags = Flags::default();
-
-        let f = flags.set(Flag::FailOnUnset, "--fail-on-unset", true);
-        assert!(f.is_ok());
-
-        let filters = Filters::default();
-        let result = process_input(Box::new(input), Box::new(&mut output), &flags, &filters);
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_get_env_value_default_value() {
-        let var_name = "EMPTY_VAR_NAME";
-        let original_variable = "${EMPTY_VAR_NAME:default}";
-        let default_value = "default";
+    fn test_process_input_write_fail() {
+        let input = "This is a $VAR.";
+        let mut output = Vec::new();
         let flags = Flags::default();
+        let filters = Filters::default();
+        env::set_var("VAR", "value");
 
-        env::set_var("EMPTY_VAR_NAME", "");
-        let result = get_env_value(var_name, default_value, original_variable, &flags);
-
-        assert_eq!(result, Ok("default".to_string()));
-    }
-
-    #[test]
-    fn test_get_env_value_use_default_colored() {
-        let var_name = "EMPTY_VAR_NAME";
-        let original_variable = "${EMPTY_VAR_NAME:-default}";
-        let default_value = "default";
-        let mut flags = Flags::default();
-
-        env::set_var(var_name, "");
-
-        let f = flags.set(Flag::Color, "--color", true);
-
-        assert!(f.is_ok());
-
-        let result = get_env_value(var_name, default_value, original_variable, &flags);
-
-        assert_eq!(result, Ok("default".yellow().to_string()));
-    }
-
-    #[test]
-    fn test_get_env_value_original_var_colored() {
-        let var_name = "EMPTY_VAR_NAME";
-        let original_variable = "${EMPTY_VAR_NAME}";
-        let default_value = "";
-        let mut flags = Flags::default();
-
-        env::set_var(var_name, "");
-
-        let f1 = flags.set(Flag::Color, "--color", true);
-        assert!(f1.is_ok());
-        let f2 = flags.set(Flag::NoReplaceEmpty, "-N", true);
-        assert!(f2.is_ok());
-
-        let result = get_env_value(var_name, default_value, original_variable, &flags);
-
-        assert_eq!(result, Ok("${EMPTY_VAR_NAME}".red().to_string()));
-    }
-
-    #[test]
-    fn test_get_env_value_found_var_colored() {
-        let var_name = "EMPTY_VAR_NAME";
-        let original_variable = "${EMPTY_VAR_NAME}";
-        let default_value = "";
-        let mut flags = Flags::default();
-
-        env::set_var(var_name, "some value");
-
-        let f = flags.set(Flag::Color, "--color", true);
-        assert!(f.is_ok());
-
-        let result = get_env_value(var_name, default_value, original_variable, &flags);
-
-        assert_eq!(result, Ok("some value".green().to_string()));
-    }
-
-    #[test]
-    fn test_get_env_value_default_colored() {
-        let var_name = "EMPTY_VAR_NAME";
-        let original_variable = "${EMPTY_VAR_NAME:-default}";
-        let default_value = "default";
-        let mut flags = Flags::default();
-
-        let f = flags.set(Flag::Color, "--color", true);
-        assert!(f.is_ok());
-
-        let result = get_env_value(var_name, default_value, original_variable, &flags);
-
-        assert_eq!(result, Ok("default".yellow().to_string()));
-    }
-
-    #[test]
-    fn test_get_env_value_default_no_replace_unset_colored() {
-        let var_name = "EMPTY_VAR_NAME";
-        let original_variable = "${EMPTY_VAR_NAME}";
-        let default_value = "";
-        let mut flags = Flags::default();
-
-        let f1 = flags.set(Flag::Color, "--color", true);
-        assert!(f1.is_ok());
-        let f2 = flags.set(Flag::NoReplaceUnset, "--no-replace-unset", true);
-        assert!(f2.is_ok());
-        let result = get_env_value(var_name, default_value, original_variable, &flags);
-
-        assert_eq!(result, Ok("${EMPTY_VAR_NAME}".red().to_string()));
-    }
-
-    #[test]
-    fn test_read_lines() {
-        let input = "Hello $WORLD!\nHello $WORLD!\nHello $WORLD!\n";
-        let expected = vec!["Hello $WORLD!\n", "Hello $WORLD!\n", "Hello $WORLD!\n"];
-        let lines = read_lines(input.as_bytes());
-        for (i, line_result) in lines.enumerate() {
-            let line = line_result.unwrap();
-            assert_eq!(line, expected[i]);
-        }
-    }
-
-    #[test]
-    fn test_read_lines_windows_ending() {
-        let input = "Hello $WORLD!\r\nHello $WORLD!\r\nHello $WORLD!\r\n";
-        let expected = vec![
-            "Hello $WORLD!\r\n",
-            "Hello $WORLD!\r\n",
-            "Hello $WORLD!\r\n",
-        ];
-        let lines = read_lines(input.as_bytes());
-        for (i, line_result) in lines.enumerate() {
-            let line = line_result.unwrap();
-            assert_eq!(line, expected[i]);
-        }
-    }
-
-    #[test]
-    fn test_read_lines_error() {
-        let input = b"Hello \xF0 World!";
-        let mut lines = read_lines(Cursor::new(&input[..]));
-        let result = lines.next();
-        assert!(result.is_some());
-        assert!(result.unwrap().is_err());
-    }
-
-    #[test]
-    fn test_read_lines_example() {
-        use std::io::BufReader;
-        use std::io::Cursor;
-
-        let data = "line1\nline2\nline3";
-        let cursor = Cursor::new(data);
-        let buf_reader = BufReader::new(cursor);
-
-        let lines = read_lines(buf_reader);
-
-        for line in lines {
-            assert!(line.is_ok());
-        }
-    }
-
-    #[test]
-    fn test_process_input_buffered_lines_write_error() {
-        let input = "Hello $WORLD!  \nHello $WORLD!  \nHello $WORLD!";
-        let mut output = Cursor::new(Vec::new());
-        let mut flags = Flags::default();
-        flags
-            .set(Flag::UnbufferedLines, "--unbuffered-lines", true)
-            .unwrap();
+        let mut failing_writer = FailingWriter::new(&mut output, true, false);
 
         let result = process_input(
-            Box::new(input.as_bytes()),
-            &mut FailingWriter::new(&mut output, true, false),
+            Cursor::new(input.as_bytes()),
+            &mut failing_writer,
             &flags,
-            &Filters::default(),
+            &filters,
         );
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
-            "--failed to write to output: Simulated write error"
+            "failed to write to output: Simulated write error"
         );
     }
 
     #[test]
-    fn test_read_lines_emojies() {
-        let input = "Hello 😃 World!\nHello 😃 World!\nHello 😃 World!\n";
-        let expected = vec![
-            "Hello 😃 World!\n",
-            "Hello 😃 World!\n",
-            "Hello 😃 World!\n",
-        ];
-        let lines = read_lines(input.as_bytes());
-        for (i, line_result) in lines.enumerate() {
-            let line = line_result.unwrap();
-            assert_eq!(line, expected[i]);
-        }
-    }
-
-    #[test]
-    fn test_process_input_write_output_error() {
-        let input = "Hello $WORLD!  \nHello $WORLD!  \nHello $WORLD!";
-        let mut output = Cursor::new(Vec::new());
-
-        let result = process_input(
-            Box::new(input.as_bytes()),
-            &mut FailingWriter::new(&mut output, true, false),
-            &Flags::default(),
-            &Filters::default(),
-        );
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            "--failed to write to output: Simulated write error"
-        );
-    }
-
-    #[test]
-    fn test_process_input_flush_output_error() {
-        let input = "Hello $WORLD!  \nHello $WORLD!  \nHello $WORLD!";
-        let mut output = Cursor::new(Vec::new());
-
-        let result = process_input(
-            Box::new(input.as_bytes()),
-            &mut FailingWriter::new(&mut output, false, true),
-            &Flags::default(),
-            &Filters::default(),
-        );
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            "--failed to flush output: Simulated flush error"
-        );
-    }
-
-    #[test]
-    fn test_process_input_large() {
-        let mut input = String::new();
-        for _i in 0..50_000 {
-            input.push_str("
-              This is a \"$FILE_NAME\" file.
-              It has more than \"${AMOUNT}\" different variables.
-              You can also use \"${UNSET_VARIABLE:-default}\" values inside variables like \"${UNSET_VARIABLE:-default}\".
-              Here are more variable like \"${PREFIXED_VARIABLE_1}\" and \"${VARIABLE_1_SUFFIXED}\".
-              Here are more \"$PREFIXED_VARIABLE_2\" and \"$VARIABLE_2_SUFFIXED\" variables!
-              Here are other prefixed \"$prefixed_VARIABLE_3\" and suffixed \"$VARIABLE_3_suffixed\" variables!
-              Or you can escape Text with two dollar signs ($$) like fi$$h => fi$h.
-              ");
-        }
-        //println!("input size in MB: {}", input.len() / 1024 / 1024);
-
-        let mut filter: Filters = Filters::default();
-
-        let mut prefixes = HashSet::new();
-        for i in 0..1000 {
-            // append to prefixes set
-            prefixes.insert(format!("PREFIXED_{i}"));
-        }
-        filter.prefixes = Some(prefixes);
-
-        let mut suffixes = HashSet::new();
-        for i in 0..512 {
-            // append to prefixes set
-            suffixes.insert(format!("_SUFFIXED{i}"));
-        }
-        filter.suffixes = Some(suffixes);
-
-        let mut variables = HashSet::new();
-        for i in 0..512 {
-            // append to prefixes set
-            variables.insert(format!("VARIABLE{i}"));
-        }
-        filter.variables = Some(variables);
-
-        let result = process_input(
-            Box::new(input.as_bytes()),
-            Cursor::new(Vec::new()),
-            &Flags::default(),
-            &Filters::default(),
-        );
-
-        assert!(result.is_ok());
-
-        // add more assertions here to test the expected behavior of `process_input` given the large input and filters
-    }
-
-    #[test]
-    fn test_get_env_value_example() {
-        let var_name = "EMPTY_VAR_NAME";
-        let original_variable = "${EMPTY_VAR_NAME:default}";
-        let default_value = "default";
+    fn test_process_input_flush_fail() {
+        let input = "This is a $VAR.";
+        let mut output = Vec::new();
         let flags = Flags::default();
+        let filters = Filters::default();
+        env::set_var("VAR", "value");
 
-        env::set_var("EMPTY_VAR_NAME", "");
-        let result = get_env_value(var_name, default_value, original_variable, &flags);
+        let mut failing_writer = FailingWriter::new(&mut output, false, true);
 
-        assert_eq!(result, Ok("default".to_string()));
+        let result = process_input(
+            Cursor::new(input.as_bytes()),
+            &mut failing_writer,
+            &flags,
+            &filters,
+        );
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "failed to flush output: Simulated flush error"
+        );
+    }
+
+    #[test]
+    fn test_replace_vars_in_line_flags() {
+        let line = "This is a $VAR.";
+        let flags = Flags::default();
+        let filters = Filters::default();
+        env::set_var("VAR", "value");
+
+        // Test default behavior
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert_eq!(result.unwrap(), "This is a value.");
+
+        // Test unbuffered_lines
+        let mut flags = Flags::default();
+        flags
+            .set(Flag::UnbufferedLines, "--unbuffered-lines", true)
+            .expect("Failed to set unbuffered lines flag");
+
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert_eq!(result.unwrap(), "This is a value.");
+
+        // Test --no-replace-empty - simple var
+        env::set_var("EMPTY_VAR", "");
+        let line = "This following var is empty: $EMPTY_VAR!";
+        let mut flags = Flags::default();
+        flags
+            .set(Flag::NoReplaceEmpty, "--no-replace-empty", true)
+            .expect("Failed to set no replace empty flag");
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert_eq!(result.unwrap(), "This following var is empty: $EMPTY_VAR!");
+
+        // Test --no-replace-empty - brace var
+        env::set_var("EMPTY_VAR", "");
+        let line = "This following var is empty: ${EMPTY_VAR}!";
+        let mut flags = Flags::default();
+        flags
+            .set(Flag::NoReplaceEmpty, "--no-replace-empty", true)
+            .expect("Failed to set no replace empty flag");
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert_eq!(
+            result.unwrap(),
+            "This following var is empty: ${EMPTY_VAR}!"
+        );
+
+        // Test --no-replace-unset - simple var
+        let line = "This following var is unset: $UNSET_VAR!";
+        let mut flags = Flags::default();
+        flags
+            .set(Flag::NoReplaceUnset, "--no-replace-unset", true)
+            .expect("Failed to set no replace unset flag");
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert_eq!(result.unwrap(), "This following var is unset: $UNSET_VAR!");
+
+        // Test --no-replace-unset - brace var
+        let line = "This following var is unset: ${UNSET_VAR}!";
+        let mut flags = Flags::default();
+        flags
+            .set(Flag::NoReplaceUnset, "--no-replace-unset", true)
+            .expect("Failed to set no replace unset flag");
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert_eq!(
+            result.unwrap(),
+            "This following var is unset: ${UNSET_VAR}!"
+        );
+
+        // Test --no-replace-empty and --no-replace-unset
+        let line =
+            "This following var is unset: ${UNSET_VAR}! This following var is empty: $EMPTY_VAR!";
+        let mut flags = Flags::default();
+        flags
+            .set(Flag::NoReplaceEmpty, "--no-replace-empty", true)
+            .expect("Failed to set no replace empty flag");
+        flags
+            .set(Flag::NoReplaceUnset, "--no-replace-unset", true)
+            .expect("Failed to set no replace unset flag");
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert_eq!(
+            result.unwrap(),
+            "This following var is unset: ${UNSET_VAR}! This following var is empty: $EMPTY_VAR!"
+        );
+
+        // Test --fail-on-unset
+        let line = "This following var is unset: $UNSET_VAR!";
+        let mut flags = Flags::default();
+        flags
+            .set(Flag::FailOnUnset, "--fail-on-unset", true)
+            .expect("Failed to set fail on unset flag");
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "environment variable 'UNSET_VAR' is not set"
+        );
+
+        // Test --fail-on-empty
+        env::set_var("EMPTY_VAR", "");
+        let line = "This following var is empty: $EMPTY_VAR!";
+        let mut flags = Flags::default();
+        flags
+            .set(Flag::FailOnEmpty, "--fail-on-empty", true)
+            .expect("Failed to set fail on empty flag");
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "environment variable 'EMPTY_VAR' is empty"
+        );
+
+        // Test --fail-on-unset and --fail-on-empty
+        env::set_var("EMPTY_VAR", "");
+        let line =
+            "This following var is unset: ${UNSET_VAR}! This following var is empty: $EMPTY_VAR!";
+        let mut flags = Flags::default();
+        flags
+            .set(Flag::FailOnUnset, "--fail-on-unset", true)
+            .expect("Failed to set fail on unset flag");
+        flags
+            .set(Flag::FailOnEmpty, "--fail-on-empty", true)
+            .expect("Failed to set fail on empty flag");
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "environment variable 'UNSET_VAR' is not set"
+        );
+    }
+
+    #[test]
+    fn test_replace_vars_in_line_escaping() {
+        let flags = Flags::default();
+        let filters = Filters::default();
+
+        // Test escaping
+        let line = "This is a $$ESCAPED_VAR.";
+        let result = replace_vars_in_line(line, &Flags::default(), &Filters::default());
+        assert_eq!(result.unwrap(), "This is a $ESCAPED_VAR.");
+
+        // Test escaping - brace var
+        let line = "This is a $${ESCAPED_VAR}.";
+        let result = replace_vars_in_line(line, &Flags::default(), &Filters::default());
+        assert_eq!(result.unwrap(), "This is a ${ESCAPED_VAR}.");
+
+        // Test escaping - simple var
+        let line = "This fi$$h should not escape!";
+        let result = replace_vars_in_line(line, &Flags::default(), &Filters::default());
+        assert_eq!(result.unwrap(), "This fi$h should not escape!");
+
+        let line = "This fi$$$$h should not escape!";
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert_eq!(result.unwrap(), "This fi$$h should not escape!");
+
+        // Test escaping - simple var
+        let line = "This pa$$$$ word should not escape!";
+        let result = replace_vars_in_line(line, &flags, &filters);
+        assert_eq!(result.unwrap(), "This pa$$ word should not escape!");
+    }
+
+    #[test]
+    fn test_replace_vars_in_line_filters() {
+        // Test prefixes - empty brace variable
+        let line = "This is a ${PREFIX_VAR}.";
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Prefix, "--prefix", Some("PREFIX"), &mut [].iter())
+            .expect("Failed to set prefix filter");
+        let result = replace_vars_in_line(line, &Flags::default(), &filters);
+        assert_eq!(result.unwrap(), "This is a .");
+
+        // Test prefixes - empty simple variable
+        let line = "This is a $PREFIX_VAR.";
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Prefix, "--prefix", Some("PREFIX"), &mut [].iter())
+            .expect("Failed to set prefix filter");
+        let result = replace_vars_in_line(line, &Flags::default(), &filters);
+        assert_eq!(result.unwrap(), "This is a .");
+
+        // Test prefixes - found brace variable
+        env::set_var("PREFIX_VAR", "prefix");
+        let line = "This is a \"${PREFIX_VAR}\".";
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Prefix, "--prefix", Some("PREFIX"), &mut [].iter())
+            .expect("Failed to set prefix filter");
+        let result = replace_vars_in_line(line, &Flags::default(), &filters);
+        assert_eq!(result.unwrap(), "This is a \"prefix\".");
+
+        // Test prefixes - found simple variable
+        env::set_var("PREFIX_VAR", "prefix");
+        let line = "This is a \"$PREFIX_VAR\".";
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Prefix, "--prefix", Some("PREFIX"), &mut [].iter())
+            .expect("Failed to set prefix filter");
+        let result = replace_vars_in_line(line, &Flags::default(), &filters);
+        assert_eq!(result.unwrap(), "This is a \"prefix\".");
+
+        // Test prefixes - multiple prefixes
+        env::set_var("PREFIX_VAR", "prefix");
+        env::set_var("PFX_VAR", "pfx");
+        let line = "This is a \"$PREFIX_VAR\"\n Her anoter \"$PFX_VAR\". This has var has no prefix: \"${NOT_FOUND}\".";
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Prefix, "--prefix", Some("PREFIX"), &mut [].iter())
+            .expect("Failed to set prefix filter");
+        filters
+            .add(Filter::Prefix, "--prefix", Some("PFX_VAR"), &mut [].iter())
+            .expect("Failed to set prefix filter");
+        let result = replace_vars_in_line(line, &Flags::default(), &filters);
+        assert_eq!(result.unwrap(), "This is a \"prefix\"\n Her anoter \"pfx\". This has var has no prefix: \"${NOT_FOUND}\".");
+
+        // Test suffixes - empty brace variable
+        let line = "This is a ${VAR_SUFFIX}.";
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Suffix, "--suffix", Some("SUFFIX"), &mut [].iter())
+            .expect("Failed to set suffix filter");
+        let result = replace_vars_in_line(line, &Flags::default(), &filters);
+        assert_eq!(result.unwrap(), "This is a .");
+
+        // Test suffixes - empty simple variable
+        let line = "This is a $VAR_SUFFIX.";
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Suffix, "--suffix", Some("SUFFIX"), &mut [].iter())
+            .expect("Failed to set suffix filter");
+        let result = replace_vars_in_line(line, &Flags::default(), &filters);
+        assert_eq!(result.unwrap(), "This is a .");
+
+        // Test suffixes - found brace variable
+        env::set_var("VAR_SUFFIX", "suffix");
+        let line = "This is a \"${VAR_SUFFIX}\".";
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Suffix, "--suffix", Some("SUFFIX"), &mut [].iter())
+            .expect("Failed to set suffix filter");
+        let result = replace_vars_in_line(line, &Flags::default(), &filters);
+        assert_eq!(result.unwrap(), "This is a \"suffix\".");
+
+        // Test suffixes - found simple variable
+        env::set_var("VAR_SUFFIX", "suffix");
+        let line = "This is a \"$VAR_SUFFIX\".";
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Suffix, "--suffix", Some("SUFFIX"), &mut [].iter())
+            .expect("Failed to set suffix filter");
+        let result = replace_vars_in_line(line, &Flags::default(), &filters);
+        assert_eq!(result.unwrap(), "This is a \"suffix\".");
+
+        // Test suffixes - multiple suffixes
+        env::set_var("VAR_SUFFIX", "suffix");
+        env::set_var("VAR_SFX", "sfx");
+        let line = "This is a \"$VAR_SUFFIX\"\n Her anoter \"$VAR_SFX\". This has var has no suffix: \"${NOT_FOUND}\".";
+        let mut filters = Filters::default();
+        filters
+            .add(
+                Filter::Prefix,
+                "--suffix",
+                Some("VAR_SUFFIX"),
+                &mut [].iter(),
+            )
+            .expect("Failed to set suffix filter");
+        filters
+            .add(Filter::Prefix, "--suffix", Some("VAR_SFX"), &mut [].iter())
+            .expect("Failed to set suffix filter");
+        let result = replace_vars_in_line(line, &Flags::default(), &filters);
+        assert_eq!(result.unwrap(), "This is a \"suffix\"\n Her anoter \"sfx\". This has var has no suffix: \"${NOT_FOUND}\".");
+
+        // Test prefixes and suffixes - found brace variable
+        env::set_var("PREFIX_VAR_SUFFIX", "prefix_suffix");
+        let line = "This is a \"${PREFIX_VAR_SUFFIX}\".";
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Prefix, "--prefix", Some("PREFIX"), &mut [].iter())
+            .expect("Failed to set prefix filter");
+        filters
+            .add(Filter::Suffix, "--suffix", Some("SUFFIX"), &mut [].iter())
+            .expect("Failed to set suffix filter");
+        let result = replace_vars_in_line(line, &Flags::default(), &filters);
+        assert_eq!(result.unwrap(), "This is a \"prefix_suffix\".");
+
+        // Test prefixes and suffixes - found simple variable
+        env::set_var("PREFIX_VAR_SUFFIX", "prefix_suffix");
+        let line = "This is a \"$PREFIX_VAR_SUFFIX\".";
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Prefix, "--prefix", Some("PREFIX"), &mut [].iter())
+            .expect("Failed to set prefix filter");
+        filters
+            .add(Filter::Suffix, "--suffix", Some("SUFFIX"), &mut [].iter())
+            .expect("Failed to set suffix filter");
+        let result = replace_vars_in_line(line, &Flags::default(), &filters);
+        assert_eq!(result.unwrap(), "This is a \"prefix_suffix\".");
+
+        // Test variables
+        env::set_var("VAR", "value");
+        let line = "This is a \"$VAR\".";
+        let result = replace_vars_in_line(line, &Flags::default(), &Filters::default());
+        assert_eq!(result.unwrap(), "This is a \"value\".");
+
+        // Test variables - empty variable
+        env::set_var("VAR", "");
+        let line = "This is a \"$VAR\".";
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Suffix, "--variable", Some("VAR"), &mut [].iter())
+            .expect("Failed to set variable filter");
+        let result = replace_vars_in_line(line, &Flags::default(), &filters);
+        assert_eq!(result.unwrap(), "This is a \"\".");
+
+        // Test variables - empty variable --no-replace
+        env::set_var("VAR", "");
+        let line = "This is a \"$SPECIAL_VAR\".";
+        let mut filters = Filters::default();
+        filters
+            .add(Filter::Variable, "--variable", Some("VAR"), &mut [].iter())
+            .expect("Failed to set variable filter");
+        let result = replace_vars_in_line(line, &Flags::default(), &filters);
+        assert_eq!(result.unwrap(), "This is a \"$SPECIAL_VAR\".");
+    }
+
+    #[test]
+    fn test_colorize_text() {
+        // Test default behavior
+        let text = "This is a test.";
+        let result = colorize_text(false, text.to_string(), Color::Green);
+        assert_eq!(result, "This is a test.");
+
+        // Test colorize
+        let result = colorize_text(true, text.to_string(), Color::Green);
+        assert_eq!(result, "\u{1b}[32mThis is a test.\u{1b}[0m".to_string());
     }
 }

@@ -59,15 +59,6 @@ impl InputOutput {
     /// * `ParseArgsError::MissingValue(arg)` - When a value is missing for a command-line flag that
     ///   requires one.
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// let mut io = IOStruct::new();
-    /// io.set(IO::Input, "--input", Some("input.txt"), &mut "".split_whitespace().into_iter())
-    ///     .unwrap();
-    /// assert_eq!(io.input.as_ref().unwrap(), "input.txt");
-    /// ```
-    ///
     /// # Notes
     ///
     /// This function is used to set the value of the input or output path based on the provided
@@ -127,12 +118,6 @@ impl InputOutput {
     /// An `Option<&String>` containing a reference to the value of the specified input/output option, if it has been set.
     /// If the specified option has not been set, the function returns `None`.
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// let args = Args::default();
-    /// assert_eq!(args.io.get(IO::Input), None);
-    /// ```
     #[must_use]
     pub fn get(&self, io: IO) -> Option<&String> {
         match io {
@@ -163,13 +148,6 @@ impl InputOutput {
 /// * `Failed to open input file: {error_message}` - When an error occurs while opening the
 ///   input file. The `{error_message}` placeholder is replaced with a string describing the
 ///   error that occurred.
-///
-/// # Examples
-///
-/// ```
-/// let input = open_input(Some("input.txt".to_string())).unwrap();
-/// assert_eq!(input.is_read_vectored(), false);
-/// ```
 ///
 /// # Notes
 ///
@@ -223,13 +201,6 @@ pub fn open_input(input_file: Option<String>) -> Result<Box<dyn Read>, String> {
 /// * `Failed to create output file: {error_message}` - When an error occurs while creating the
 ///   output file. The `{error_message}` placeholder is replaced with a string describing the
 ///   error that occurred.
-///
-/// # Examples
-///
-/// ```
-/// let output = open_output(Some("out.txt".to_string())).unwrap();
-/// assert_eq!(output.is_write_vectored(), false);
-/// ```
 ///
 /// # Notes
 ///
