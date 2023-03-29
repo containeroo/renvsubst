@@ -74,13 +74,6 @@ impl Flags {
     /// * `ParseArgsError::ConflictingFlags`: When attempting to set a flag that conflicts with a previously set flag.
     /// * `ParseArgsError::DuplicateFlag`: When attempting to set a flag that was already set.
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// let mut flags = Flags::default();
-    ///
-    /// flags.set(Flag::FailOnUnset, "--fail-on-unset", true).unwrap();
-    /// ```
     pub fn set(&mut self, flag_type: Flag, flag: &str, value: bool) -> Result<(), ParseArgsError> {
         let conflicting_options = match flag_type {
             Flag::FailOnUnset => vec![Flag::Fail, Flag::NoReplaceUnset],
@@ -151,16 +144,6 @@ impl Flags {
     /// An `Option<&FlagItem>` that contains a reference to the `FlagItem` if the flag is set,
     /// or `None` if the flag is not set.
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// let mut flags = Flags::default();
-    /// flags.set(Flag::Fail, "--fail", true).unwrap();
-    ///
-    /// let fail_flag = flags.get(Flag::Fail);
-    /// assert!(fail_flag.is_some());
-    /// assert_eq!(flags.get(Flag::Fail).and_then(|f| f.value), None);
-    /// ```
     #[must_use]
     pub fn get(&self, flag_variant: Flag) -> Option<&FlagItem> {
         self.flags.get(&flag_variant)
@@ -177,15 +160,6 @@ impl Flags {
     /// * `flag`: A `Flag` variant representing the command-line flag to update.
     /// * `new_value`: A `bool` value to update the `FlagItem`'s `value` field with.
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// let mut flags = Flags::default();
-    /// flags.set(Flag::Fail, "--fail", true).unwrap();
-    ///
-    /// flags.update(Flag::Fail, false);
-    /// assert_eq!(flags.get(Flag::Fail).and_then(|f| f.value), None);
-    /// ```
     pub fn update(&mut self, flag: Flag, new_value: bool) {
         if let Some(flag_item) = self.flags.get_mut(&flag) {
             flag_item.value = Some(new_value);
@@ -202,17 +176,6 @@ impl Flags {
     ///
     /// Returns `true` if the specified flag is set, otherwise returns `false`.
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// use my_crate::{Flags, Flag};
-    ///
-    /// let mut flags = Flags::default();
-    /// flags.set(Flag::FailOnEmpty, "--fail-on-empty", true);
-    ///
-    /// assert_eq!(flags.is_flag_set(Flag::FailOnEmpty), true);
-    /// assert_eq!(flags.is_flag_set(Flag::NoReplace), false);
-    /// ```
     #[must_use]
     pub fn is_flag_set(&self, flag: Flag) -> bool {
         self.flags

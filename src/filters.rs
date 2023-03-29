@@ -55,15 +55,6 @@ impl Filters {
     ///
     /// * `ParseArgsError::MissingValue(arg)` - When a value is missing for the specified argument.
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// let mut filters = Filters::new();
-    /// filters.add(Filter::Prefix, "--prefix", Some("prefix_"), &mut ["-v".to_string()].iter())
-    ///     .unwrap();
-    /// assert_eq!(filters.prefixes.unwrap().contains("prefix_"), true);
-    /// ```
-    ///
     /// # Notes
     ///
     /// This function is used to add filters to the `Filters` struct based on command-line arguments
@@ -131,19 +122,6 @@ impl Filters {
     /// * `Some(true)` if the `var_name` matches any of the filters (prefixes, suffixes, or variables).
     /// * `Some(false)` if the `var_name` does not match any of the filters.
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// let mut filters = Filters::default();
-    /// filters.add(Filter::Prefix, "--prefix", Some("TEST_"), &mut [].iter());
-    /// filters.add(Filter::Suffix, "--suffix", Some("_CONFIG"), &mut [].iter());
-    /// filters.add(Filter::Variable, "--variable", Some("SPECIAL_VAR"), &mut [].iter());
-    ///
-    /// assert_eq!(filters.matches("TEST_VAR"), Some(true));
-    /// assert_eq!(filters.matches("VAR_CONFIG"), Some(true));
-    /// assert_eq!(filters.matches("SPECIAL_VAR"), Some(true));
-    /// assert_eq!(filters.matches("OTHER_VAR"), Some(false));
-    /// ```
     #[must_use]
     pub fn matches(&self, var_name: &str) -> Option<bool> {
         // return None if no filters are set

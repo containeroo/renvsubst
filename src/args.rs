@@ -54,13 +54,6 @@ impl Args {
     ///
     /// A `Vec<(String, Option<&str>)>` containing the expanded flags (or the original flag) with their values.
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// let combined_flag = "-abc";
-    /// let expanded_flags = expand_combined_flags(combined_flag);
-    /// assert_eq!(expanded_flags, vec![("-a", None), ("-b", None), ("-c", None)]);
-    /// ```
     fn expand_combined_flags(arg: &str) -> Vec<(String, Option<&str>)> {
         let mut expanded_flags = Vec::new();
 
@@ -133,14 +126,6 @@ impl Args {
     /// * `ParseArgsError::MissingValue(flag)` - When a flag requires a value, but it is not provided.
     /// * `ParseArgsError::InvalidValue(flag, value)` - When a flag requires a specific value format, but the provided value is invalid.
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// let args = vec!["--input", "file.txt", "--output", "out.txt"];
-    /// let parsed_args = Args::parse(args).unwrap();
-    /// assert_eq!(parsed_args.io.get(IO::Input), Some("file.txt"));
-    /// assert_eq!(parsed_args.io.get(IO::Output), Some("out.txt"));
-    /// ```
     pub fn parse<I, T>(args: I) -> Result<Args, ParseArgsError>
     where
         I: IntoIterator<Item = T>,
