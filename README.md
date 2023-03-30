@@ -1,9 +1,11 @@
 # renvsubst
 
-A command line utility to substitute (bash-like) variables in the format of `$VAR_NAME`, `${VAR_NAME}` or `${VAR_NAME:-DEFAULT_VALUE}` with their corresponding values from the environment or the default value if provided.
-A valid variable name is a string that starts with a letter or an underscore, followed by any number of letters, numbers, or underscores.
+`renvsubst` is a command-line tool that substitutes variables in the format `$VAR_NAME` or `${VAR_NAME}` with their corresponding environment values. If a variable is invalid, it remains unaltered.
+Valid variable names start with a letter or underscore and can be followed by any combination of letters, numbers, or underscores.
 
-The primary objective of `renvsubst` is to serve as a lightweight and high-performance utility for use in containers.
+"Braced variables" (`${VAR}`) support some bash string substitution functions, see below.
+
+The main goal of renvsubst is to act as a lightweight, high-performance utility for use in container environments.
 
 ## Usage
 
@@ -27,7 +29,7 @@ When the same flag is provided multiple times, renvsubst will throw an error.
 | `-N`, `--no-replace`       | Alias for`--no-replace-unset` and `--no-replace-empty`.                                                                                                                                                                              |
 | `-x`, `--no-escape`        | Disable escaping of variables.                                                                                                                                                                                                       |
 | `-b`, `--unbuffer-lines`   | Do not buffer lines before printing. Saves memory, but may impact performance.                                                                                                                                                       |
-| `-c`, `--color`            | Colorize the output if `stdout` is a terminal.<br>Green for found variables, yellow for default values and red for not found variables.<br>Use `--no-replace-unset` to show not found variables; otherwise, they won't be displayed. |
+| `-c`, `--color`            | Colorize the output if `stdout` is a terminal. Use `--no-replace-unset` to show not found variables; otherwise, they won't be displayed. |
 
 ## Filters
 
@@ -62,6 +64,29 @@ If multiple identical prefixes, suffixes or variables are provided, only one cop
 | `-h` \| `--help` | Show help text.                  |
 | `--version`      | Show the version of the program. |
 
+## Substitution functions
+
+| Expression                   | Description                                                      |
+| :--------------------------- | :--------------------------------------------------------------- |
+| `${VAR:-default}`            | Set `$VAR` to `default` if `$VAR` is unset.                      |
+| `${VAR,}`                    | Change the first character of `$VAR` to lowercase.               |
+| `${VAR,,}`                   | Change all characters of `$VAR` to lowercase.                    |
+| `${VAR^}`                    | Change the first character of `$VAR` to uppercase.               |
+| `${VAR^^}`                   | Change all characters of `$VAR` to uppercase.                    |
+| `${VAR/pattern/replacement}` | Replace all occurrences of `pattern` with replacement.           |
+| `${VAR:offset}`              | Shift `$VAR` by `n` characters from the start.                   |
+| `${VAR:offset:length}`       | Shift `$VAR` by `n` characters with a maximum length of `len`.   |
+| `${VAR#pattern}`             | Remove the shortest match of `pattern` from the start of `$VAR`. |
+| `${VAR%pattern}`             | Remove the shortest match of `pattern` from the end of `$VAR`.   |
+
+## Colors
+
+Green represents variables that were successfully substituted.
+Yellow denotes the use of default values.
+Blue indicates variables where a string substitution took place.
+Magenta indicates "ignored" variables, which had no filter applied.
+Red represents variables that could not be substituted.
+
 ## Escaping
 
 To retain a variable's original value and prevent it from being substituted by an environment variable, add a second dollar sign ($).
@@ -90,23 +115,46 @@ It has more than "\${AMOUNT}" different variables.
 You can also use "\${UNSET_VARIABLE:-default}" values inside variables like "\${UNSET_VARIABLE:-default}".
 Here are more variable like "\${PREFIXED_VARIABLE_1}" and "\${VARIABLE_1_SUFFIXED}".
 Here are more "\$PREFIXED_VARIABLE_2" and "\$VARIABLE_2_SUFFIXED" variables!
-Here are other prefixed "\$prefixed_VARIABLE_3" and suffixed "\$VARIABLE_3_suffixed" variables!
-Or you can escape Text with two dollar signs (\$\$) like fi\$\$h => fi\$\$h.
-And here a "\${NOT_EXISTING_VARIABLE}" which was not set!
+
+Here some substitution functions:
+All lowercase \$\${VARIABLE_4,,} -> \${VARIABLE_4,,}.
+All uppercase \$\${VARIABLE_4,,} -> \${VARIABLE_4,,}.
+First character lowercase \$\${VARIABLE_4,} -> \${VARIABLE_4,}.
+Remove word "prefix" \$\${prefixed_VARIABLE_3/prefix} -> \${prefixed_VARIABLE_3/prefix}
+Replace word "prefix" with "suffix”\ \$\${prefixed_VARIABLE_3/prefix/suffix} -> \${prefixed_VARIABLE_3/prefix/suffix}.
+Skipping the first two letters -> \${VARIABLE_4:2}.
+Extracting from the second letter to the 5: \$\${VARIABLE_4:2:3} -> \${VARIABLE_4:2:3}.
+Remove the ending slash: \$\${VARIABLE_6%/} -> \${VARIABLE_6%/}.
+Remove the protocol: \$\${VARIABLE_6#https://} -> \${VARIABLE_6#https://}.
+
 """
 
 Create a test file:
 
 ```sh
 cat << EOF > input.txt
-This is a "\$FILE_NAME" file.
-It has more than "\${AMOUNT}" different variables.
-You can also use "\${UNSET_VARIABLE:-default}" values inside variables like "\${UNSET_VARIABLE:-default}".
-Here are more variable like "\${PREFIXED_VARIABLE_1}" and "\${VARIABLE_1_SUFFIXED}".
-Here are more "\$PREFIXED_VARIABLE_2" and "\$VARIABLE_2_SUFFIXED" variables!
-Here are other prefixed "\$prefixed_VARIABLE_3" and suffixed "\$VARIABLE_3_suffixed" variables!
-Or you can escape Text with two dollar signs (\$\$) like fi\$\$h => fi\$\$h.
-And here a "\${NOT_EXISTING_VARIABLE}" which was not set!
+This is a simple variable \$\$FILE_NAME -> "\$FILE_NAME".
+This is a "braced variable" \$\${AMOUNT} -> "\${AMOUNT}".
+This is a "braced variable with default" \$\${UNSET_VARIABLE:-default} -> "\${UNSET_VARIABLE:-default}".
+This braced variables has a prefix \$\${PREFIXED_VARIABLE_1} -> "\${PREFIXED_VARIABLE_1}".
+This braced variables has a suffix \$\${VARIABLE_1_SUFFIXED} -> "\${VARIABLE_1_SUFFIXED}".
+Here are more \$\$PREFIXED_VARIABLE_2 -> "\$PREFIXED_VARIABLE_2" and \$\$VARIABLE_2_SUFFIXED -> "\$VARIABLE_2_SUFFIXED variables"!
+
+Here some substitution functions:
+All lowercase \$\${VARIABLE_4,,} -> "\${VARIABLE_4,,}".
+All uppercase \$\${VARIABLE_4^^} -> "\${VARIABLE_4^^}".
+First character lowercase \$\${VARIABLE_4,} -> "\${VARIABLE_4,}".
+First character uppercase \$\${VARIABLE_5 ^} -> "\${VARIABLE_5^}".
+Remove word "prefix" \$\${prefixed_VARIABLE_3#prefix} -> "\${prefixed_VARIABLE_3#prefix}".
+Remove word "suffix" \$\${VARIABLE_1_SUFFIXED%suffix} -> "\${VARIABLE_1_SUFFIXED%suffix}".
+Replace word "prefix" with "suffix”\ \$\${prefixed_VARIABLE_3/prefix/suffix} -> "\${prefixed_VARIABLE_3/prefix/suffix}".
+Skipping the first two letters \$\${VARIABLE_4:2} -> "\${VARIABLE_4:2}".
+Extracting from the second letter to the 5: \$\${VARIABLE_4:2:3} -> "\${VARIABLE_4:2:3}".
+Remove the ending slash: \$\${VARIABLE_6%/} -> "\${VARIABLE_6%/}".
+Remove the protocol: \$\${VARIABLE_6#https://} -> "\${VARIABLE_6#https://}.".
+Remove the protocol: \$\${UNSET_VAR#https://} -> "\${UNSET_VAR#https://}.".
+Remove the protocol: \$\${VARIABLE_6#notfound} -> "\${UNSET_VAR#notfound}.".
+
 EOF
 ```
 
@@ -117,10 +165,14 @@ export FILE_NAME=input.txt
 export AMOUNT=1
 export PREFIXED_VARIABLE_1="variable with a prefix"
 export PREFIXED_VARIABLE_2="another variable with a prefix"
-export prefixed_VARIABLE_3="small letters prefix"
+export prefixed_VARIABLE_3="prefixed small letters"
 export VARIABLE_1_SUFFIXED="variable with a suffix"
 export VARIABLE_2_SUFFIXED="another variable with a suffix"
 export VARIABLE_3_suffixed="small letters suffix"
+export VARIABLE_4="Variable"
+export VARIABLE_5="variable"
+export VARIABLE_6="https://containeroo.ch/"
+
 ```
 
 ### Commands
@@ -133,68 +185,7 @@ Replace all variables inside `input.txt` and output the result to `output.txt`:
 renvsubst --input input.txt --output output.txt
 
 # output.txt:
-This is a "input.txt" file.
-It has more than "1" different variables.
-You can also use "default" values inside variables like "default".
-Here are more variable like "variable with a prefix" and "variable with a suffix".
-Here are more "another variable with a prefix" and "another variable with a suffix" variables!
-Here are other prefixed "small letters prefix" and suffixed "small letters suffix" variables!
-Or you can escape Text with two dollar signs ($$) like fi$h => fi$h.
-And here a "" which was not set!
-```
 
-#### filter variables
-
-Replace only variable `AMOUNT` and `UNSET_VARIABLE` inside `input.txt` and output to `stdout`:
-
-```sh
-renvsubst -v=AMOUNT --variable UNSET_VARIABLE < input.txt
-
-# stdout:
-This is a "$FILE_NAME" file.
-It has more than "1" different variables.
-You can also use "default" values inside variables like "default".
-Here are more variable like "${PREFIXED_VARIABLE_1}" and "${VARIABLE_1_SUFFIXED}".
-Here are more "$PREFIXED_VARIABLE_2" and "$VARIABLE_2_SUFFIXED" variables!
-Here are other prefixed "$prefixed_VARIABLE_3" and suffixed "$VARIABLE_3_suffixed" variables!
-Or you can escape Text with two dollar signs ($$) like fi$h => fi$h.
-And here a "${NOT_EXISTING_VARIABLE}" which was not set!
-```
-
-#### filter with prefix
-
-Replace only variables with the prefix `PREFIXED` from the variable `INPUT` and write the output to the file `output.txt`:
-
-```sh
-renvsubst --prefix PREFIXED --input - <<< $INPUT > output.txt
-
-# output.txt:
-This is a $FILE_NAME file.
-It has more than ${AMOUNT} different variables.
-You can also use ${UNSET_VARIABLE:-default} values inside variables like ${UNSET_VARIABLE:-default}.
-Here are more variable like variable with a prefix and ${VARIABLE_1_SUFFIXED}.
-Here are more another variable with a prefix and $VARIABLE_2_SUFFIXED variables!
-Here are other prefixed $prefixed_VARIABLE_3 and suffixed $VARIABLE_3_suffixed variables!
-Or you can escape Text with two dollar signs ($$) like fi$h => fi$h.
-And here a ${NOT_EXISTING_VARIABLE} which was not set!
-```
-
-#### filter with suffix
-
-Replace only variables with the suffix `SUFFIXED` inside `input.txt` and write the output to the file `output.txt`:
-
-```sh
-renvsubst --suffix=SUFFIXED -i - < input.txt > output.txt
-
-# output.txt:
-This is a "$FILE_NAME" file.
-It has more than "${AMOUNT}" different variables.
-You can also use "${UNSET_VARIABLE:-default}" values inside variables like "${UNSET_VARIABLE:-default}".
-Here are more variable like "${PREFIXED_VARIABLE_1}" and "variable with a suffix".
-Here are more "$PREFIXED_VARIABLE_2" and "another variable with a suffix" variables!
-Here are other prefixed "$prefixed_VARIABLE_3" and suffixed "$VARIABLE_3_suffixed" variables!
-Or you can escape Text with two dollar signs ($$) like fi$h => fi$h.
-And here a "${NOT_EXISTING_VARIABLE}" which was not set!
 ```
 
 #### multiple filter
@@ -207,18 +198,26 @@ renvsubst --prefix PREFIXED --prefix=prefixed --suffix=SUFFIXED <<< $INPUT
 # stdout:
 This is a $FILE_NAME file.
 It has more than ${AMOUNT} different variables.
-You can also use ${UNSET_VARIABLE:-default} values inside variables like ${UNSET_VARIABLE:-default}.
+You can also use ${UNSET_VARIABLE} values inside variables like ${UNSET_VARIABLE}.
 Here are more variable like variable with a prefix and variable with a suffix.
 Here are more another variable with a prefix and another variable with a suffix variables!
-Here are other prefixed small letters prefix and suffixed $VARIABLE_3_suffixed variables!
-Or you can escape Text with two dollar signs ($$) like fi$h => fi$h.
-And here a ${NOT_EXISTING_VARIABLE} which was not set!
+
+Here some substitution functions:
+All lowercase ${VARIABLE_4,,} -> ${VARIABLE_4}.
+All uppercase ${VARIABLE_4,,} -> ${VARIABLE_4}.
+First character lowercase ${VARIABLE_4,} -> ${VARIABLE_4}.
+Remove word "prefix" ${prefixed_VARIABLE_3/prefix} -> small letters
+Replace word "prefix" with "suffix”\ ${prefixed_VARIABLE_3/prefix/suffix} -> small letters suffix.
+Skipping the first two letters -> ${VARIABLE_4}.
+Extracting from the second letter to the 5: ${VARIABLE_4:2:3} -> ${VARIABLE_4}.
+Remove the ending slash: ${VARIABLE_6%/} -> ${VARIABLE_6}.
+Remove the protocol: ${VARIABLE_6#https://} -> ${VARIABLE_6}.
 ```
 
 #### colored output
 
 ```sh
-renvsubst -cU --input input.txt
+cat input.txt | renvsubst -cU -i -
 ```
 
 ![colored_output](./.github/assets/colored_output.png)

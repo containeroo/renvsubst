@@ -1,9 +1,9 @@
 pub const HELP_TEXT: &str = "Usage: renvsubst [FLAGS] [FILTERS] [INPUT] [OUTPUT] | [-h | --help | --version]
 
-renvsubst will substitute all (bash-like) environment variables in the format of $VAR_NAME or ${VAR_NAME} with their corresponding values from the environment. If the variable is not valid, it remains as is.
-A valid variable name starts with a letter or underscore, followed by any combination of letters, numbers, or underscores.
+renvsubst is a command-line tool that substitutes variables in the format '$VAR_NAME' or '${VAR_NAME}' with their corresponding environment values. If a variable is invalid, it remains unaltered.
+Valid variable names start with a letter or underscore and can be followed by any combination of letters, numbers, or underscores.
 
-\"braced variables\" (${VAR}) support for bash string replacement functions.
+\"Braced variables\" ('${VAR_NAME}') support some bash string substitution functions, see below.
 
 Short flags are available for many options and can be combined. For example, use '-ue' instead of '-u -e' or '--fail-on-unset --fail-on-empty'. See the list of flags and filters below for the complete list of short flags and their combinations.
 
@@ -48,17 +48,26 @@ General:
   -h, --help                       Show this help text.
       --version                    Show the version of the program.
 
+Substitution functions:
+  ${VAR:-default}                  Set \"$VAR\" to \"default\" if \"$VAR\" is unset.
+  ${VAR,}                          Change the first character of \"$VAR\" to lowercase.
+  ${VAR,,}                         Change all characters of \"$VAR\" to lowercase.
+  ${VAR^}                          Change the first character of \"$VAR\" to uppercase.
+  ${VAR^^}                         Change all characters of \"$VAR\" to uppercase.
+  ${VAR/pattern/replacement}       Replace all occurrences of \"pattern\" with replacement.
+  ${VAR:offset}                    Shift \"$VAR\" by \"n\" characters from the start.
+  ${VAR:offset:length}             Shift \"$VAR\" by \"n\" characters with a maximum length of \"len\".
+  ${VAR#pattern}                   Remove the shortest match of \"pattern\" from the start of \"$VAR\".
+  ${VAR%pattern}                   Remove the shortest match of \"pattern\" from the end of \"$VAR\".
+
+Colors:
+  Green represents variables that were successfully substituted.
+  Yellow denotes the use of default values.
+  Blue indicates variables where a string substitution took place.
+  Magenta indicates \"ignored\" variables, which had no filter applied.
+  Red represents variables that could not be substituted.
+
 Escaping:
 To retain a variable's original value and prevent it from being substituted by an environment variable, add a second dollar sign ($). The second dollar sign will be removed during substitution. Only valid variables must be escaped.
-
-Replacement functions:
-  ${VAR:-default}   If $VAR is unset, set VAR to default.
-  ${VAR,} Convert first character of $VAR to lowercase.
-  ${VAR,,}  Convert all characters of $VAR to lowercase.
-  ${VAR^}  Convert first character of $VAR to uppercase.
-  ${VAR^^}   Convert all characters of $VAR to uppercase.
-  ${VAR/pattern/replacement} Replace all match of pattern with replacement.
-  ${VAR:offset}  Start at offset n characters into $VAR.
-  ${VAR:offset:length} Start at offset n characters into $VAR until length characters.
 
 ";
