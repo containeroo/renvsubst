@@ -993,7 +993,7 @@ mod tests {
         assert!(f.is_ok());
 
         let result = replace_vars_in_line(line, &flags, &filters);
-        println!("{}", result.clone().unwrap().to_string());
+        println!("{}", result.clone().unwrap());
         assert_eq!(
             result.unwrap(),
             format!("This is a \"{}\".", "${UNSET_VAR}".color(Color::Magenta)),

@@ -626,7 +626,7 @@ mod tests {
         // Test pattern replacement with an empty replacement string
         let op = "/";
         let value = "hello_world";
-        let operation_data = Some("".to_string());
+        let operation_data = Some(String::new());
         let inner_expr = format!("{}{}", op, operation_data.as_deref().unwrap());
         let result =
             process_pattern_replacement(value, operation_data.as_deref(), &inner_expr, true);
@@ -650,7 +650,7 @@ mod tests {
         let operation_data = None;
         let inner_expr = op;
         let result =
-            process_pattern_replacement(value, operation_data, &inner_expr.to_string(), false);
+            process_pattern_replacement(value, operation_data, inner_expr, false);
         assert_eq!(result.unwrap(), "hello_world");
 
         // Test empty value
