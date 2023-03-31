@@ -81,11 +81,11 @@ If multiple identical prefixes, suffixes or variables are provided, only one cop
 
 ## Colors
 
-Green represents variables that were successfully substituted.
-Yellow denotes the use of default values.
-Blue indicates variables where a string substitution took place.
-Magenta indicates "ignored" variables, which had no filter applied.
-Red represents variables that could not be substituted.
+Green represents variables that were successfully substituted.  
+Yellow denotes the use of default values.  
+Blue indicates variables where a string substitution took place.  
+Magenta indicates "ignored" variables, which had no filter applied.  
+Red represents variables that could not be substituted.  
 
 ## Escaping
 
