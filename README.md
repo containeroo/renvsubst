@@ -108,27 +108,6 @@ Use the `--no-replace-empty` flag. If there is no environment variable named `wo
 
 ### Preparation
 
-Create a test variable:
-
-INPUT="""This is a "\$FILE_NAME" file.
-It has more than "\${AMOUNT}" different variables.
-You can also use "\${UNSET_VARIABLE:-default}" values inside variables like "\${UNSET_VARIABLE:-default}".
-Here are more variable like "\${PREFIXED_VARIABLE_1}" and "\${VARIABLE_1_SUFFIXED}".
-Here are more "\$PREFIXED_VARIABLE_2" and "\$VARIABLE_2_SUFFIXED" variables!
-
-Here some substitution functions:
-All lowercase \$\${VARIABLE_4,,} -> \${VARIABLE_4,,}.
-All uppercase \$\${VARIABLE_4,,} -> \${VARIABLE_4,,}.
-First character lowercase \$\${VARIABLE_4,} -> \${VARIABLE_4,}.
-Remove word "prefix" \$\${prefixed_VARIABLE_3/prefix} -> \${prefixed_VARIABLE_3/prefix}
-Replace word "prefix" with "suffix”\ \$\${prefixed_VARIABLE_3/prefix/suffix} -> \${prefixed_VARIABLE_3/prefix/suffix}.
-Skipping the first two letters -> \${VARIABLE_4:2}.
-Extracting from the second letter to the 5: \$\${VARIABLE_4:2:3} -> \${VARIABLE_4:2:3}.
-Remove the ending slash: \$\${VARIABLE_6%/} -> \${VARIABLE_6%/}.
-Remove the protocol: \$\${VARIABLE_6#https://} -> \${VARIABLE_6#https://}.
-
-"""
-
 Create a test file:
 
 ```sh
@@ -172,7 +151,6 @@ export VARIABLE_3_suffixed="small letters suffix"
 export VARIABLE_4="Variable"
 export VARIABLE_5="variable"
 export VARIABLE_6="https://containeroo.ch/"
-
 ```
 
 ### Commands
@@ -185,7 +163,27 @@ Replace all variables inside `input.txt` and output the result to `output.txt`:
 renvsubst --input input.txt --output output.txt
 
 # output.txt:
+This is a simple variable $FILE_NAME -> "input.txt".
+This is a "braced variable" ${AMOUNT} -> "1".
+This is a "braced variable with default" ${UNSET_VARIABLE:-default} -> "default".
+This braced variables has a prefix ${PREFIXED_VARIABLE_1} -> "variable with a prefix".
+This braced variables has a suffix ${VARIABLE_1_SUFFIXED} -> "variable with a suffix".
+Here are more $PREFIXED_VARIABLE_2 -> "another variable with a prefix" and $VARIABLE_2_SUFFIXED -> "another variable with a suffix variables"!
 
+Here some substitution functions:
+All lowercase ${VARIABLE_4,,} -> "variable".
+All uppercase ${VARIABLE_4^^} -> "VARIABLE".
+First character lowercase ${VARIABLE_4,} -> "variable".
+First character uppercase ${VARIABLE_5 ^} -> "Variable".
+Remove word "prefix" ${prefixed_VARIABLE_3#prefix} -> "ed small letters".
+Remove word "suffix" ${VARIABLE_1_SUFFIXED%suffix} -> "variable with a ".
+Replace word "prefix" with "suffix”\ ${prefixed_VARIABLE_3/prefix/suffix} -> "suffixed small letters".
+Skipping the first two letters ${VARIABLE_4:2} -> "riable".
+Extracting from the second letter to the 5: ${VARIABLE_4:2:3} -> "ria".
+Remove the ending slash: ${VARIABLE_6%/} -> "https://containeroo.ch".
+Remove the protocol: ${VARIABLE_6#https://} -> "containeroo.ch/.".
+Remove the protocol: ${UNSET_VAR#https://} -> ".".
+Remove the protocol: ${VARIABLE_6#notfound} -> ".".
 ```
 
 #### multiple filter
@@ -193,25 +191,30 @@ renvsubst --input input.txt --output output.txt
 Replace only variables with the prefixes `PREFIXED` or `prefixed` or suffix `SUFFIXED` from the variable `INPUT` and output to `stdout`:
 
 ```sh
-renvsubst --prefix PREFIXED --prefix=prefixed --suffix=SUFFIXED <<< $INPUT
+renvsubst --prefix PREFIXED --prefix=prefixed --suffix=SUFFIXED -i - < input.txt
 
 # stdout:
-This is a $FILE_NAME file.
-It has more than ${AMOUNT} different variables.
-You can also use ${UNSET_VARIABLE} values inside variables like ${UNSET_VARIABLE}.
-Here are more variable like variable with a prefix and variable with a suffix.
-Here are more another variable with a prefix and another variable with a suffix variables!
+This is a simple variable $FILE_NAME -> "$FILE_NAME".
+This is a "braced variable" ${AMOUNT} -> "${AMOUNT}".
+This is a "braced variable with default" ${UNSET_VARIABLE:-default} -> "${UNSET_VARIABLE}".
+This braced variables has a prefix ${PREFIXED_VARIABLE_1} -> "variable with a prefix".
+This braced variables has a suffix ${VARIABLE_1_SUFFIXED} -> "variable with a suffix".
+Here are more $PREFIXED_VARIABLE_2 -> "another variable with a prefix" and $VARIABLE_2_SUFFIXED -> "another variable with a suffix variables"!
 
 Here some substitution functions:
-All lowercase ${VARIABLE_4,,} -> ${VARIABLE_4}.
-All uppercase ${VARIABLE_4,,} -> ${VARIABLE_4}.
-First character lowercase ${VARIABLE_4,} -> ${VARIABLE_4}.
-Remove word "prefix" ${prefixed_VARIABLE_3/prefix} -> small letters
-Replace word "prefix" with "suffix”\ ${prefixed_VARIABLE_3/prefix/suffix} -> small letters suffix.
-Skipping the first two letters -> ${VARIABLE_4}.
-Extracting from the second letter to the 5: ${VARIABLE_4:2:3} -> ${VARIABLE_4}.
-Remove the ending slash: ${VARIABLE_6%/} -> ${VARIABLE_6}.
-Remove the protocol: ${VARIABLE_6#https://} -> ${VARIABLE_6}.
+All lowercase ${VARIABLE_4,,} -> "${VARIABLE_4}".
+All uppercase ${VARIABLE_4^^} -> "${VARIABLE_4}".
+First character lowercase ${VARIABLE_4,} -> "${VARIABLE_4}".
+First character uppercase ${VARIABLE_5 ^} -> "${VARIABLE_5}".
+Remove word "prefix" ${prefixed_VARIABLE_3#prefix} -> "ed small letters".
+Remove word "suffix" ${VARIABLE_1_SUFFIXED%suffix} -> "variable with a ".
+Replace word "prefix" with "suffix”\ ${prefixed_VARIABLE_3/prefix/suffix} -> "suffixed small letters".
+Skipping the first two letters ${VARIABLE_4:2} -> "${VARIABLE_4}".
+Extracting from the second letter to the 5: ${VARIABLE_4:2:3} -> "${VARIABLE_4}".
+Remove the ending slash: ${VARIABLE_6%/} -> "${VARIABLE_6}".
+Remove the protocol: ${VARIABLE_6#https://} -> "${VARIABLE_6}.".
+Remove the protocol: ${UNSET_VAR#https://} -> "${UNSET_VAR}.".
+Remove the protocol: ${VARIABLE_6#notfound} -> "${UNSET_VAR}.".
 ```
 
 #### colored output
@@ -224,7 +227,9 @@ cat input.txt | renvsubst -cU -i -
 
 ## container
 
-Furthermore, there is a `renvsubst` container available in a minimal form. In the `deploy` directory, you can find Kubernetes manifests as examples. Please note that as the container uses `scratch` as the "base image," it lacks a shell within the container. Consequently, input/output redirection will **NOT** work at all. Instead, it is necessary to use the `-i|--input` and `-o|--output` options to pass data to `renvsubst`. Please refrain from using the `<` and `>` symbols to redirect input/output, as illustrated in the "bad" example. Instead, use the "good" example, which employs the `--input` and `--output` options to pass data.
+Furthermore, there is a `renvsubst` container available in a minimal form. In the `deploy` directory, you can find Kubernetes manifests as examples.  
+Please note that as the container uses `scratch` as the "base image," it lacks a shell within the container  
+Consequently, input/output redirection will **NOT** work at all. Instead, it is necessary to use the `-i|--input` and `-o|--output` options to pass data to `renvsubst`. Please refrain from using the `<` and `>` symbols to redirect input/output, as illustrated in the "bad" example. Instead, use the "good" example, which employs the `--input` and `--output` options to pass data.
 
 **bad:**
 
