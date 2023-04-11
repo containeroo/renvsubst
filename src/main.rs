@@ -42,7 +42,7 @@ fn run(args: &[String]) -> Result<(), String> {
         return Ok(());
     }
 
-    // create input and output streams
+    // Create input and output streams
     let input = open_input(parsed_args.io.get(IO::Input).cloned())?;
     let output = open_output(parsed_args.io.get(IO::Output).cloned())?;
 

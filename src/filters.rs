@@ -77,15 +77,15 @@ impl Filters {
         iter: &mut std::slice::Iter<String>,
     ) -> Result<(), ParseArgsError> {
         let flag_arg: String = value.map_or_else(
-            // if no value is provided... (was not --prefix=prefix_)
+            // If no value is provided... (was not --prefix=prefix_)
             || {
-                // if not, get the next argument as the value
+                // If not, get the next argument as the value
                 iter.next()
-                    .map(std::string::ToString::to_string) // convert the value to a string
-                    // return an error if the value is missing
+                    .map(std::string::ToString::to_string) // Convert the value to a string
+                    // Return an error if the value is missing
                     .ok_or_else(|| ParseArgsError::MissingValue(arg.to_string()))
             },
-            |s| Ok(s.to_string()), // return the value if it exists
+            |s| Ok(s.to_string()), // Return the value if it exists
         )?;
 
         if START_PARAMETERS.contains(&flag_arg.as_str()) {
@@ -122,14 +122,13 @@ impl Filters {
     /// * `Some(true)` if the `var_name` matches any of the filters (prefixes, suffixes, or variables).
     /// * `Some(false)` if the `var_name` does not match any of the filters.
     ///
-    #[must_use]
     pub fn matches(&self, var_name: &str) -> Option<bool> {
         // return None if no filters are set
         if !(self.prefixes.is_some() || self.suffixes.is_some() || self.variables.is_some()) {
             return None;
         }
 
-        // check if the variable name matches the filters
+        // Check if the variable name matches the filters
 
         // Check if there's a prefix list in the `self.prefixes` field
         let match_prefix: bool = self

@@ -7,7 +7,6 @@ pub fn print_error(error: &str) {
     eprintln!("{} {}", "ERROR:".red(), error.red());
 }
 
-#[must_use]
 pub fn colorize_text(colored: bool, text: String, color: Color) -> String {
     if colored {
         return text.color(color).to_string();

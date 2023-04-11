@@ -131,20 +131,20 @@ impl Args {
         I: IntoIterator<Item = T>,
         T: Into<std::ffi::OsString> + Clone,
     {
-        // collect the arguments into a vector of strings
+        // Collect the arguments into a vector of strings
         let args: Vec<String> = args
-            .into_iter() // create an iterator over the arguments
+            .into_iter() // Create an iterator over the arguments
             .map(
-                // convert the arguments into OsStrings and then into strings
+                // Convert the arguments into OsStrings and then into strings
                 |arg| arg.into().into_string(),
             )
             .filter_map(
-                // filter out any arguments that could not be converted into strings
+                // Filter out any arguments that could not be converted into strings
                 Result::ok,
             )
             .collect();
 
-        // create an iterator over the arguments
+        // Create an iterator over the arguments
         let mut args = args.iter();
 
         let mut parsed_args = Self::new();

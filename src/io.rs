@@ -85,12 +85,12 @@ impl InputOutput {
         iter: &mut std::slice::Iter<String>,
     ) -> Result<(), ParseArgsError> {
         let flag_arg: String = value.map_or_else(
-            // if no value is provided... (was not --input=input)
+            // If no value is provided... (was not --input=input)
             || {
-                // if not, get the next argument as the value
+                // If not, get the next argument as the value
                 iter.next()
-                    .map(std::string::ToString::to_string) // convert the value to a string
-                    // return an error if the value is missing
+                    .map(std::string::ToString::to_string) // Convert the value to a string
+                    // Return an error if the value is missing
                     .ok_or_else(|| ParseArgsError::MissingValue(arg.to_string()))
             },
             |s| Ok(s.to_string()), // return the value if it exists
@@ -118,7 +118,6 @@ impl InputOutput {
     /// An `Option<&String>` containing a reference to the value of the specified input/output option, if it has been set.
     /// If the specified option has not been set, the function returns `None`.
     ///
-    #[must_use]
     pub fn get(&self, io: IO) -> Option<&String> {
         match io {
             IO::Input => self.input.as_ref(),
@@ -167,9 +166,9 @@ pub fn open_input(input_file: Option<String>) -> Result<Box<dyn Read>, String> {
         Some(file) if file == "-" => Box::new(std::io::stdin()),
         Some(file) => {
             Box::new(
-                // open the file with the given name
+                // Open the file with the given name
                 File::open(file).map_err(
-                    // if there is an error, convert it to a string and return it
+                    // If there is an error, convert it to a string and return it
                     |e| format!("Failed to open input file: {e}"),
                 )?,
             )
@@ -220,9 +219,9 @@ pub fn open_output(output_file: Option<String>) -> Result<Box<dyn Write>, String
         Some(file) if file == "-" => Box::new(std::io::stdout()),
         Some(file) => {
             Box::new(
-                // create a new file with the given name
+                // Create a new file with the given name
                 File::create(file).map_err(
-                    // if there is an error, convert it to a string and return it
+                    // If there is an error, convert it to a string and return it
                     |e| format!("Failed to create output file: {e}"),
                 )?,
             )

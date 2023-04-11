@@ -95,13 +95,13 @@ fn replace_vars_in_line(line: &str, flags: &Flags, filters: &Filters) -> Result<
             }
             continue;
         }
-        // match next character after the $
+        // Match next character after the $
         match next_char {
             // Handles ${VAR} and ${VAR:-DEFAULT}
             Some('{') => {
                 iter.next(); // skip the '{'
 
-                // if next character is a number,
+                // If next character is a number,
                 // it is not a valid variable, eg. ${1VAR} or ${1VAR:-DEFAULT}
                 if let Some(next) = iter.peek().filter(|next| next.is_ascii_digit()) {
                     // append ${ and the number ($ and { are skipped)
@@ -113,7 +113,7 @@ fn replace_vars_in_line(line: &str, flags: &Flags, filters: &Filters) -> Result<
                 let mut brace_ended = false;
                 let mut inner_expr: String = String::new();
 
-                // read until the next '}' or the end of the line
+                // Read until the next '}' or the end of the line
                 while let Some(&c) = iter.peek() {
                     if c == '}' {
                         iter.next(); // Consume '}'
@@ -125,7 +125,7 @@ fn replace_vars_in_line(line: &str, flags: &Flags, filters: &Filters) -> Result<
                 }
 
                 if !brace_ended {
-                    // if the brace hasn't ended, add the characters and continue
+                    // If the brace hasn't ended, add the characters and continue
                     new_line.push_str(&format!("${{{inner_expr}"));
                     continue;
                 }
@@ -140,15 +140,15 @@ fn replace_vars_in_line(line: &str, flags: &Flags, filters: &Filters) -> Result<
             Some(next) if next.is_ascii_alphabetic() || next == &'_' => {
                 let mut var_name: String = String::new();
 
-                // look ahead to see if the next character is valid
-                // peek does not consume the character
-                // if the character ahead is valid, it will be consumed with iter.next()
+                // Look ahead to see if the next character is valid
+                // Peek does not consume the character
+                // If the character ahead is valid, it will be consumed with iter.next()
                 while let Some(c) = iter.peek() {
                     if !c.is_ascii_alphanumeric() && c != &'_' {
                         break;
                     }
                     var_name.push(*c);
-                    iter.next(); // consume character
+                    iter.next(); // Consume character
                 }
                 let original_variable = format!("${var_name}");
 
@@ -210,28 +210,28 @@ pub fn process_input<R: std::io::Read, W: std::io::Write>(
         let replaced: Result<String, String> = replace_vars_in_line(&line, flags, filters);
         match replaced {
             Ok(out) => {
-                // if unbuffered lines mode is enabled, write each line as soon as it's processed
+                // If unbuffered lines mode is enabled, write each line as soon as it's processed
                 if unbuffered_lines {
                     if let Err(e) = output.write(out.as_bytes()) {
                         return Err(format!("failed to write to output: {e}"));
                     }
                     continue;
                 }
-                // if unbuffered lines mode is not enabled, append the line to the buffer
+                // If unbuffered lines mode is not enabled, append the line to the buffer
                 buffer.push_str(&out);
             }
             Err(e) => return Err(format!("failed to replace variables: {e}")),
         }
     }
 
-    // if unbuffered lines mode is not enabled, write the entire buffer to the output file at once
+    // If unbuffered lines mode is not enabled, write the entire buffer to the output file at once
     if !unbuffered_lines {
         if let Err(e) = output.write_all(buffer.as_bytes()) {
             return Err(format!("failed to write to output: {e}"));
         }
     }
 
-    // flush the output to ensure that all written data is actually written to the output stream
+    // Flush the output to ensure that all written data is actually written to the output stream
     if let Err(e) = output.flush() {
         return Err(format!("failed to flush output: {e}"));
     }
@@ -735,17 +735,17 @@ mod tests {
 
         // Test escaping
         let line = "This is a $$ESCAPED_VAR.";
-        let result = replace_vars_in_line(line, &Flags::default(), &Filters::default());
+        let result = replace_vars_in_line(line, &flags, &filters);
         assert_eq!(result.unwrap(), "This is a $ESCAPED_VAR.");
 
         // Test escaping - brace var
         let line = "This is a $${ESCAPED_VAR}.";
-        let result = replace_vars_in_line(line, &Flags::default(), &Filters::default());
+        let result = replace_vars_in_line(line, &flags, &filters);
         assert_eq!(result.unwrap(), "This is a ${ESCAPED_VAR}.");
 
         // Test escaping - simple var
         let line = "This fi$$h should not escape!";
-        let result = replace_vars_in_line(line, &Flags::default(), &Filters::default());
+        let result = replace_vars_in_line(line, &flags, &filters);
         assert_eq!(result.unwrap(), "This fi$h should not escape!");
 
         let line = "This fi$$$$h should not escape!";

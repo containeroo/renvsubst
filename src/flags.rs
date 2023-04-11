@@ -144,7 +144,6 @@ impl Flags {
     /// An `Option<&FlagItem>` that contains a reference to the `FlagItem` if the flag is set,
     /// or `None` if the flag is not set.
     ///
-    #[must_use]
     pub fn get(&self, flag_variant: Flag) -> Option<&FlagItem> {
         self.flags.get(&flag_variant)
     }
@@ -176,7 +175,6 @@ impl Flags {
     ///
     /// Returns `true` if the specified flag is set, otherwise returns `false`.
     ///
-    #[must_use]
     pub fn is_flag_set(&self, flag: Flag) -> bool {
         self.flags
             .get(&flag)
