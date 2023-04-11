@@ -57,19 +57,27 @@ fn process_pattern_stripping(
     }
 }
 
-/// Processes pattern replacement operations on the given `value` string, based on the provided pattern and replacement in `operation_data`.
+/// Process pattern replacement in a string according to the specified rules.
+///
+/// This function takes a string `value` and an optional `operation_data` and performs
+/// pattern replacement operations based on the rules defined by the `operation_data`.
+/// The `inner_expr` is used for error messages, and `colored` indicates whether the output
+/// should be colorized.
+///
+/// The function supports the following replacement operations:
+/// - ${var/pattern/replacement} - Replace the first occurrence of the `pattern` with the `replacement`
+/// - ${var//pattern/replacement} - Replace all occurrences of the `pattern` with the replacement
+/// - ${var/#pattern/replacement} - Replace the `pattern` with the `replacement` if it occurs at the start of the string
+/// - ${var/%pattern/replacement} - Replace the `pattern` with the `replacement` if it occurs at the end of the string
 ///
 /// # Arguments
+/// * `value` - The input string to perform the pattern replacement on
+/// * `operation_data` - An optional string containing the operation type and replacement data
+/// * `inner_expr` - The inner expression used for error messages
+/// * `colored` - A boolean indicating whether the output should be colorized
 ///
-/// * `value` - The input string on which the operation is performed.
-/// * `operation_data` - The pattern and replacement string wrapped in an `Option`. If `None`, the original value is returned.
-/// * `inner_expr` - The inner expression string to use in error messages.
-/// * `colored` - A boolean flag that determines whether the output string should be colorized based on the operation success.
-///
-/// # Returns
-///
-/// * `Ok(String)` - The processed string after the pattern replacement operation is applied. If `colored` is true, the text will be colorized based on the operation success.
-/// * `Err(String)` - An error string in the case of not being able to split the pattern and replacement: "{`inner_expr`} - Cannot split at '/'"
+/// # Errors
+/// The function returns an error if it encounters issues while parsing the pattern and replacement.
 fn process_pattern_replacement(
     value: &str,
     operation_data: Option<&str>,
@@ -83,28 +91,89 @@ fn process_pattern_replacement(
 
     match operation_data {
         Some(replace_data) => {
-            // Split the pattern and replacement using the '/' character as a separator
-            let mut parts = replace_data.splitn(2, '/');
-            // Throw an error if cannot split
-            let pattern = parts
-                .next()
-                .ok_or(format!("\"{inner_expr}\" - Cannot split at '/'"))?;
-            let replacement = parts
-                .next()
-                .ok_or(format!("\"{inner_expr}\" - Cannot split at '/'"))?;
+            // Determine the operation type and update replace_data accordingly
+            let (operation_type, replace_data) =
+                if let Some(stripped_data) = replace_data.strip_prefix("//") {
+                    ('/', stripped_data)
+                } else if let Some(stripped_data) = replace_data.strip_prefix('#') {
+                    ('#', stripped_data)
+                } else if let Some(stripped_data) = replace_data.strip_prefix('%') {
+                    ('%', stripped_data)
+                } else {
+                    (' ', replace_data)
+                };
 
-            let color = if value.contains(pattern) {
-                Color::Blue
-            } else {
-                Color::Red
+            // Extract pattern and replacement, handling escaped slashes
+            let mut pattern = String::new();
+            let mut replacement = String::new();
+            let mut current = &mut pattern;
+            let mut escape_next = false;
+
+            for c in replace_data.chars() {
+                if escape_next {
+                    current.push(c);
+                    escape_next = false;
+                } else if c == '\\' {
+                    escape_next = true;
+                } else if c == '/' {
+                    current = &mut replacement;
+                } else {
+                    current.push(c);
+                }
+            }
+
+            if escape_next {
+                return Err(format!("\"{inner_expr}\" - Trailing backslash"));
+            }
+
+            // Perform the replacement operation based on the operation type
+            let (new_value, color) = match operation_type {
+                ' ' => {
+                    // Search pattern in value
+                    let tmp_value = value.replacen(&pattern, &replacement, 1);
+                    let color = if tmp_value == value {
+                        Color::Red
+                    } else {
+                        Color::Blue
+                    };
+
+                    (tmp_value, color)
+                }
+                '/' => {
+                    // Replace all matches
+                    let tmp_value = value.replace(&pattern, &replacement);
+                    let color = if tmp_value == value {
+                        Color::Red
+                    } else {
+                        Color::Blue
+                    };
+
+                    (tmp_value, color)
+                }
+                '#' => {
+                    // Replace match at the beginning
+                    if value.starts_with(&pattern) {
+                        (value.replacen(&pattern, &replacement, 1), Color::Blue)
+                    } else {
+                        (value.to_string(), Color::Red)
+                    }
+                }
+                '%' => {
+                    // Replace match at the end
+                    if value.ends_with(&pattern) {
+                        let end_index = value.rfind(&pattern).unwrap();
+                        let (start, _) = value.split_at(end_index);
+                        (start.to_owned() + &replacement, Color::Blue)
+                    } else {
+                        (value.to_string(), Color::Red)
+                    }
+                }
+                // Catch any other cases to satisfy the compiler, although they should never be reached
+                _ => unreachable!(),
             };
 
-            // Replace all occurrences of the pattern with the replacement string
-            return Ok(colorize_text(
-                colored,
-                value.replace(pattern, replacement),
-                color,
-            ));
+            // Return the new value with appropriate color
+            return Ok(colorize_text(colored, new_value, color));
         }
         None => return Ok(value.to_string()),
     }
@@ -385,9 +454,9 @@ mod tests {
 
     #[test]
     fn test_process_inner_expression_invalid_character_expression() {
+        env::set_var("TEST_VAR", "Hello, world!");
         let flags = Flags::default();
         let filters = Filters::default();
-        env::set_var("TEST_VAR", "Hello, world!");
         let result = process_inner_expression("TEST_VAR@", &flags, &filters);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "Invalid character in expression: @");
@@ -395,6 +464,7 @@ mod tests {
 
     #[test]
     fn test_process_inner_expression_pattern_stripping_prefix() {
+        env::set_var("TEST_VAR", "Hello, world!");
         let flags = Flags::default();
         let filters = Filters::default();
         let result = process_inner_expression("TEST_VAR#H", &flags, &filters);
@@ -403,6 +473,7 @@ mod tests {
 
     #[test]
     fn test_process_inner_expression_pattern_stripping_suffix() {
+        env::set_var("TEST_VAR", "Hello, world!");
         let flags = Flags::default();
         let filters = Filters::default();
         let result = process_inner_expression("TEST_VAR%d!", &flags, &filters);
@@ -411,6 +482,7 @@ mod tests {
 
     #[test]
     fn test_process_inner_expression_pattern_replacement() {
+        env::set_var("TEST_VAR", "Hello, world!");
         let flags = Flags::default();
         let filters = Filters::default();
         let result = process_inner_expression("TEST_VAR/world/moon", &flags, &filters);
@@ -418,7 +490,44 @@ mod tests {
     }
 
     #[test]
+    fn test_process_inner_expression_pattern_replacement_prefixed() {
+        env::set_var("TEST_VAR", "http://containeroo.ch!");
+        let flags = Flags::default();
+        let filters = Filters::default();
+        let result =
+            process_inner_expression("TEST_VAR/#http:\\/\\//https:\\/\\/", &flags, &filters);
+        assert_eq!(result.unwrap(), "https://containeroo.ch!");
+    }
+
+    #[test]
+    fn test_process_inner_expression_pattern_replacement_suffixed() {
+        env::set_var("TEST_VAR", "Hello, http://containeroo.ch");
+        let flags = Flags::default();
+        let filters = Filters::default();
+        let result = process_inner_expression("TEST_VAR/%.ch/.com", &flags, &filters);
+        assert_eq!(result.unwrap(), "Hello, http://containeroo.com");
+    }
+
+    #[test]
+    fn test_process_pattern_replacement_trailing_backslash_error() {
+        let value = "Hello, world!";
+        let operation_data = Some("Hello\\/worl\\");
+        let inner_expr = "${VAR/Hello\\/worl\\}";
+        let colored = false;
+
+        let result = process_pattern_replacement(value, operation_data, inner_expr, colored);
+
+        assert_eq!(
+            result,
+            Err(String::from(
+                "\"${VAR/Hello\\/worl\\}\" - Trailing backslash"
+            ))
+        );
+    }
+
+    #[test]
     fn test_process_inner_expression_case_conversion_first_character_lowercase() {
+        env::set_var("TEST_VAR", "Hello, world!");
         let flags = Flags::default();
         let filters = Filters::default();
         let result = process_inner_expression("TEST_VAR,", &flags, &filters);
@@ -427,27 +536,27 @@ mod tests {
 
     #[test]
     fn test_process_inner_expression_case_conversion_first_character_uppercase() {
+        env::set_var("TEST_VAR", "Hello, world!");
         let flags = Flags::default();
         let filters = Filters::default();
-        env::set_var("TEST_VAR", "hello, world!");
         let result = process_inner_expression("TEST_VAR^", &flags, &filters);
         assert_eq!(result.unwrap(), "Hello, world!");
     }
 
     #[test]
     fn test_process_inner_expression_case_conversion_all_lowercase() {
+        env::set_var("TEST_VAR", "Hello, world!");
         let flags = Flags::default();
         let filters = Filters::default();
-        env::set_var("TEST_VAR", "Hello, world!");
         let result = process_inner_expression("TEST_VAR,,", &flags, &filters);
         assert_eq!(result.unwrap(), "hello, world!");
     }
 
     #[test]
     fn test_process_inner_expression_case_conversion_all_uppercase() {
+        env::set_var("TEST_VAR", "Hello, world!");
         let flags = Flags::default();
         let filters = Filters::default();
-        env::set_var("TEST_VAR", "Hello, world!");
         let result = process_inner_expression("TEST_VAR^^", &flags, &filters);
         assert_eq!(result.unwrap(), "HELLO, WORLD!");
     }
@@ -604,63 +713,116 @@ mod tests {
     }
 
     #[test]
-    fn test_process_pattern_replacement() {
-        // Test pattern replacement with an empty replacement string
-        let op = "/";
-        let value = "hello_world";
-        let operation_data = Some("o/".to_string());
-        let inner_expr = format!("{}{}", op, operation_data.as_deref().unwrap());
-        let result =
-            process_pattern_replacement(value, operation_data.as_deref(), &inner_expr, false);
-        assert_eq!(result.unwrap(), "hell_wrld");
-
-        // Test pattern replacement pattern not found
-        let op = "/";
-        let value = "hello_world";
-        let operation_data = Some("k/l".to_string());
-        let inner_expr = format!("{}{}", op, operation_data.as_deref().unwrap());
-        let result =
-            process_pattern_replacement(value, operation_data.as_deref(), &inner_expr, true);
-        assert_eq!(result.unwrap(), format!("{}", "hello_world".red()));
-
-        // Test pattern replacement with an empty replacement string
-        let op = "/";
-        let value = "hello_world";
-        let operation_data = Some(String::new());
-        let inner_expr = format!("{}{}", op, operation_data.as_deref().unwrap());
-        let result =
-            process_pattern_replacement(value, operation_data.as_deref(), &inner_expr, true);
-        assert_eq!(
-            result.unwrap_err(),
-            format!("\"{inner_expr}\" - Cannot split at '/'")
-        );
-
-        // Test pattern replacement with operation_data
-        let op = "/";
-        let value = "hello_world";
-        let operation_data = Some("o/_".to_string());
-        let inner_expr = format!("{}{}", op, operation_data.as_deref().unwrap());
-        let result =
-            process_pattern_replacement(value, operation_data.as_deref(), &inner_expr, false);
-        assert_eq!(result.unwrap(), "hell__w_rld");
-
-        // Test pattern replacement without operation_data
-        let op = "/";
-        let value = "hello_world";
-        let operation_data = None;
-        let inner_expr = op;
-        let result =
-            process_pattern_replacement(value, operation_data, inner_expr, false);
-        assert_eq!(result.unwrap(), "hello_world");
-
+    fn test_process_pattern_replacement_empty_value() {
         // Test empty value
-        let op = "/";
-        let value = "";
-        let operation_data = Some("o/_".to_string());
-        let inner_expr = format!("{}{}", op, operation_data.as_deref().unwrap());
+        let result = process_pattern_replacement("", Some("world/moon"), "", false);
+        assert_eq!(result, Ok(String::new()));
+    }
+
+    #[test]
+    fn test_process_pattern_replacement_empty_operation_data() {
+        // Test empty operation_data
+        let result = process_pattern_replacement("Hello, world!", None, "", false);
+        assert_eq!(result, Ok("Hello, world!".to_string()));
+    }
+
+    #[test]
+    fn test_process_pattern_replacement_single_match() {
+        // Test changed value
+        let result = process_pattern_replacement(
+            "Hello, world!",
+            Some("world/moon"),
+            "Hello, world!/world/moon",
+            false,
+        );
+        assert_eq!(result, Ok("Hello, moon!".to_string()));
+
+        // Test no changed value
+        let result = process_pattern_replacement(
+            "Hello, world!",
+            Some("world/world"),
+            "Hello, world!/world/world",
+            false,
+        );
+        assert_eq!(result, Ok("Hello, world!".to_string()));
+    }
+
+    #[test]
+    fn test_process_pattern_replacement_multiple_matches() {
+        // Tests first match
+        let result = process_pattern_replacement(
+            "Hello, world, world!",
+            Some("world/moon"),
+            "Hello, world, world!/world/moon",
+            false,
+        );
+        assert_eq!(result, Ok("Hello, moon, world!".to_string()));
+
+        // Tests no changed value
+        let result = process_pattern_replacement(
+            "Hello, world, world!",
+            Some("world/world"),
+            "Hello, world, world!/world/world",
+            false,
+        );
+        assert_eq!(result, Ok("Hello, world, world!".to_string()));
+    }
+
+    #[test]
+    fn test_process_pattern_replacement_multiple_matches_all() {
+        // Tests all matches
+        let result = process_pattern_replacement(
+            "Hello, world, world!",
+            Some("//world/moon"),
+            "Hello, world, world!//world/moon",
+            false,
+        );
+        assert_eq!(result, Ok("Hello, moon, moon!".to_string()));
+
+        // Tests no changed value
+        let result = process_pattern_replacement(
+            "Hello, world, world!",
+            Some("//world/world"),
+            "Hello, world, world!//world/world",
+            false,
+        );
+        assert_eq!(result, Ok("Hello, world, world!".to_string()));
+    }
+
+    #[test]
+    fn test_process_pattern_replacement_start_of_string() {
+        // Test replace start of string
         let result =
-            process_pattern_replacement(value, operation_data.as_deref(), &inner_expr, false);
-        assert_eq!(result.unwrap(), "");
+            process_pattern_replacement("foobar", Some("#foo/bar"), "foobar#foo/bar", false);
+        assert_eq!(result, Ok("barbar".to_string()));
+
+        // Test no changed value
+        let result =
+            process_pattern_replacement("foobar", Some("#foo/foo"), "foobar#foo/foo", false);
+        assert_eq!(result, Ok("foobar".to_string()));
+
+        // Test not a match
+        let result =
+            process_pattern_replacement("foobar", Some("#bar/zzz"), "foobar#bar/zzz", true);
+        assert_eq!(result, Ok("foobar".red().to_string()));
+    }
+
+    #[test]
+    fn test_process_pattern_replacement_end_of_string() {
+        // Test replace end of string
+        let result =
+            process_pattern_replacement("foobar", Some("%bar/zzz"), "foobar%bar/zzz", false);
+        assert_eq!(result, Ok("foozzz".to_string()));
+
+        // Test no changed value
+        let result =
+            process_pattern_replacement("foobar", Some("%bar/bar"), "foobar%bar/bar", false);
+        assert_eq!(result, Ok("foobar".to_string()));
+
+        // Test not a match
+        let result =
+            process_pattern_replacement("foobar", Some("%foo/zzz"), "foobar%foo/zzz", true);
+        assert_eq!(result, Ok("foobar".red().to_string()));
     }
 
     #[test]

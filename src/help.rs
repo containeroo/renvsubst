@@ -49,16 +49,19 @@ General:
       --version                    Show the version of the program.
 
 Substitution functions:
-  ${VAR:-default}                  Set \"$VAR\" to \"default\" if \"$VAR\" is unset.
-  ${VAR,}                          Change the first character of \"$VAR\" to lowercase.
-  ${VAR,,}                         Change all characters of \"$VAR\" to lowercase.
-  ${VAR^}                          Change the first character of \"$VAR\" to uppercase.
-  ${VAR^^}                         Change all characters of \"$VAR\" to uppercase.
-  ${VAR/pattern/replacement}       Replace all occurrences of \"pattern\" with replacement.
-  ${VAR:offset}                    Shift \"$VAR\" by \"n\" characters from the start.
-  ${VAR:offset:length}             Shift \"$VAR\" by \"n\" characters with a maximum length of \"len\".
-  ${VAR#pattern}                   Remove the shortest match of \"pattern\" from the start of \"$VAR\".
-  ${VAR%pattern}                   Remove the shortest match of \"pattern\" from the end of \"$VAR\".
+  ${VAR:-default}                  Set '$VAR' to 'default' if '$VAR' is unset.
+  ${VAR,}                          Change the first character of '$VAR' to lowercase.
+  ${VAR,,}                         Change all characters of '$VAR' to lowercase.
+  ${VAR^}                          Change the first character of '$VAR' to uppercase.
+  ${VAR^^}                         Change all characters of '$VAR' to uppercase.
+  ${VAR/pattern/replacement}       Replace first 'pattern' with 'replacement' in VAR.
+  ${VAR//pattern/replacement}      Replace all 'pattern' with 'replacement' in VAR.
+  ${VAR/#pattern/replacement}      Replace 'pattern' with 'replacement' if VAR starts with it.
+  ${VAR/%pattern/replacement}      Replace 'pattern' with 'replacement' if VAR ends with it.
+  ${VAR:offset}                    Shift '$VAR' by 'n' characters from the start.
+  ${VAR:offset:length}             Shift '$VAR' by 'n' characters with a maximum length of 'len'.
+  ${VAR#pattern}                   Remove the shortest match of 'pattern' from the start of '$VAR'.
+  ${VAR%pattern}                   Remove the shortest match of 'pattern' from the end of '$VAR'.
 
 Colors:
   Green represents variables that were successfully substituted.

@@ -19,16 +19,16 @@ Short flags are available for many options and can be combined. For example, use
 
 When the same flag is provided multiple times, renvsubst will throw an error.
 
-| Parameter                  | Description                                                                                                                                                                                                                          |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `-u`, `--fail-on-unset`    | Fails if an environment variable is not set.                                                                                                                                                                                         |
-| `-e`, `--fail-on-empty`    | Fails if an environment variable is empty.                                                                                                                                                                                           |
-| `-f`, `--fail`             | Alias for `--fail-on-unset` and `--fail-on-empty`.                                                                                                                                                                                   |
-| `-U`, `--no-replace-unset` | Does not replace variables that are not set in the environment.                                                                                                                                                                      |
-| `-E`, `--no-replace-empty` | Does not replace variables that are empty.                                                                                                                                                                                           |
-| `-N`, `--no-replace`       | Alias for`--no-replace-unset` and `--no-replace-empty`.                                                                                                                                                                              |
-| `-x`, `--no-escape`        | Disable escaping of variables.                                                                                                                                                                                                       |
-| `-b`, `--unbuffer-lines`   | Do not buffer lines before printing. Saves memory, but may impact performance.                                                                                                                                                       |
+| Parameter                  | Description                                                                                                                              |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `-u`, `--fail-on-unset`    | Fails if an environment variable is not set.                                                                                             |
+| `-e`, `--fail-on-empty`    | Fails if an environment variable is empty.                                                                                               |
+| `-f`, `--fail`             | Alias for `--fail-on-unset` and `--fail-on-empty`.                                                                                       |
+| `-U`, `--no-replace-unset` | Does not replace variables that are not set in the environment.                                                                          |
+| `-E`, `--no-replace-empty` | Does not replace variables that are empty.                                                                                               |
+| `-N`, `--no-replace`       | Alias for`--no-replace-unset` and `--no-replace-empty`.                                                                                  |
+| `-x`, `--no-escape`        | Disable escaping of variables.                                                                                                           |
+| `-b`, `--unbuffer-lines`   | Do not buffer lines before printing. Saves memory, but may impact performance.                                                           |
 | `-c`, `--color`            | Colorize the output if `stdout` is a terminal. Use `--no-replace-unset` to show not found variables; otherwise, they won't be displayed. |
 
 ## Filters
@@ -66,18 +66,21 @@ If multiple identical prefixes, suffixes or variables are provided, only one cop
 
 ## Substitution functions
 
-| Expression                   | Description                                                      |
-| :--------------------------- | :--------------------------------------------------------------- |
-| `${VAR:-default}`            | Set `$VAR` to `default` if `$VAR` is unset.                      |
-| `${VAR,}`                    | Change the first character of `$VAR` to lowercase.               |
-| `${VAR,,}`                   | Change all characters of `$VAR` to lowercase.                    |
-| `${VAR^}`                    | Change the first character of `$VAR` to uppercase.               |
-| `${VAR^^}`                   | Change all characters of `$VAR` to uppercase.                    |
-| `${VAR/pattern/replacement}` | Replace all occurrences of `pattern` with replacement.           |
-| `${VAR:offset}`              | Shift `$VAR` by `n` characters from the start.                   |
-| `${VAR:offset:length}`       | Shift `$VAR` by `n` characters with a maximum length of `len`.   |
-| `${VAR#pattern}`             | Remove the shortest match of `pattern` from the start of `$VAR`. |
-| `${VAR%pattern}`             | Remove the shortest match of `pattern` from the end of `$VAR`.   |
+| Expression                    | Description                                                                                                        |
+| :---------------------------- | :----------------------------------------------------------------------------------------------------------------- |
+| `${VAR:-default}`             | Set `$VAR` to `default` if `$VAR` is unset.                                                                        |
+| `${VAR,}`                     | Change the first character of `$VAR` to lowercase.                                                                 |
+| `${VAR,,}`                    | Change all characters of `$VAR` to lowercase.                                                                      |
+| `${VAR^}`                     | Change the first character of `$VAR` to uppercase.                                                                 |
+| `${VAR^^}`                    | Change all characters of `$VAR` to uppercase.                                                                      |
+| `${VAR/pattern/replacement}`  | Replace the first occurrence of `pattern` with `replacement` in the string stored in `$VAR`.                       |
+| `${VAR//pattern/replacement}` | Replace all occurrences of `pattern` with `replacement` in the string stored in `VAR`.                             |
+| `${VAR/#pattern/replacement}` | Replace `pattern` with `replacement` at the beginning of the string stored in `$VAR`, if it starts with `pattern`. |
+| `${VAR/%pattern/replacement}` | Replace `pattern` with `replacement` at the end of the string stored in `$VAR`, if it ends with `pattern`.         |
+| `${VAR:offset}`               | Shift `$VAR` by `n` characters from the start.                                                                     |
+| `${VAR:offset:length}`        | Shift `$VAR` by `n` characters with a maximum length of `len`.                                                     |
+| `${VAR#pattern}`              | Remove the shortest match of `pattern` from the start of `$VAR`.                                                   |
+| `${VAR%pattern}`              | Remove the shortest match of `pattern` from the end of `$VAR`.                                                     |
 
 ## Colors
 
@@ -119,6 +122,8 @@ This braced variables has a prefix \$\${PREFIXED_VARIABLE_1} -> "\${PREFIXED_VAR
 This braced variables has a suffix \$\${VARIABLE_1_SUFFIXED} -> "\${VARIABLE_1_SUFFIXED}".
 Here are more \$\$PREFIXED_VARIABLE_2 -> "\$PREFIXED_VARIABLE_2" and \$\$VARIABLE_2_SUFFIXED -> "\$VARIABLE_2_SUFFIXED variables"!
 
+A not found variable: \$\${NOT_FOUND} -> \${NOT_FOUND}.
+
 Here some substitution functions:
 All lowercase \$\${VARIABLE_4,,} -> "\${VARIABLE_4,,}".
 All uppercase \$\${VARIABLE_4^^} -> "\${VARIABLE_4^^}".
@@ -131,8 +136,8 @@ Skipping the first two letters \$\${VARIABLE_4:2} -> "\${VARIABLE_4:2}".
 Extracting from the second letter to the 5: \$\${VARIABLE_4:2:3} -> "\${VARIABLE_4:2:3}".
 Remove the ending slash: \$\${VARIABLE_6%/} -> "\${VARIABLE_6%/}".
 Remove the protocol: \$\${VARIABLE_6#https://} -> "\${VARIABLE_6#https://}.".
-Remove the protocol: \$\${UNSET_VAR#https://} -> "\${UNSET_VAR#https://}.".
-Remove the protocol: \$\${VARIABLE_6#notfound} -> "\${UNSET_VAR#notfound}.".
+Replace protocol with http: \$\${VARIABLE_6/#https:\/\//http:\/\/} -> "\${VARIABLE_6/#https:\/\//http:\/\/}.".
+Remove ending slash: \$\${VARIABLE_6/%\//} -> "\${VARIABLE_6/%\//.}".
 
 EOF
 ```
@@ -170,6 +175,8 @@ This braced variables has a prefix ${PREFIXED_VARIABLE_1} -> "variable with a pr
 This braced variables has a suffix ${VARIABLE_1_SUFFIXED} -> "variable with a suffix".
 Here are more $PREFIXED_VARIABLE_2 -> "another variable with a prefix" and $VARIABLE_2_SUFFIXED -> "another variable with a suffix variables"!
 
+A not found variable: ${NOT_FOUND} -> ${NOT_FOUND}.
+
 Here some substitution functions:
 All lowercase ${VARIABLE_4,,} -> "variable".
 All uppercase ${VARIABLE_4^^} -> "VARIABLE".
@@ -182,8 +189,8 @@ Skipping the first two letters ${VARIABLE_4:2} -> "riable".
 Extracting from the second letter to the 5: ${VARIABLE_4:2:3} -> "ria".
 Remove the ending slash: ${VARIABLE_6%/} -> "https://containeroo.ch".
 Remove the protocol: ${VARIABLE_6#https://} -> "containeroo.ch/.".
-Remove the protocol: ${UNSET_VAR#https://} -> ".".
-Remove the protocol: ${VARIABLE_6#notfound} -> ".".
+Replace protocol with http: ${VARIABLE_6/#https:\/\//http:\/\/} -> "http://containeroo.ch/.".
+Remove ending slash: ${VARIABLE_6/%\//} -> "https://containeroo.ch.".
 ```
 
 #### multiple filter
@@ -201,6 +208,8 @@ This braced variables has a prefix ${PREFIXED_VARIABLE_1} -> "variable with a pr
 This braced variables has a suffix ${VARIABLE_1_SUFFIXED} -> "variable with a suffix".
 Here are more $PREFIXED_VARIABLE_2 -> "another variable with a prefix" and $VARIABLE_2_SUFFIXED -> "another variable with a suffix variables"!
 
+A not found variable: ${NOT_FOUND} -> ${NOT_FOUND}.
+
 Here some substitution functions:
 All lowercase ${VARIABLE_4,,} -> "${VARIABLE_4}".
 All uppercase ${VARIABLE_4^^} -> "${VARIABLE_4}".
@@ -213,8 +222,8 @@ Skipping the first two letters ${VARIABLE_4:2} -> "${VARIABLE_4}".
 Extracting from the second letter to the 5: ${VARIABLE_4:2:3} -> "${VARIABLE_4}".
 Remove the ending slash: ${VARIABLE_6%/} -> "${VARIABLE_6}".
 Remove the protocol: ${VARIABLE_6#https://} -> "${VARIABLE_6}.".
-Remove the protocol: ${UNSET_VAR#https://} -> "${UNSET_VAR}.".
-Remove the protocol: ${VARIABLE_6#notfound} -> "${UNSET_VAR}.".
+Replace protocol with http: ${VARIABLE_6/#https:\/\//http:\/\/} -> "${VARIABLE_6}.".
+Remove ending slash: ${VARIABLE_6/%\//} -> "${VARIABLE_6}".
 ```
 
 #### colored output
