@@ -9,7 +9,7 @@ repository = "https://github.com/containeroo/renvsubst"
 license = "MIT"
 
 [dependencies]
-colored = "2.0"
+colored = "2.1"
 
 [dev-dependencies]
 tempfile = "*"
