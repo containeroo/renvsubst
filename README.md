@@ -84,11 +84,11 @@ If multiple identical prefixes, suffixes or variables are provided, only one cop
 
 ## Colors
 
-Green represents variables that were successfully substituted.  
-Yellow denotes the use of default values.  
-Blue indicates variables where a string substitution took place.  
-Magenta indicates "ignored" variables, which had no filter applied.  
-Red represents variables that could not be substituted.  
+Green represents variables that were successfully substituted.
+Yellow denotes the use of default values.
+Blue indicates variables where a string substitution took place.
+Magenta indicates "ignored" variables, which had no filter applied.
+Red represents variables that could not be substituted.
 
 ## Escaping
 
@@ -236,8 +236,8 @@ cat input.txt | renvsubst -cU -i -
 
 ## container
 
-Furthermore, there is a `renvsubst` container available in a minimal form. In the `deploy` directory, you can find Kubernetes manifests as examples.  
-Please note that as the container uses `scratch` as the "base image," it lacks a shell within the container  
+Furthermore, there is a `renvsubst` container available in a minimal form. In the `deploy` directory, you can find Kubernetes manifests as examples.
+Please note that as the container uses `scratch` as the "base image," it lacks a shell within the container
 Consequently, input/output redirection will **NOT** work at all. Instead, it is necessary to use the `-i|--input` and `-o|--output` options to pass data to `renvsubst`. Please refrain from using the `<` and `>` symbols to redirect input/output, as illustrated in the "bad" example. Instead, use the "good" example, which employs the `--input` and `--output` options to pass data.
 
 **bad:**
@@ -251,3 +251,7 @@ renvsubst < input.txt > output.txt
 ```sh
 renvsubst --input input.txt --output output.txt
 ```
+
+## License
+
+This project is licensed under the Apache 2.0 License. See the [LICENSE](LICENSE) file for details.
